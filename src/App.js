@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, User, Calendar, FileText, Activity, Phone, Mail, Save, X, Eye, Edit, Trash2, Menu } from 'lucide-react';
+import { 
+  Search, Plus, User, Calendar, FileText, Activity, Phone, Mail, Save, 
+  X, Eye, Edit, Trash2, Clock, Stethoscope, 
+  Check, CalendarDays 
+} from 'lucide-react';
 
 const ProntuarioEletronico = () => {
   const [activeTab, setActiveTab] = useState('pacientes');
@@ -10,6 +14,12 @@ const ProntuarioEletronico = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingPaciente, setEditingPaciente] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Estados para Consultas
+  const [showConsultaForm, setShowConsultaForm] = useState(false);
+  const [editingConsulta, setEditingConsulta] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [consultaSearchTerm, setConsultaSearchTerm] = useState('');
 
   // Detectar se é mobile
   useEffect(() => {
@@ -67,12 +77,38 @@ const ProntuarioEletronico = () => {
         hora: '09:00',
         medico: 'Dr. Carlos Mendes',
         especialidade: 'Clínica Geral',
+        tipo: 'Consulta',
+        status: 'Realizada',
         queixaPrincipal: 'Dor de cabeça frequente',
         exameFisico: 'PA: 140/90 mmHg, FC: 80 bpm, Temp: 36.5°C',
         hipoteseDiagnostica: 'Cefaleia tensional',
         conduta: 'Prescrição de analgésico, retorno em 15 dias',
         prescricoes: 'Paracetamol 750mg - 8/8h por 3 dias',
         observacoes: 'Orientado sobre controle da pressão arterial'
+      },
+      {
+        id: 2,
+        pacienteId: 2,
+        data: '2025-08-01',
+        hora: '10:30',
+        medico: 'Dr. Carlos Mendes',
+        especialidade: 'Clínica Geral',
+        tipo: 'Retorno',
+        status: 'Agendada',
+        queixaPrincipal: 'Acompanhamento diabetes',
+        observacoes: 'Trazer exames recentes'
+      },
+      {
+        id: 3,
+        pacienteId: 1,
+        data: '2025-08-01',
+        hora: '14:00',
+        medico: 'Dr. Carlos Mendes',
+        especialidade: 'Clínica Geral',
+        tipo: 'Consulta',
+        status: 'Agendada',
+        queixaPrincipal: 'Check-up anual',
+        observacoes: 'Jejum de 12h para coleta de sangue'
       }
     ];
 
@@ -127,7 +163,722 @@ const ProntuarioEletronico = () => {
     }
   };
 
-  // Componente do Formulário Mobile-Friendly
+  // Funções para Consultas
+  const handleSaveConsulta = (dadosConsulta) => {
+    if (editingConsulta) {
+      setConsultas(prev => prev.map(c => 
+        c.id === editingConsulta.id ? { ...dadosConsulta, id: editingConsulta.id } : c
+      ));
+      setEditingConsulta(null);
+    } else {
+      const novaConsulta = {
+        ...dadosConsulta,
+        id: Date.now(),
+        status: 'Agendada'
+      };
+      setConsultas(prev => [...prev, novaConsulta]);
+    }
+    setShowConsultaForm(false);
+  };
+
+  const handleDeleteConsulta = (id) => {
+    if (window.confirm('Tem certeza que deseja cancelar esta consulta?')) {
+      setConsultas(prev => prev.filter(c => c.id !== id));
+    }
+  };
+
+  const handleConcluirConsulta = (consulta) => {
+    setEditingConsulta(consulta);
+    setShowConsultaForm(true);
+  };
+
+  const getPacienteById = (id) => {
+    return pacientes.find(p => p.id === id);
+  };
+
+  const filteredConsultas = consultas.filter(consulta => {
+    const paciente = getPacienteById(consulta.pacienteId);
+    const matchesSearch = paciente && (
+      paciente.nome.toLowerCase().includes(consultaSearchTerm.toLowerCase()) ||
+      consulta.medico.toLowerCase().includes(consultaSearchTerm.toLowerCase())
+    );
+    const matchesDate = !selectedDate || consulta.data === selectedDate;
+    return matchesSearch && matchesDate;
+  });
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'Agendada': return '#3b82f6';
+      case 'Realizada': return '#10b981';
+      case 'Cancelada': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getConsultasHoje = () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    return consultas.filter(c => c.data === hoje && c.status === 'Agendada').length;
+  };
+
+  // Componente do Formulário de Consulta
+  const FormularioConsulta = ({ consulta, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(consulta || {
+      pacienteId: '',
+      data: '',
+      hora: '',
+      medico: 'Dr. Carlos Mendes',
+      especialidade: 'Clínica Geral',
+      tipo: 'Consulta',
+      queixaPrincipal: '',
+      exameFisico: '',
+      hipoteseDiagnostica: '',
+      conduta: '',
+      prescricoes: '',
+      observacoes: ''
+    });
+
+    const isRealizandoConsulta = consulta && consulta.status === 'Agendada';
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const dadosParaSalvar = {
+        ...formData,
+        status: isRealizandoConsulta ? 'Realizada' : formData.status || 'Agendada'
+      };
+      onSave(dadosParaSalvar);
+    };
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: isMobile ? 'flex-start' : 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '0' : '20px',
+        zIndex: 1000,
+        overflowY: 'auto'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: isMobile ? '0' : '12px',
+          padding: isMobile ? '16px' : '30px',
+          width: '100%',
+          maxWidth: isMobile ? '100%' : '800px',
+          minHeight: isMobile ? '100vh' : 'auto',
+          maxHeight: isMobile ? '100vh' : '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: isMobile ? '20px' : '30px',
+            borderBottom: '1px solid #e5e7eb',
+            paddingBottom: '20px',
+            position: isMobile ? 'sticky' : 'static',
+            top: 0,
+            backgroundColor: 'white',
+            zIndex: 10
+          }}>
+            <h2 style={{
+              fontSize: isMobile ? '20px' : '24px',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              margin: 0
+            }}>
+              {isRealizandoConsulta ? '🩺 Realizar Consulta' : (consulta ? '✏️ Editar' : '➕ Nova')} Consulta
+            </h2>
+            <button 
+              onClick={onCancel} 
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#6b7280',
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '6px',
+                fontSize: isMobile ? '24px' : '20px'
+              }}
+            >
+              <X size={isMobile ? 28 : 24} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {/* Dados Básicos da Consulta */}
+            <div style={{
+              backgroundColor: '#f9fafb',
+              padding: isMobile ? '16px' : '20px',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{
+                fontSize: isMobile ? '16px' : '18px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '16px'
+              }}>
+                📅 Dados da Consulta
+              </h3>
+              
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: isMobile ? '16px' : '20px'
+              }}>
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: isMobile ? '16px' : '14px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>Paciente*</label>
+                  <select
+                    required
+                    disabled={isRealizandoConsulta}
+                    value={formData.pacienteId}
+                    onChange={(e) => setFormData(prev => ({...prev, pacienteId: parseInt(e.target.value)}))}
+                    style={{
+                      width: '100%',
+                      padding: isMobile ? '16px 12px' : '12px',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: isMobile ? '18px' : '16px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
+                    }}
+                  >
+                    <option value="">Selecione um paciente</option>
+                    {pacientes.map(paciente => (
+                      <option key={paciente.id} value={paciente.id}>
+                        {paciente.nome} - {formatCPF(paciente.cpf)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: isMobile ? '16px' : '14px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>Data*</label>
+                  <input
+                    type="date"
+                    required
+                    disabled={isRealizandoConsulta}
+                    value={formData.data}
+                    onChange={(e) => setFormData(prev => ({...prev, data: e.target.value}))}
+                    style={{
+                      width: '100%',
+                      padding: isMobile ? '16px 12px' : '12px',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: isMobile ? '18px' : '16px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: isMobile ? '16px' : '14px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>Hora*</label>
+                  <input
+                    type="time"
+                    required
+                    disabled={isRealizandoConsulta}
+                    value={formData.hora}
+                    onChange={(e) => setFormData(prev => ({...prev, hora: e.target.value}))}
+                    style={{
+                      width: '100%',
+                      padding: isMobile ? '16px 12px' : '12px',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: isMobile ? '18px' : '16px',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block',
+                    fontSize: isMobile ? '16px' : '14px',
+                    fontWeight: '500',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>Tipo</label>
+                  <select
+                    value={formData.tipo}
+                    onChange={(e) => setFormData(prev => ({...prev, tipo: e.target.value}))}
+                    style={{
+                      width: '100%',
+                      padding: isMobile ? '16px 12px' : '12px',
+                      border: '2px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: isMobile ? '18px' : '16px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="Consulta">Consulta</option>
+                    <option value="Retorno">Retorno</option>
+                    <option value="Emergência">Emergência</option>
+                    <option value="Exame">Exame</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Informações Clínicas */}
+            <div style={{
+              backgroundColor: '#fff',
+              padding: isMobile ? '16px' : '20px',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{
+                fontSize: isMobile ? '16px' : '18px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '16px'
+              }}>
+                🩺 Informações Clínicas
+              </h3>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: isMobile ? '16px' : '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>Queixa Principal*</label>
+                <textarea
+                  required
+                  value={formData.queixaPrincipal}
+                  onChange={(e) => setFormData(prev => ({...prev, queixaPrincipal: e.target.value}))}
+                  rows="3"
+                  placeholder="Descreva o motivo da consulta..."
+                  style={{
+                    width: '100%',
+                    padding: isMobile ? '16px 12px' : '12px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: isMobile ? '18px' : '16px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {isRealizandoConsulta && (
+                <>
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{
+                      display: 'block',
+                      fontSize: isMobile ? '16px' : '14px',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '8px'
+                    }}>Exame Físico</label>
+                    <textarea
+                      value={formData.exameFisico}
+                      onChange={(e) => setFormData(prev => ({...prev, exameFisico: e.target.value}))}
+                      rows="4"
+                      placeholder="PA, FC, Temp, achados do exame físico..."
+                      style={{
+                        width: '100%',
+                        padding: isMobile ? '16px 12px' : '12px',
+                        border: '2px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: isMobile ? '18px' : '16px',
+                        outline: 'none',
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{
+                      display: 'block',
+                      fontSize: isMobile ? '16px' : '14px',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '8px'
+                    }}>Hipótese Diagnóstica</label>
+                    <input
+                      type="text"
+                      value={formData.hipoteseDiagnostica}
+                      onChange={(e) => setFormData(prev => ({...prev, hipoteseDiagnostica: e.target.value}))}
+                      placeholder="Diagnóstico provável..."
+                      style={{
+                        width: '100%',
+                        padding: isMobile ? '16px 12px' : '12px',
+                        border: '2px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: isMobile ? '18px' : '16px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{
+                      display: 'block',
+                      fontSize: isMobile ? '16px' : '14px',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '8px'
+                    }}>Conduta</label>
+                    <textarea
+                      value={formData.conduta}
+                      onChange={(e) => setFormData(prev => ({...prev, conduta: e.target.value}))}
+                      rows="3"
+                      placeholder="Tratamento recomendado, exames solicitados..."
+                      style={{
+                        width: '100%',
+                        padding: isMobile ? '16px 12px' : '12px',
+                        border: '2px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: isMobile ? '18px' : '16px',
+                        outline: 'none',
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{
+                      display: 'block',
+                      fontSize: isMobile ? '16px' : '14px',
+                      fontWeight: '500',
+                      color: '#374151',
+                      marginBottom: '8px'
+                    }}>Prescrições</label>
+                    <textarea
+                      value={formData.prescricoes}
+                      onChange={(e) => setFormData(prev => ({...prev, prescricoes: e.target.value}))}
+                      rows="4"
+                      placeholder="Medicamentos prescritos, posologia..."
+                      style={{
+                        width: '100%',
+                        padding: isMobile ? '16px 12px' : '12px',
+                        border: '2px solid #d1d5db',
+                        borderRadius: '8px',
+                        fontSize: isMobile ? '18px' : '16px',
+                        outline: 'none',
+                        resize: 'vertical',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: isMobile ? '16px' : '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>Observações</label>
+                <textarea
+                  value={formData.observacoes}
+                  onChange={(e) => setFormData(prev => ({...prev, observacoes: e.target.value}))}
+                  rows="3"
+                  placeholder="Informações adicionais..."
+                  style={{
+                    width: '100%',
+                    padding: isMobile ? '16px 12px' : '12px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: isMobile ? '18px' : '16px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Botões */}
+            <div style={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              justifyContent: 'flex-end',
+              gap: isMobile ? '12px' : '15px',
+              paddingTop: '20px',
+              borderTop: '1px solid #e5e7eb',
+              position: isMobile ? 'sticky' : 'static',
+              bottom: 0,
+              backgroundColor: 'white',
+              marginTop: '20px'
+            }}>
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  padding: isMobile ? '16px 24px' : '12px 24px',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  fontSize: isMobile ? '18px' : '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  order: isMobile ? 2 : 1
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                style={{
+                  padding: isMobile ? '16px 24px' : '12px 24px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  fontSize: isMobile ? '18px' : '16px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  order: isMobile ? 1 : 2
+                }}
+              >
+                {isRealizandoConsulta ? (
+                  <>
+                    <Check size={isMobile ? 20 : 18} />
+                    Concluir Consulta
+                  </>
+                ) : (
+                  <>
+                    <Save size={isMobile ? 20 : 18} />
+                    Salvar
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Card de Consulta para Mobile
+  const ConsultaCard = ({ consulta }) => {
+    const paciente = getPacienteById(consulta.pacienteId);
+    
+    return (
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '16px',
+        marginBottom: '12px',
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb',
+        borderLeft: `4px solid ${getStatusColor(consulta.status)}`
+      }}>
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: '8px'
+          }}>
+            <h3 style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#1f2937',
+              margin: '0'
+            }}>
+              {paciente?.nome}
+            </h3>
+            <span style={{
+              fontSize: '12px',
+              fontWeight: '500',
+              color: getStatusColor(consulta.status),
+              backgroundColor: `${getStatusColor(consulta.status)}15`,
+              padding: '4px 8px',
+              borderRadius: '4px'
+            }}>
+              {consulta.status}
+            </span>
+          </div>
+          
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            fontSize: '14px',
+            color: '#6b7280',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Clock size={14} />
+              {consulta.hora}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Calendar size={14} />
+              {new Date(consulta.data).toLocaleDateString('pt-BR')}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Stethoscope size={14} />
+              {consulta.tipo}
+            </div>
+          </div>
+          
+          <p style={{
+            fontSize: '14px',
+            color: '#374151',
+            margin: '8px 0 0',
+            lineHeight: '1.4'
+          }}>
+            <strong>Motivo:</strong> {consulta.queixaPrincipal}
+          </p>
+          
+          {consulta.observacoes && (
+            <p style={{
+              fontSize: '13px',
+              color: '#6b7280',
+              margin: '8px 0 0',
+              fontStyle: 'italic'
+            }}>
+              📝 {consulta.observacoes}
+            </p>
+          )}
+        </div>
+        
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-around',
+          paddingTop: '12px',
+          borderTop: '1px solid #f3f4f6'
+        }}>
+          {consulta.status === 'Agendada' && (
+            <>
+              <button
+                onClick={() => handleConcluirConsulta(consulta)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  color: '#10b981',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}
+              >
+                <Check size={20} style={{ marginBottom: '4px' }} />
+                Realizar
+              </button>
+              <button
+                onClick={() => {
+                  setEditingConsulta(consulta);
+                  setShowConsultaForm(true);
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  color: '#6366f1',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}
+              >
+                <Edit size={20} style={{ marginBottom: '4px' }} />
+                Editar
+              </button>
+              <button
+                onClick={() => handleDeleteConsulta(consulta.id)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}
+              >
+                <X size={20} style={{ marginBottom: '4px' }} />
+                Cancelar
+              </button>
+            </>
+          )}
+          {consulta.status === 'Realizada' && (
+            <button
+              onClick={() => {
+                setEditingConsulta(consulta);
+                setShowConsultaForm(true);
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                background: 'none',
+                border: 'none',
+                color: '#3b82f6',
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: '500',
+                margin: '0 auto'
+              }}
+            >
+              <Eye size={20} style={{ marginBottom: '4px' }} />
+              Ver Detalhes
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Componente do Formulário Mobile-Friendly para Pacientes
   const FormularioPaciente = ({ paciente, onSave, onCancel }) => {
     const [formData, setFormData] = useState(paciente || {
       nome: '',
@@ -1117,28 +1868,384 @@ const ProntuarioEletronico = () => {
         )}
 
         {activeTab === 'consultas' && (
-          <div style={{ textAlign: 'center', padding: isMobile ? '24px 0' : '48px 0' }}>
-            <Calendar style={{
-              width: isMobile ? '48px' : '64px',
-              height: isMobile ? '48px' : '64px',
-              color: '#9ca3af',
-              margin: '0 auto 16px'
-            }} />
-            <h3 style={{
-              fontSize: isMobile ? '16px' : '18px',
-              fontWeight: '500',
-              color: '#1f2937',
-              margin: '0 0 8px'
+          <div>
+            <div style={{
+              display: 'flex',
+              flexDirection: isMobile ? 'column' : 'row',
+              justifyContent: 'space-between',
+              alignItems: isMobile ? 'stretch' : 'center',
+              marginBottom: isMobile ? '16px' : '24px',
+              gap: isMobile ? '12px' : '0'
             }}>
-              Módulo de Consultas
-            </h3>
-            <p style={{
-              color: '#6b7280',
-              margin: 0,
-              fontSize: isMobile ? '14px' : '16px'
+              <h2 style={{
+                fontSize: isMobile ? '18px' : '20px',
+                fontWeight: '600',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                Consultas ({getConsultasHoje()} hoje)
+              </h2>
+              <button
+                onClick={() => setShowConsultaForm(true)}
+                style={{
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  padding: isMobile ? '14px 16px' : '12px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  fontSize: isMobile ? '16px' : '14px',
+                  fontWeight: '500',
+                  width: isMobile ? '100%' : 'auto'
+                }}
+              >
+                <Plus size={isMobile ? 20 : 18} />
+                Nova Consulta
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 200px',
+              gap: isMobile ? '12px' : '16px',
+              marginBottom: isMobile ? '16px' : '24px'
             }}>
-              Em desenvolvimento - funcionalidade será adicionada em breve
-            </p>
+              <div style={{ position: 'relative' }}>
+                <Search 
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    width: '20px',
+                    height: '20px'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Pesquisar paciente ou médico..."
+                  value={consultaSearchTerm}
+                  onChange={(e) => setConsultaSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    paddingLeft: '44px',
+                    paddingRight: '16px',
+                    paddingTop: isMobile ? '16px' : '12px',
+                    paddingBottom: isMobile ? '16px' : '12px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: isMobile ? '18px' : '16px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div style={{ position: 'relative' }}>
+                <CalendarDays 
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    width: '20px',
+                    height: '20px'
+                  }}
+                />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    paddingLeft: '44px',
+                    paddingRight: '16px',
+                    paddingTop: isMobile ? '16px' : '12px',
+                    paddingBottom: isMobile ? '16px' : '12px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: isMobile ? '18px' : '16px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Lista de consultas */}
+            {isMobile ? (
+              <div>
+                {filteredConsultas.length === 0 ? (
+                  <div style={{
+                    backgroundColor: 'white',
+                    borderRadius: '12px',
+                    padding: '48px 16px',
+                    textAlign: 'center',
+                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <Calendar style={{
+                      width: '48px',
+                      height: '48px',
+                      color: '#9ca3af',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{
+                      color: '#6b7280',
+                      margin: 0
+                    }}>
+                      Nenhuma consulta encontrada
+                    </p>
+                  </div>
+                ) : (
+                  filteredConsultas.map((consulta) => (
+                    <ConsultaCard key={consulta.id} consulta={consulta} />
+                  ))
+                )}
+              </div>
+            ) : (
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                overflow: 'hidden'
+              }}>
+                {filteredConsultas.length === 0 ? (
+                  <div style={{
+                    padding: '48px',
+                    textAlign: 'center'
+                  }}>
+                    <Calendar style={{
+                      width: '64px',
+                      height: '64px',
+                      color: '#9ca3af',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{
+                      color: '#6b7280',
+                      margin: 0,
+                      fontSize: '16px'
+                    }}>
+                      Nenhuma consulta encontrada
+                    </p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead style={{ backgroundColor: '#f9fafb' }}>
+                      <tr>
+                        <th style={{
+                          padding: '12px 24px',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          textTransform: 'uppercase'
+                        }}>
+                          Paciente
+                        </th>
+                        <th style={{
+                          padding: '12px 24px',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          textTransform: 'uppercase'
+                        }}>
+                          Data/Hora
+                        </th>
+                        <th style={{
+                          padding: '12px 24px',
+                          textAlign: 'left',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          textTransform: 'uppercase'
+                        }}>
+                          Tipo/Motivo
+                        </th>
+                        <th style={{
+                          padding: '12px 24px',
+                          textAlign: 'center',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          textTransform: 'uppercase'
+                        }}>
+                          Status
+                        </th>
+                        <th style={{
+                          padding: '12px 24px',
+                          textAlign: 'right',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: '#6b7280',
+                          textTransform: 'uppercase'
+                        }}>
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredConsultas.map((consulta) => {
+                        const paciente = getPacienteById(consulta.pacienteId);
+                        return (
+                          <tr 
+                            key={consulta.id} 
+                            style={{ borderTop: '1px solid #e5e7eb' }}
+                          >
+                            <td style={{ padding: '16px 24px' }}>
+                              <div style={{
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                color: '#1f2937'
+                              }}>
+                                {paciente?.nome}
+                              </div>
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#6b7280'
+                              }}>
+                                {paciente && formatCPF(paciente.cpf)}
+                              </div>
+                            </td>
+                            <td style={{ padding: '16px 24px' }}>
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#1f2937',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginBottom: '4px'
+                              }}>
+                                <Calendar style={{ width: '16px', height: '16px', marginRight: '4px' }} />
+                                {new Date(consulta.data).toLocaleDateString('pt-BR')}
+                              </div>
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}>
+                                <Clock style={{ width: '16px', height: '16px', marginRight: '4px' }} />
+                                {consulta.hora}
+                              </div>
+                            </td>
+                            <td style={{ padding: '16px 24px' }}>
+                              <div style={{
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                color: '#1f2937'
+                              }}>
+                                {consulta.tipo}
+                              </div>
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#6b7280'
+                              }}>
+                                {consulta.queixaPrincipal}
+                              </div>
+                            </td>
+                            <td style={{ padding: '16px 24px', textAlign: 'center' }}>
+                              <span style={{
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                color: getStatusColor(consulta.status),
+                                backgroundColor: `${getStatusColor(consulta.status)}15`,
+                                padding: '4px 12px',
+                                borderRadius: '4px'
+                              }}>
+                                {consulta.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                              <div style={{
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                                gap: '8px'
+                              }}>
+                                {consulta.status === 'Agendada' ? (
+                                  <>
+                                    <button
+                                      onClick={() => handleConcluirConsulta(consulta)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#10b981',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        borderRadius: '4px'
+                                      }}
+                                      title="Realizar consulta"
+                                    >
+                                      <Check size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingConsulta(consulta);
+                                        setShowConsultaForm(true);
+                                      }}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#6366f1',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        borderRadius: '4px'
+                                      }}
+                                      title="Editar consulta"
+                                    >
+                                      <Edit size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteConsulta(consulta.id)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        borderRadius: '4px'
+                                      }}
+                                      title="Cancelar consulta"
+                                    >
+                                      <X size={18} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setEditingConsulta(consulta);
+                                      setShowConsultaForm(true);
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#3b82f6',
+                                      cursor: 'pointer',
+                                      padding: '4px',
+                                      borderRadius: '4px'
+                                    }}
+                                    title="Ver detalhes"
+                                  >
+                                    <Eye size={18} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1220,6 +2327,18 @@ const ProntuarioEletronico = () => {
           onCancel={() => {
             setShowForm(false);
             setEditingPaciente(null);
+          }}
+        />
+      )}
+
+      {/* Modal Formulário Consulta */}
+      {showConsultaForm && (
+        <FormularioConsulta
+          consulta={editingConsulta}
+          onSave={handleSaveConsulta}
+          onCancel={() => {
+            setShowConsultaForm(false);
+            setEditingConsulta(null);
           }}
         />
       )}
