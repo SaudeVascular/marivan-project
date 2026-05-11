@@ -1,2570 +1,1110 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, Plus, User, Calendar, FileText, Activity, Phone, Mail, Save, 
-  X, Eye, Edit, Trash2, Clock, Stethoscope, 
-  Check, CalendarDays 
-} from 'lucide-react';
+import React from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+  useNavigate,
+  useParams
+} from 'react-router-dom';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import Login from './components/Login';
 
-const ProntuarioEletronico = () => {
-  const [activeTab, setActiveTab] = useState('pacientes');
-  const [pacientes, setPacientes] = useState([]);
-  const [consultas, setConsultas] = useState([]);
-  const [selectedPaciente, setSelectedPaciente] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [editingPaciente, setEditingPaciente] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
-  
-  // Estados para Consultas
-  const [showConsultaForm, setShowConsultaForm] = useState(false);
-  const [editingConsulta, setEditingConsulta] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [consultaSearchTerm, setConsultaSearchTerm] = useState('');
+const initialPacientes = [
+  {
+    id: 1,
+    nome: 'Maria Silva Santos',
+    cpf: '123.456.789-00',
+    nascimento: '1985-03-15',
+    telefone: '(11) 99999-9999',
+    convenio: 'Unimed',
+    alergias: 'Penicilina',
+    medicamentos: 'Losartana 50mg',
+    evolucoes: ['Paciente hipertensa controlada.']
+  },
+  {
+    id: 2,
+    nome: 'José Oliveira Lima',
+    cpf: '987.654.321-00',
+    nascimento: '1970-08-22',
+    telefone: '(11) 98888-8888',
+    convenio: 'Particular',
+    alergias: 'Nega alergias',
+    medicamentos: 'Metformina 850mg',
+    evolucoes: ['Paciente diabético tipo 2 em acompanhamento.']
+  }
+];
 
-  // Detectar se é mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Dados de exemplo
-  useEffect(() => {
-    const pacientesIniciais = [
-      {
-        id: 1,
-        nome: 'Maria Silva Santos',
-        cpf: '123.456.789-00',
-        dataNascimento: '1985-03-15',
-        telefone: '(11) 99999-9999',
-        email: 'maria@email.com',
-        endereco: 'Rua das Flores, 123 - São Paulo, SP',
-        convenio: 'Unimed',
-        numeroConvenio: '123456789',
-        contatoEmergencia: 'João Silva - (11) 88888-8888',
-        alergias: 'Penicilina, Dipirona',
-        medicamentosUso: 'Losartana 50mg - 1x/dia',
-        historicoFamiliar: 'Hipertensão (pai), Diabetes (mãe)',
-        observacoes: 'Paciente hipertensa controlada'
-      },
-      {
-        id: 2,
-        nome: 'José Oliveira Lima',
-        cpf: '987.654.321-00',
-        dataNascimento: '1970-08-22',
-        telefone: '(11) 77777-7777',
-        email: 'jose@email.com',
-        endereco: 'Av. Principal, 456 - São Paulo, SP',
-        convenio: 'Bradesco Saúde',
-        numeroConvenio: '987654321',
-        contatoEmergencia: 'Ana Oliveira - (11) 66666-6666',
-        alergias: 'Nenhuma conhecida',
-        medicamentosUso: 'Metformina 850mg - 2x/dia',
-        historicoFamiliar: 'Diabetes (pai e mãe)',
-        observacoes: 'Diabético tipo 2'
-      }
-    ];
-
-    const consultasIniciais = [
-      {
-        id: 1,
-        pacienteId: 1,
-        data: '2025-01-20',
-        hora: '09:00',
-        medico: 'Dr. Carlos Mendes',
-        especialidade: 'Clínica Geral',
-        tipo: 'Consulta',
-        status: 'Realizada',
-        queixaPrincipal: 'Dor de cabeça frequente',
-        exameFisico: 'PA: 140/90 mmHg, FC: 80 bpm, Temp: 36.5°C',
-        hipoteseDiagnostica: 'Cefaleia tensional',
-        conduta: 'Prescrição de analgésico, retorno em 15 dias',
-        prescricoes: 'Paracetamol 750mg - 8/8h por 3 dias',
-        observacoes: 'Orientado sobre controle da pressão arterial'
-      },
-      {
-        id: 2,
-        pacienteId: 2,
-        data: '2025-08-01',
-        hora: '10:30',
-        medico: 'Dr. Carlos Mendes',
-        especialidade: 'Clínica Geral',
-        tipo: 'Retorno',
-        status: 'Agendada',
-        queixaPrincipal: 'Acompanhamento diabetes',
-        observacoes: 'Trazer exames recentes'
-      },
-      {
-        id: 3,
-        pacienteId: 1,
-        data: '2025-08-01',
-        hora: '14:00',
-        medico: 'Dr. Carlos Mendes',
-        especialidade: 'Clínica Geral',
-        tipo: 'Consulta',
-        status: 'Agendada',
-        queixaPrincipal: 'Check-up anual',
-        observacoes: 'Jejum de 12h para coleta de sangue'
-      }
-    ];
-
-    setPacientes(pacientesIniciais);
-    setConsultas(consultasIniciais);
-  }, []);
-
-  const formatCPF = (cpf) => {
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  const calcularIdade = (dataNascimento) => {
-    const hoje = new Date();
-    const nascimento = new Date(dataNascimento);
-    let idade = hoje.getFullYear() - nascimento.getFullYear();
-    const m = hoje.getMonth() - nascimento.getMonth();
-    if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) {
-      idade--;
-    }
-    return idade;
-  };
-
-  const filteredPacientes = pacientes.filter(paciente =>
-    paciente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    paciente.cpf.includes(searchTerm)
-  );
-
-  const getConsultasPaciente = (pacienteId) => {
-    return consultas.filter(consulta => consulta.pacienteId === pacienteId);
-  };
-
-  const handleSavePaciente = (dadosPaciente) => {
-    if (editingPaciente) {
-      setPacientes(prev => prev.map(p => 
-        p.id === editingPaciente.id ? { ...dadosPaciente, id: editingPaciente.id } : p
-      ));
-      setEditingPaciente(null);
-    } else {
-      const novoPaciente = {
-        ...dadosPaciente,
-        id: Date.now()
-      };
-      setPacientes(prev => [...prev, novoPaciente]);
-    }
-    setShowForm(false);
-  };
-
-  const handleDeletePaciente = (id) => {
-    if (window.confirm('Tem certeza que deseja excluir este paciente?')) {
-      setPacientes(prev => prev.filter(p => p.id !== id));
-      setConsultas(prev => prev.filter(c => c.pacienteId !== id));
-    }
-  };
-
-  // Funções para Consultas
-  const handleSaveConsulta = (dadosConsulta) => {
-    if (editingConsulta) {
-      setConsultas(prev => prev.map(c => 
-        c.id === editingConsulta.id ? { ...dadosConsulta, id: editingConsulta.id } : c
-      ));
-      setEditingConsulta(null);
-    } else {
-      const novaConsulta = {
-        ...dadosConsulta,
-        id: Date.now(),
-        status: 'Agendada'
-      };
-      setConsultas(prev => [...prev, novaConsulta]);
-    }
-    setShowConsultaForm(false);
-  };
-
-  const handleDeleteConsulta = (id) => {
-    if (window.confirm('Tem certeza que deseja cancelar esta consulta?')) {
-      setConsultas(prev => prev.filter(c => c.id !== id));
-    }
-  };
-
-  const handleConcluirConsulta = (consulta) => {
-    setEditingConsulta(consulta);
-    setShowConsultaForm(true);
-  };
-
-  const getPacienteById = (id) => {
-    return pacientes.find(p => p.id === id);
-  };
-
-  const filteredConsultas = consultas.filter(consulta => {
-    const paciente = getPacienteById(consulta.pacienteId);
-    const matchesSearch = paciente && (
-      paciente.nome.toLowerCase().includes(consultaSearchTerm.toLowerCase()) ||
-      consulta.medico.toLowerCase().includes(consultaSearchTerm.toLowerCase())
-    );
-    const matchesDate = !selectedDate || consulta.data === selectedDate;
-    return matchesSearch && matchesDate;
-  });
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'Agendada': return '#3b82f6';
-      case 'Realizada': return '#10b981';
-      case 'Cancelada': return '#ef4444';
-      default: return '#6b7280';
-    }
-  };
-
-  const getConsultasHoje = () => {
-    const hoje = new Date().toISOString().split('T')[0];
-    return consultas.filter(c => c.data === hoje && c.status === 'Agendada').length;
-  };
-
-  // Componente do Formulário de Consulta
-  const FormularioConsulta = ({ consulta, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(consulta || {
-      pacienteId: '',
-      data: '',
-      hora: '',
-      medico: 'Dr. Carlos Mendes',
-      especialidade: 'Clínica Geral',
-      tipo: 'Consulta',
-      queixaPrincipal: '',
-      exameFisico: '',
-      hipoteseDiagnostica: '',
-      conduta: '',
-      prescricoes: '',
-      observacoes: ''
-    });
-
-    const isRealizandoConsulta = consulta && consulta.status === 'Agendada';
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      const dadosParaSalvar = {
-        ...formData,
-        status: isRealizandoConsulta ? 'Realizada' : formData.status || 'Agendada'
-      };
-      onSave(dadosParaSalvar);
-    };
-
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: isMobile ? 'flex-start' : 'center',
-        justifyContent: 'center',
-        padding: isMobile ? '0' : '20px',
-        zIndex: 1000,
-        overflowY: 'auto'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: isMobile ? '0' : '12px',
-          padding: isMobile ? '16px' : '30px',
-          width: '100%',
-          maxWidth: isMobile ? '100%' : '800px',
-          minHeight: isMobile ? '100vh' : 'auto',
-          maxHeight: isMobile ? '100vh' : '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: isMobile ? '20px' : '30px',
-            borderBottom: '1px solid #e5e7eb',
-            paddingBottom: '20px',
-            position: isMobile ? 'sticky' : 'static',
-            top: 0,
-            backgroundColor: 'white',
-            zIndex: 10
-          }}>
-            <h2 style={{
-              fontSize: isMobile ? '20px' : '24px',
-              fontWeight: 'bold',
-              color: '#1f2937',
-              margin: 0
-            }}>
-              {isRealizandoConsulta ? '🩺 Realizar Consulta' : (consulta ? '✏️ Editar' : '➕ Nova')} Consulta
-            </h2>
-            <button 
-              onClick={onCancel} 
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#6b7280',
-                cursor: 'pointer',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: isMobile ? '24px' : '20px'
-              }}
-            >
-              <X size={isMobile ? 28 : 24} />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            {/* Dados Básicos da Consulta */}
-            <div style={{
-              backgroundColor: '#f9fafb',
-              padding: isMobile ? '16px' : '20px',
-              borderRadius: '8px',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{
-                fontSize: isMobile ? '16px' : '18px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '16px'
-              }}>
-                📅 Dados da Consulta
-              </h3>
-              
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: isMobile ? '16px' : '20px'
-              }}>
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: isMobile ? '16px' : '14px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>Paciente*</label>
-                  <select
-                    required
-                    disabled={isRealizandoConsulta}
-                    value={formData.pacienteId}
-                    onChange={(e) => setFormData(prev => ({...prev, pacienteId: parseInt(e.target.value)}))}
-                    style={{
-                      width: '100%',
-                      padding: isMobile ? '16px 12px' : '12px',
-                      border: '2px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: isMobile ? '18px' : '16px',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
-                    }}
-                  >
-                    <option value="">Selecione um paciente</option>
-                    {pacientes.map(paciente => (
-                      <option key={paciente.id} value={paciente.id}>
-                        {paciente.nome} - {formatCPF(paciente.cpf)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: isMobile ? '16px' : '14px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>Data*</label>
-                  <input
-                    type="date"
-                    required
-                    disabled={isRealizandoConsulta}
-                    value={formData.data}
-                    onChange={(e) => setFormData(prev => ({...prev, data: e.target.value}))}
-                    style={{
-                      width: '100%',
-                      padding: isMobile ? '16px 12px' : '12px',
-                      border: '2px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: isMobile ? '18px' : '16px',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: isMobile ? '16px' : '14px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>Hora*</label>
-                  <input
-                    type="time"
-                    required
-                    disabled={isRealizandoConsulta}
-                    value={formData.hora}
-                    onChange={(e) => setFormData(prev => ({...prev, hora: e.target.value}))}
-                    style={{
-                      width: '100%',
-                      padding: isMobile ? '16px 12px' : '12px',
-                      border: '2px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: isMobile ? '18px' : '16px',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      backgroundColor: isRealizandoConsulta ? '#f3f4f6' : 'white'
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{
-                    display: 'block',
-                    fontSize: isMobile ? '16px' : '14px',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '8px'
-                  }}>Tipo</label>
-                  <select
-                    value={formData.tipo}
-                    onChange={(e) => setFormData(prev => ({...prev, tipo: e.target.value}))}
-                    style={{
-                      width: '100%',
-                      padding: isMobile ? '16px 12px' : '12px',
-                      border: '2px solid #d1d5db',
-                      borderRadius: '8px',
-                      fontSize: isMobile ? '18px' : '16px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="Consulta">Consulta</option>
-                    <option value="Retorno">Retorno</option>
-                    <option value="Emergência">Emergência</option>
-                    <option value="Exame">Exame</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Informações Clínicas */}
-            <div style={{
-              backgroundColor: '#fff',
-              padding: isMobile ? '16px' : '20px',
-              borderRadius: '8px',
-              border: '1px solid #e5e7eb',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{
-                fontSize: isMobile ? '16px' : '18px',
-                fontWeight: '600',
-                color: '#374151',
-                marginBottom: '16px'
-              }}>
-                🩺 Informações Clínicas
-              </h3>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Queixa Principal*</label>
-                <textarea
-                  required
-                  value={formData.queixaPrincipal}
-                  onChange={(e) => setFormData(prev => ({...prev, queixaPrincipal: e.target.value}))}
-                  rows="3"
-                  placeholder="Descreva o motivo da consulta..."
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              {isRealizandoConsulta && (
-                <>
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: isMobile ? '16px' : '14px',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '8px'
-                    }}>Exame Físico</label>
-                    <textarea
-                      value={formData.exameFisico}
-                      onChange={(e) => setFormData(prev => ({...prev, exameFisico: e.target.value}))}
-                      rows="4"
-                      placeholder="PA, FC, Temp, achados do exame físico..."
-                      style={{
-                        width: '100%',
-                        padding: isMobile ? '16px 12px' : '12px',
-                        border: '2px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: isMobile ? '18px' : '16px',
-                        outline: 'none',
-                        resize: 'vertical',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: isMobile ? '16px' : '14px',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '8px'
-                    }}>Hipótese Diagnóstica</label>
-                    <input
-                      type="text"
-                      value={formData.hipoteseDiagnostica}
-                      onChange={(e) => setFormData(prev => ({...prev, hipoteseDiagnostica: e.target.value}))}
-                      placeholder="Diagnóstico provável..."
-                      style={{
-                        width: '100%',
-                        padding: isMobile ? '16px 12px' : '12px',
-                        border: '2px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: isMobile ? '18px' : '16px',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: isMobile ? '16px' : '14px',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '8px'
-                    }}>Conduta</label>
-                    <textarea
-                      value={formData.conduta}
-                      onChange={(e) => setFormData(prev => ({...prev, conduta: e.target.value}))}
-                      rows="3"
-                      placeholder="Tratamento recomendado, exames solicitados..."
-                      style={{
-                        width: '100%',
-                        padding: isMobile ? '16px 12px' : '12px',
-                        border: '2px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: isMobile ? '18px' : '16px',
-                        outline: 'none',
-                        resize: 'vertical',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginBottom: '16px' }}>
-                    <label style={{
-                      display: 'block',
-                      fontSize: isMobile ? '16px' : '14px',
-                      fontWeight: '500',
-                      color: '#374151',
-                      marginBottom: '8px'
-                    }}>Prescrições</label>
-                    <textarea
-                      value={formData.prescricoes}
-                      onChange={(e) => setFormData(prev => ({...prev, prescricoes: e.target.value}))}
-                      rows="4"
-                      placeholder="Medicamentos prescritos, posologia..."
-                      style={{
-                        width: '100%',
-                        padding: isMobile ? '16px 12px' : '12px',
-                        border: '2px solid #d1d5db',
-                        borderRadius: '8px',
-                        fontSize: isMobile ? '18px' : '16px',
-                        outline: 'none',
-                        resize: 'vertical',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Observações</label>
-                <textarea
-                  value={formData.observacoes}
-                  onChange={(e) => setFormData(prev => ({...prev, observacoes: e.target.value}))}
-                  rows="3"
-                  placeholder="Informações adicionais..."
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Botões */}
-            <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              justifyContent: 'flex-end',
-              gap: isMobile ? '12px' : '15px',
-              paddingTop: '20px',
-              borderTop: '1px solid #e5e7eb',
-              position: isMobile ? 'sticky' : 'static',
-              bottom: 0,
-              backgroundColor: 'white',
-              marginTop: '20px'
-            }}>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{
-                  padding: isMobile ? '16px 24px' : '12px 24px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: isMobile ? '18px' : '16px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  order: isMobile ? 2 : 1
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                style={{
-                  padding: isMobile ? '16px 24px' : '12px 24px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  fontSize: isMobile ? '18px' : '16px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  order: isMobile ? 1 : 2
-                }}
-              >
-                {isRealizandoConsulta ? (
-                  <>
-                    <Check size={isMobile ? 20 : 18} />
-                    Concluir Consulta
-                  </>
-                ) : (
-                  <>
-                    <Save size={isMobile ? 20 : 18} />
-                    Salvar
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
-
-  // Card de Consulta para Mobile
-  const ConsultaCard = ({ consulta }) => {
-    const paciente = getPacienteById(consulta.pacienteId);
-    
-    return (
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '16px',
-        marginBottom: '12px',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        border: '1px solid #e5e7eb',
-        borderLeft: `4px solid ${getStatusColor(consulta.status)}`
-      }}>
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: '8px'
-          }}>
-            <h3 style={{
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#1f2937',
-              margin: '0'
-            }}>
-              {paciente?.nome}
-            </h3>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: '500',
-              color: getStatusColor(consulta.status),
-              backgroundColor: `${getStatusColor(consulta.status)}15`,
-              padding: '4px 8px',
-              borderRadius: '4px'
-            }}>
-              {consulta.status}
-            </span>
-          </div>
-          
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            fontSize: '14px',
-            color: '#6b7280',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Clock size={14} />
-              {consulta.hora}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Calendar size={14} />
-              {new Date(consulta.data).toLocaleDateString('pt-BR')}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Stethoscope size={14} />
-              {consulta.tipo}
-            </div>
-          </div>
-          
-          <p style={{
-            fontSize: '14px',
-            color: '#374151',
-            margin: '8px 0 0',
-            lineHeight: '1.4'
-          }}>
-            <strong>Motivo:</strong> {consulta.queixaPrincipal}
-          </p>
-          
-          {consulta.observacoes && (
-            <p style={{
-              fontSize: '13px',
-              color: '#6b7280',
-              margin: '8px 0 0',
-              fontStyle: 'italic'
-            }}>
-              📝 {consulta.observacoes}
-            </p>
-          )}
-        </div>
-        
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-around',
-          paddingTop: '12px',
-          borderTop: '1px solid #f3f4f6'
-        }}>
-          {consulta.status === 'Agendada' && (
-            <>
-              <button
-                onClick={() => handleConcluirConsulta(consulta)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
-                  color: '#10b981',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                <Check size={20} style={{ marginBottom: '4px' }} />
-                Realizar
-              </button>
-              <button
-                onClick={() => {
-                  setEditingConsulta(consulta);
-                  setShowConsultaForm(true);
-                }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
-                  color: '#6366f1',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                <Edit size={20} style={{ marginBottom: '4px' }} />
-                Editar
-              </button>
-              <button
-                onClick={() => handleDeleteConsulta(consulta.id)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  background: 'none',
-                  border: 'none',
-                  color: '#ef4444',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: '500'
-                }}
-              >
-                <X size={20} style={{ marginBottom: '4px' }} />
-                Cancelar
-              </button>
-            </>
-          )}
-          {consulta.status === 'Realizada' && (
-            <button
-              onClick={() => {
-                setEditingConsulta(consulta);
-                setShowConsultaForm(true);
-              }}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                background: 'none',
-                border: 'none',
-                color: '#3b82f6',
-                cursor: 'pointer',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: '500',
-                margin: '0 auto'
-              }}
-            >
-              <Eye size={20} style={{ marginBottom: '4px' }} />
-              Ver Detalhes
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Componente do Formulário Mobile-Friendly para Pacientes
-  const FormularioPaciente = ({ paciente, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(paciente || {
-      nome: '',
-      cpf: '',
-      dataNascimento: '',
-      telefone: '',
-      email: '',
-      endereco: '',
-      convenio: '',
-      numeroConvenio: '',
-      contatoEmergencia: '',
-      alergias: '',
-      medicamentosUso: '',
-      historicoFamiliar: '',
-      observacoes: ''
-    });
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      onSave(formData);
-    };
-
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: isMobile ? 'flex-start' : 'center',
-        justifyContent: 'center',
-        padding: isMobile ? '0' : '20px',
-        zIndex: 1000,
-        overflowY: 'auto'
-      }}>
-        <div style={{
-          backgroundColor: 'white',
-          borderRadius: isMobile ? '0' : '12px',
-          padding: isMobile ? '16px' : '30px',
-          width: '100%',
-          maxWidth: isMobile ? '100%' : '800px',
-          minHeight: isMobile ? '100vh' : 'auto',
-          maxHeight: isMobile ? '100vh' : '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: isMobile ? '20px' : '30px',
-            borderBottom: '1px solid #e5e7eb',
-            paddingBottom: '20px',
-            position: isMobile ? 'sticky' : 'static',
-            top: 0,
-            backgroundColor: 'white',
-            zIndex: 10
-          }}>
-            <h2 style={{
-              fontSize: isMobile ? '20px' : '24px',
-              fontWeight: 'bold',
-              color: '#1f2937',
-              margin: 0
-            }}>
-              {paciente ? '✏️ Editar' : '➕ Novo'} {isMobile ? '' : 'Paciente'}
-            </h2>
-            <button 
-              onClick={onCancel} 
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#6b7280',
-                cursor: 'pointer',
-                padding: '8px',
-                borderRadius: '6px',
-                fontSize: isMobile ? '24px' : '20px'
-              }}
-            >
-              <X size={isMobile ? 28 : 24} />
-            </button>
-          </div>
-
-          <div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: isMobile ? '16px' : '20px',
-              marginBottom: '20px'
-            }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Nome Completo*</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.nome}
-                  onChange={(e) => setFormData(prev => ({...prev, nome: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>CPF*</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.cpf}
-                  onChange={(e) => setFormData(prev => ({...prev, cpf: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Data de Nascimento*</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.dataNascimento}
-                  onChange={(e) => setFormData(prev => ({...prev, dataNascimento: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Telefone*</label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.telefone}
-                  onChange={(e) => setFormData(prev => ({...prev, telefone: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>E-mail</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({...prev, email: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Convênio</label>
-                <input
-                  type="text"
-                  value={formData.convenio}
-                  onChange={(e) => setFormData(prev => ({...prev, convenio: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: isMobile ? '16px' : '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '8px'
-              }}>Endereço Completo</label>
-              <input
-                type="text"
-                value={formData.endereco}
-                onChange={(e) => setFormData(prev => ({...prev, endereco: e.target.value}))}
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '16px 12px' : '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '18px' : '16px',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: isMobile ? '16px' : '20px',
-              marginBottom: '20px'
-            }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Número do Convênio</label>
-                <input
-                  type="text"
-                  value={formData.numeroConvenio}
-                  onChange={(e) => setFormData(prev => ({...prev, numeroConvenio: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px'
-                }}>Contato de Emergência</label>
-                <input
-                  type="text"
-                  value={formData.contatoEmergencia}
-                  onChange={(e) => setFormData(prev => ({...prev, contatoEmergencia: e.target.value}))}
-                  style={{
-                    width: '100%',
-                    padding: isMobile ? '16px 12px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: isMobile ? '16px' : '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '8px'
-              }}>Alergias</label>
-              <textarea
-                value={formData.alergias}
-                onChange={(e) => setFormData(prev => ({...prev, alergias: e.target.value}))}
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '16px 12px' : '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '18px' : '16px',
-                  outline: 'none',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: isMobile ? '16px' : '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '8px'
-              }}>Medicamentos em Uso</label>
-              <textarea
-                value={formData.medicamentosUso}
-                onChange={(e) => setFormData(prev => ({...prev, medicamentosUso: e.target.value}))}
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '16px 12px' : '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '18px' : '16px',
-                  outline: 'none',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: isMobile ? '16px' : '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '8px'
-              }}>Histórico Familiar</label>
-              <textarea
-                value={formData.historicoFamiliar}
-                onChange={(e) => setFormData(prev => ({...prev, historicoFamiliar: e.target.value}))}
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '16px 12px' : '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '18px' : '16px',
-                  outline: 'none',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '30px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: isMobile ? '16px' : '14px',
-                fontWeight: '500',
-                color: '#374151',
-                marginBottom: '8px'
-              }}>Observações Gerais</label>
-              <textarea
-                value={formData.observacoes}
-                onChange={(e) => setFormData(prev => ({...prev, observacoes: e.target.value}))}
-                rows="4"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '16px 12px' : '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '18px' : '16px',
-                  outline: 'none',
-                  resize: 'vertical',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              justifyContent: 'flex-end',
-              gap: isMobile ? '12px' : '15px',
-              paddingTop: '20px',
-              borderTop: '1px solid #e5e7eb',
-              position: isMobile ? 'sticky' : 'static',
-              bottom: 0,
-              backgroundColor: 'white',
-              marginTop: '20px'
-            }}>
-              <button
-                type="button"
-                onClick={onCancel}
-                style={{
-                  padding: isMobile ? '16px 24px' : '12px 24px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  backgroundColor: 'white',
-                  color: '#374151',
-                  fontSize: isMobile ? '18px' : '16px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  order: isMobile ? 2 : 1
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                style={{
-                  padding: isMobile ? '16px 24px' : '12px 24px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  fontSize: isMobile ? '18px' : '16px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  order: isMobile ? 1 : 2
-                }}
-              >
-                <Save size={isMobile ? 20 : 18} />
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Card de Paciente para Mobile
-  const PacienteCard = ({ paciente }) => (
-    <div style={{
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      padding: '16px',
-      marginBottom: '12px',
-      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-      border: '1px solid #e5e7eb'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12px' }}>
-        <div style={{
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          backgroundColor: '#dbeafe',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: '12px',
-          flexShrink: 0
-        }}>
-          <User style={{ width: '24px', height: '24px', color: '#3b82f6' }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#1f2937',
-            margin: '0 0 4px',
-            lineHeight: '1.3'
-          }}>
-            {paciente.nome}
-          </h3>
-          <p style={{
-            fontSize: '14px',
-            color: '#6b7280',
-            margin: '0 0 8px'
-          }}>
-            {formatCPF(paciente.cpf)} • {calcularIdade(paciente.dataNascimento)} anos
-          </p>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            fontSize: '14px',
-            color: '#374151',
-            marginBottom: '4px'
-          }}>
-            <Phone style={{ width: '14px', height: '14px', marginRight: '6px' }} />
-            {paciente.telefone}
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#6b7280'
-          }}>
-            {paciente.convenio || 'Particular'}
-          </div>
-        </div>
-      </div>
-      
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-around',
-        paddingTop: '12px',
-        borderTop: '1px solid #f3f4f6'
-      }}>
-        <button
-          onClick={() => setSelectedPaciente(paciente)}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            background: 'none',
-            border: 'none',
-            color: '#3b82f6',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: '500'
-          }}
-        >
-          <Eye size={20} style={{ marginBottom: '4px' }} />
-          Ver
-        </button>
-        <button
-          onClick={() => {
-            setEditingPaciente(paciente);
-            setShowForm(true);
-          }}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            background: 'none',
-            border: 'none',
-            color: '#6366f1',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: '500'
-          }}
-        >
-          <Edit size={20} style={{ marginBottom: '4px' }} />
-          Editar
-        </button>
-        <button
-          onClick={() => handleDeletePaciente(paciente.id)}
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            background: 'none',
-            border: 'none',
-            color: '#ef4444',
-            cursor: 'pointer',
-            padding: '8px',
-            borderRadius: '6px',
-            fontSize: '12px',
-            fontWeight: '500'
-          }}
-        >
-          <Trash2 size={20} style={{ marginBottom: '4px' }} />
-          Excluir
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
-      {/* Header Mobile-Friendly */}
-      <header style={{
-        backgroundColor: 'white',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        borderBottom: '1px solid #e5e7eb',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: isMobile ? '0 16px' : '0 24px'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: isMobile ? '12px 0' : '16px 0'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: isMobile ? '8px' : '12px'
-            }}>
-              <Activity style={{ 
-                color: '#3b82f6', 
-                width: isMobile ? '28px' : '32px', 
-                height: isMobile ? '28px' : '32px' 
-              }} />
-              <h1 style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: 'bold',
-                color: '#1f2937',
-                margin: 0
-              }}>
-                {isMobile ? 'Prontuário' : 'Prontuário Eletrônico'}
-              </h1>
-            </div>
-            {!isMobile && (
-              <div style={{
-                fontSize: '14px',
-                color: '#6b7280'
-              }}>
-                Dr. João Silva - CRM: 12345-SP
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Mobile-Friendly */}
-      <nav style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        position: 'sticky',
-        top: isMobile ? '64px' : '72px',
-        zIndex: 40
-      }}>
-        <div style={{
-          maxWidth: '1280px',
-          margin: '0 auto',
-          padding: isMobile ? '0 16px' : '0 24px'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            gap: isMobile ? '0' : '32px',
-            justifyContent: isMobile ? 'space-around' : 'flex-start'
-          }}>
-            {[
-              { id: 'pacientes', label: 'Pacientes', icon: User },
-              { id: 'consultas', label: 'Consultas', icon: Calendar },
-              { id: 'relatorios', label: 'Relatórios', icon: FileText }
-            ].map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  style={{
-                    padding: isMobile ? '12px 8px' : '12px 4px',
-                    border: 'none',
-                    borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
-                    backgroundColor: 'transparent',
-                    color: activeTab === tab.id ? '#3b82f6' : '#6b7280',
-                    fontSize: isMobile ? '12px' : '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: isMobile ? 'column' : 'row',
-                    alignItems: 'center',
-                    gap: isMobile ? '4px' : '8px',
-                    flex: isMobile ? 1 : 'none'
-                  }}
-                >
-                  <Icon size={isMobile ? 18 : 16} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        padding: isMobile ? '16px' : '24px'
-      }}>
-        {activeTab === 'pacientes' && (
-          <div>
-            <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              justifyContent: 'space-between',
-              alignItems: isMobile ? 'stretch' : 'center',
-              marginBottom: isMobile ? '16px' : '24px',
-              gap: isMobile ? '12px' : '0'
-            }}>
-              <h2 style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: '600',
-                color: '#1f2937',
-                margin: 0
-              }}>
-                Pacientes ({pacientes.length})
-              </h2>
-              <button
-                onClick={() => setShowForm(true)}
-                style={{
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  padding: isMobile ? '14px 16px' : '12px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  width: isMobile ? '100%' : 'auto'
-                }}
-              >
-                <Plus size={isMobile ? 20 : 18} />
-                Novo Paciente
-              </button>
-            </div>
-
-            <div style={{ marginBottom: isMobile ? '16px' : '24px' }}>
-              <div style={{ position: 'relative' }}>
-                <Search 
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af',
-                    width: '20px',
-                    height: '20px'
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Pesquisar por nome ou CPF..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    width: '100%',
-                    paddingLeft: '44px',
-                    paddingRight: '16px',
-                    paddingTop: isMobile ? '16px' : '12px',
-                    paddingBottom: isMobile ? '16px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Lista de pacientes - Mobile vs Desktop */}
-            {isMobile ? (
-              <div>
-                {filteredPacientes.map((paciente) => (
-                  <PacienteCard key={paciente.id} paciente={paciente} />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-                overflow: 'hidden'
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead style={{ backgroundColor: '#f9fafb' }}>
-                    <tr>
-                      <th style={{
-                        padding: '12px 24px',
-                        textAlign: 'left',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        textTransform: 'uppercase'
-                      }}>
-                        Paciente
-                      </th>
-                      <th style={{
-                        padding: '12px 24px',
-                        textAlign: 'left',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        textTransform: 'uppercase'
-                      }}>
-                        Contato
-                      </th>
-                      <th style={{
-                        padding: '12px 24px',
-                        textAlign: 'left',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        textTransform: 'uppercase'
-                      }}>
-                        Convênio
-                      </th>
-                      <th style={{
-                        padding: '12px 24px',
-                        textAlign: 'right',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: '#6b7280',
-                        textTransform: 'uppercase'
-                      }}>
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPacientes.map((paciente) => (
-                      <tr 
-                        key={paciente.id} 
-                        style={{ borderTop: '1px solid #e5e7eb' }}
-                      >
-                        <td style={{ padding: '16px 24px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <div style={{
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '50%',
-                              backgroundColor: '#dbeafe',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              marginRight: '16px'
-                            }}>
-                              <User style={{ width: '20px', height: '20px', color: '#3b82f6' }} />
-                            </div>
-                            <div>
-                              <div style={{
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                color: '#1f2937'
-                              }}>
-                                {paciente.nome}
-                              </div>
-                              <div style={{
-                                fontSize: '14px',
-                                color: '#6b7280'
-                              }}>
-                                {formatCPF(paciente.cpf)} • {calcularIdade(paciente.dataNascimento)} anos
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '16px 24px' }}>
-                          <div style={{
-                            fontSize: '14px',
-                            color: '#1f2937',
-                            display: 'flex',
-                            alignItems: 'center',
-                            marginBottom: '4px'
-                          }}>
-                            <Phone style={{ width: '16px', height: '16px', marginRight: '4px' }} />
-                            {paciente.telefone}
-                          </div>
-                          {paciente.email && (
-                            <div style={{
-                              fontSize: '14px',
-                              color: '#6b7280',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}>
-                              <Mail style={{ width: '16px', height: '16px', marginRight: '4px' }} />
-                              {paciente.email}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '16px 24px' }}>
-                          <div style={{
-                            fontSize: '14px',
-                            color: '#1f2937'
-                          }}>
-                            {paciente.convenio || 'Particular'}
-                          </div>
-                          {paciente.numeroConvenio && (
-                            <div style={{
-                              fontSize: '14px',
-                              color: '#6b7280'
-                            }}>
-                              {paciente.numeroConvenio}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                          <div style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: '8px'
-                          }}>
-                            <button
-                              onClick={() => setSelectedPaciente(paciente)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#3b82f6',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              <Eye size={18} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingPaciente(paciente);
-                                setShowForm(true);
-                              }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#6366f1',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              <Edit size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePaciente(paciente.id)}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#ef4444',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                borderRadius: '4px'
-                              }}
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'consultas' && (
-          <div>
-            <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              justifyContent: 'space-between',
-              alignItems: isMobile ? 'stretch' : 'center',
-              marginBottom: isMobile ? '16px' : '24px',
-              gap: isMobile ? '12px' : '0'
-            }}>
-              <h2 style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: '600',
-                color: '#1f2937',
-                margin: 0
-              }}>
-                Consultas ({getConsultasHoje()} hoje)
-              </h2>
-              <button
-                onClick={() => setShowConsultaForm(true)}
-                style={{
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  padding: isMobile ? '14px 16px' : '12px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontSize: isMobile ? '16px' : '14px',
-                  fontWeight: '500',
-                  width: isMobile ? '100%' : 'auto'
-                }}
-              >
-                <Plus size={isMobile ? 20 : 18} />
-                Nova Consulta
-              </button>
-            </div>
-
-            {/* Filtros */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 200px',
-              gap: isMobile ? '12px' : '16px',
-              marginBottom: isMobile ? '16px' : '24px'
-            }}>
-              <div style={{ position: 'relative' }}>
-                <Search 
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af',
-                    width: '20px',
-                    height: '20px'
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Pesquisar paciente ou médico..."
-                  value={consultaSearchTerm}
-                  onChange={(e) => setConsultaSearchTerm(e.target.value)}
-                  style={{
-                    width: '100%',
-                    paddingLeft: '44px',
-                    paddingRight: '16px',
-                    paddingTop: isMobile ? '16px' : '12px',
-                    paddingBottom: isMobile ? '16px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              
-              <div style={{ position: 'relative' }}>
-                <CalendarDays 
-                  style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af',
-                    width: '20px',
-                    height: '20px'
-                  }}
-                />
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    paddingLeft: '44px',
-                    paddingRight: '16px',
-                    paddingTop: isMobile ? '16px' : '12px',
-                    paddingBottom: isMobile ? '16px' : '12px',
-                    border: '2px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: isMobile ? '18px' : '16px',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Lista de consultas */}
-            {isMobile ? (
-              <div>
-                {filteredConsultas.length === 0 ? (
-                  <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '48px 16px',
-                    textAlign: 'center',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-                    border: '1px solid #e5e7eb'
-                  }}>
-                    <Calendar style={{
-                      width: '48px',
-                      height: '48px',
-                      color: '#9ca3af',
-                      margin: '0 auto 16px'
-                    }} />
-                    <p style={{
-                      color: '#6b7280',
-                      margin: 0
-                    }}>
-                      Nenhuma consulta encontrada
-                    </p>
-                  </div>
-                ) : (
-                  filteredConsultas.map((consulta) => (
-                    <ConsultaCard key={consulta.id} consulta={consulta} />
-                  ))
-                )}
-              </div>
-            ) : (
-              <div style={{
-                backgroundColor: 'white',
-                borderRadius: '8px',
-                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-                overflow: 'hidden'
-              }}>
-                {filteredConsultas.length === 0 ? (
-                  <div style={{
-                    padding: '48px',
-                    textAlign: 'center'
-                  }}>
-                    <Calendar style={{
-                      width: '64px',
-                      height: '64px',
-                      color: '#9ca3af',
-                      margin: '0 auto 16px'
-                    }} />
-                    <p style={{
-                      color: '#6b7280',
-                      margin: 0,
-                      fontSize: '16px'
-                    }}>
-                      Nenhuma consulta encontrada
-                    </p>
-                  </div>
-                ) : (
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ backgroundColor: '#f9fafb' }}>
-                      <tr>
-                        <th style={{
-                          padding: '12px 24px',
-                          textAlign: 'left',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          textTransform: 'uppercase'
-                        }}>
-                          Paciente
-                        </th>
-                        <th style={{
-                          padding: '12px 24px',
-                          textAlign: 'left',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          textTransform: 'uppercase'
-                        }}>
-                          Data/Hora
-                        </th>
-                        <th style={{
-                          padding: '12px 24px',
-                          textAlign: 'left',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          textTransform: 'uppercase'
-                        }}>
-                          Tipo/Motivo
-                        </th>
-                        <th style={{
-                          padding: '12px 24px',
-                          textAlign: 'center',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          textTransform: 'uppercase'
-                        }}>
-                          Status
-                        </th>
-                        <th style={{
-                          padding: '12px 24px',
-                          textAlign: 'right',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          textTransform: 'uppercase'
-                        }}>
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredConsultas.map((consulta) => {
-                        const paciente = getPacienteById(consulta.pacienteId);
-                        return (
-                          <tr 
-                            key={consulta.id} 
-                            style={{ borderTop: '1px solid #e5e7eb' }}
-                          >
-                            <td style={{ padding: '16px 24px' }}>
-                              <div style={{
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                color: '#1f2937'
-                              }}>
-                                {paciente?.nome}
-                              </div>
-                              <div style={{
-                                fontSize: '14px',
-                                color: '#6b7280'
-                              }}>
-                                {paciente && formatCPF(paciente.cpf)}
-                              </div>
-                            </td>
-                            <td style={{ padding: '16px 24px' }}>
-                              <div style={{
-                                fontSize: '14px',
-                                color: '#1f2937',
-                                display: 'flex',
-                                alignItems: 'center',
-                                marginBottom: '4px'
-                              }}>
-                                <Calendar style={{ width: '16px', height: '16px', marginRight: '4px' }} />
-                                {new Date(consulta.data).toLocaleDateString('pt-BR')}
-                              </div>
-                              <div style={{
-                                fontSize: '14px',
-                                color: '#6b7280',
-                                display: 'flex',
-                                alignItems: 'center'
-                              }}>
-                                <Clock style={{ width: '16px', height: '16px', marginRight: '4px' }} />
-                                {consulta.hora}
-                              </div>
-                            </td>
-                            <td style={{ padding: '16px 24px' }}>
-                              <div style={{
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                color: '#1f2937'
-                              }}>
-                                {consulta.tipo}
-                              </div>
-                              <div style={{
-                                fontSize: '14px',
-                                color: '#6b7280'
-                              }}>
-                                {consulta.queixaPrincipal}
-                              </div>
-                            </td>
-                            <td style={{ padding: '16px 24px', textAlign: 'center' }}>
-                              <span style={{
-                                fontSize: '12px',
-                                fontWeight: '500',
-                                color: getStatusColor(consulta.status),
-                                backgroundColor: `${getStatusColor(consulta.status)}15`,
-                                padding: '4px 12px',
-                                borderRadius: '4px'
-                              }}>
-                                {consulta.status}
-                              </span>
-                            </td>
-                            <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                              <div style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: '8px'
-                              }}>
-                                {consulta.status === 'Agendada' ? (
-                                  <>
-                                    <button
-                                      onClick={() => handleConcluirConsulta(consulta)}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#10b981',
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                        borderRadius: '4px'
-                                      }}
-                                      title="Realizar consulta"
-                                    >
-                                      <Check size={18} />
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingConsulta(consulta);
-                                        setShowConsultaForm(true);
-                                      }}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#6366f1',
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                        borderRadius: '4px'
-                                      }}
-                                      title="Editar consulta"
-                                    >
-                                      <Edit size={18} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteConsulta(consulta.id)}
-                                      style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#ef4444',
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                        borderRadius: '4px'
-                                      }}
-                                      title="Cancelar consulta"
-                                    >
-                                      <X size={18} />
-                                    </button>
-                                  </>
-                                ) : (
-                                  <button
-                                    onClick={() => {
-                                      setEditingConsulta(consulta);
-                                      setShowConsultaForm(true);
-                                    }}
-                                    style={{
-                                      background: 'none',
-                                      border: 'none',
-                                      color: '#3b82f6',
-                                      cursor: 'pointer',
-                                      padding: '4px',
-                                      borderRadius: '4px'
-                                    }}
-                                    title="Ver detalhes"
-                                  >
-                                    <Eye size={18} />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'relatorios' && (
-          <div>
-            <h2 style={{
-              fontSize: isMobile ? '18px' : '20px',
-              fontWeight: '600',
-              color: '#1f2937',
-              margin: '0 0 24px'
-            }}>
-              Relatórios e Estatísticas
-            </h2>
-            
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: isMobile ? '12px' : '24px'
-            }}>
-              {[
-                { icon: User, label: 'Pacientes', value: pacientes.length, color: '#3b82f6' },
-                { icon: Calendar, label: 'Consultas', value: consultas.length, color: '#10b981' },
-                { icon: Activity, label: 'Sistema', value: 'Online', color: '#8b5cf6' },
-                { icon: FileText, label: 'Versão', value: '2.1', color: '#f59e0b' }
-              ].map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div key={index} style={{
-                    backgroundColor: 'white',
-                    padding: isMobile ? '16px' : '24px',
-                    borderRadius: '8px',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-                  }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      flexDirection: isMobile ? 'column' : 'row',
-                      textAlign: isMobile ? 'center' : 'left'
-                    }}>
-                      <Icon style={{
-                        width: isMobile ? '24px' : '32px',
-                        height: isMobile ? '24px' : '32px',
-                        color: stat.color,
-                        marginRight: isMobile ? '0' : '16px',
-                        marginBottom: isMobile ? '8px' : '0'
-                      }} />
-                      <div>
-                        <p style={{
-                          fontSize: isMobile ? '12px' : '14px',
-                          fontWeight: '500',
-                          color: '#6b7280',
-                          margin: '0 0 4px'
-                        }}>
-                          {stat.label}
-                        </p>
-                        <p style={{
-                          fontSize: isMobile ? '18px' : '24px',
-                          fontWeight: '600',
-                          color: stat.value === 'Online' ? '#10b981' : '#1f2937',
-                          margin: 0
-                        }}>
-                          {stat.value}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* Modal Formulário */}
-      {showForm && (
-        <FormularioPaciente
-          paciente={editingPaciente}
-          onSave={handleSavePaciente}
-          onCancel={() => {
-            setShowForm(false);
-            setEditingPaciente(null);
-          }}
-        />
-      )}
-
-      {/* Modal Formulário Consulta */}
-      {showConsultaForm && (
-        <FormularioConsulta
-          consulta={editingConsulta}
-          onSave={handleSaveConsulta}
-          onCancel={() => {
-            setShowConsultaForm(false);
-            setEditingConsulta(null);
-          }}
-        />
-      )}
-
-      {/* Modal do Prontuário Mobile-Friendly */}
-      {selectedPaciente && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          justifyContent: 'center',
-          padding: isMobile ? '0' : '20px',
-          zIndex: 1000,
-          overflowY: 'auto'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: isMobile ? '0' : '12px',
-            padding: isMobile ? '16px' : '30px',
-            width: '100%',
-            maxWidth: isMobile ? '100%' : '1000px',
-            minHeight: isMobile ? '100vh' : 'auto',
-            maxHeight: isMobile ? '100vh' : '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: isMobile ? '20px' : '30px',
-              borderBottom: '1px solid #e5e7eb',
-              paddingBottom: '20px',
-              position: isMobile ? 'sticky' : 'static',
-              top: 0,
-              backgroundColor: 'white',
-              zIndex: 10
-            }}>
-              <h2 style={{
-                fontSize: isMobile ? '18px' : '24px',
-                fontWeight: 'bold',
-                color: '#1f2937',
-                margin: 0,
-                lineHeight: '1.2'
-              }}>
-                📋 {isMobile ? selectedPaciente.nome.split(' ')[0] : `Prontuário - ${selectedPaciente.nome}`}
-              </h2>
-              <button 
-                onClick={() => setSelectedPaciente(null)} 
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#6b7280',
-                  cursor: 'pointer',
-                  padding: '8px',
-                  borderRadius: '6px'
-                }}
-              >
-                <X size={isMobile ? 28 : 24} />
-              </button>
-            </div>
-            
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))',
-              gap: isMobile ? '20px' : '30px'
-            }}>
-              <div>
-                <h3 style={{
-                  fontSize: isMobile ? '16px' : '18px',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  marginBottom: '12px'
-                }}>
-                  👤 Dados Pessoais
-                </h3>
-                <div style={{
-                  backgroundColor: '#f0f9ff',
-                  padding: isMobile ? '16px' : '20px',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '15px' : '14px',
-                  lineHeight: '1.6',
-                  border: '1px solid #e0f2fe'
-                }}>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>Nome:</strong> {selectedPaciente.nome}
-                  </p>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>CPF:</strong> {formatCPF(selectedPaciente.cpf)}
-                  </p>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>Idade:</strong> {calcularIdade(selectedPaciente.dataNascimento)} anos
-                  </p>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>Telefone:</strong> {selectedPaciente.telefone}
-                  </p>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>E-mail:</strong> {selectedPaciente.email}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>Convênio:</strong> {selectedPaciente.convenio}
-                  </p>
-                </div>
-              </div>
-              
-              <div>
-                <h3 style={{
-                  fontSize: isMobile ? '16px' : '18px',
-                  fontWeight: '600',
-                  color: '#1f2937',
-                  marginBottom: '12px'
-                }}>
-                  ⚕️ Informações Médicas
-                </h3>
-                <div style={{
-                  backgroundColor: '#fef7f0',
-                  padding: isMobile ? '16px' : '20px',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '15px' : '14px',
-                  lineHeight: '1.6',
-                  border: '1px solid #fed7aa'
-                }}>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>🚨 Alergias:</strong> {selectedPaciente.alergias || 'Nenhuma'}
-                  </p>
-                  <p style={{ margin: '0 0 8px' }}>
-                    <strong>💊 Medicamentos:</strong> {selectedPaciente.medicamentosUso || 'Nenhum'}
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong>👨‍👩‍👧‍👦 Histórico Familiar:</strong> {selectedPaciente.historicoFamiliar || 'Não informado'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div style={{ marginTop: isMobile ? '20px' : '30px' }}>
-              <h3 style={{
-                fontSize: isMobile ? '16px' : '18px',
-                fontWeight: '600',
-                color: '#1f2937',
-                marginBottom: '12px'
-              }}>
-                📅 Histórico de Consultas
-              </h3>
-              <div style={{
-                backgroundColor: '#f8fafc',
-                padding: isMobile ? '16px' : '20px',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0'
-              }}>
-                {getConsultasPaciente(selectedPaciente.id).length === 0 ? (
-                  <p style={{
-                    color: '#64748b',
-                    textAlign: 'center',
-                    margin: 0,
-                    fontStyle: 'italic',
-                    fontSize: isMobile ? '15px' : '14px'
-                  }}>
-                    📝 Nenhuma consulta registrada
-                  </p>
-                ) : (
-                  getConsultasPaciente(selectedPaciente.id).map(consulta => (
-                    <div key={consulta.id} style={{
-                      backgroundColor: 'white',
-                      padding: isMobile ? '12px' : '16px',
-                      borderRadius: '6px',
-                      marginBottom: '12px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        marginBottom: '8px',
-                        flexWrap: 'wrap',
-                        gap: '8px'
-                      }}>
-                        <h4 style={{
-                          fontSize: isMobile ? '15px' : '16px',
-                          fontWeight: '500',
-                          color: '#1e293b',
-                          margin: 0
-                        }}>
-                          👨‍⚕️ {consulta.medico}
-                        </h4>
-                        <span style={{
-                          fontSize: isMobile ? '13px' : '14px',
-                          color: '#64748b',
-                          backgroundColor: '#f1f5f9',
-                          padding: '4px 8px',
-                          borderRadius: '4px'
-                        }}>
-                          📅 {new Date(consulta.data).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                      <p style={{
-                        fontSize: isMobile ? '14px' : '14px',
-                        color: '#334155',
-                        margin: '0 0 4px',
-                        lineHeight: '1.5'
-                      }}>
-                        <strong>Queixa:</strong> {consulta.queixaPrincipal}
-                      </p>
-                      <p style={{
-                        fontSize: isMobile ? '14px' : '14px',
-                        color: '#64748b',
-                        margin: 0,
-                        lineHeight: '1.5'
-                      }}>
-                        <strong>Diagnóstico:</strong> {consulta.hipoteseDiagnostica}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+const formatarData = (dataISO) => {
+  if (!dataISO) return '-';
+  const partes = dataISO.split('-');
+  if (partes.length !== 3) return dataISO;
+  return `${partes[2]}/${partes[1]}/${partes[0]}`;
 };
 
-export default ProntuarioEletronico;
+function Header() {
+  const { logout, user } = useAuth();
+  return (
+    <div style={{
+      backgroundColor: '#007bff',
+      color: 'white',
+      padding: '15px 20px',
+      marginBottom: '25px',
+      borderRadius: '8px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }}>
+      <div>
+        <h1 style={{ margin: 0, fontSize: '20px' }}>PEP - Prontuário Eletrônico</h1>
+        <p style={{ margin: '4px 0 0', fontSize: '13px', opacity: 0.85 }}>Sistema médico</p>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <span style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
+        <button
+          onClick={logout}
+          style={{
+            padding: '6px 14px',
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            color: 'white',
+            border: '1px solid rgba(255,255,255,0.4)',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '13px'
+          }}
+        >
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedLayout({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '16px' }}>Carregando...</p>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #dbeafe 100%)',
+      padding: '25px'
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function PacientesPage({ pacientes, setPacientes }) {
+  const navigate = useNavigate();
+
+  const [busca, setBusca] = React.useState('');
+  const [pacienteEditando, setPacienteEditando] = React.useState(null);
+
+  const formatarCPF = (valor) => {
+    const numeros = valor.replace(/\D/g, '').slice(0, 11);
+    return numeros
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  };
+
+  const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
+
+  const formatarTelefone = (valor) => {
+    const n = valor.replace(/\D/g, '').slice(0, 11);
+    if (n.length === 0) return '';
+    if (n.length <= 2) return `(${n}`;
+    if (n.length <= 6) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+    if (n.length <= 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+    return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  };
+
+  const formatarCEP = (valor) => {
+    const n = valor.replace(/\D/g, '').slice(0, 8);
+    if (n.length <= 5) return n;
+    return `${n.slice(0, 5)}-${n.slice(5)}`;
+  };
+
+  const buscarCEP = async (cepFormatado) => {
+    const cepLimpo = cepFormatado.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await resp.json();
+      if (!data.erro) {
+        const partes = [data.logradouro, data.bairro, data.localidade].filter(Boolean);
+        const endereco = `${partes.join(', ')} - ${data.uf}`;
+        setNovoPaciente(prev => ({ ...prev, endereco }));
+      }
+    } catch (_) {}
+  };
+
+  const [novoPaciente, setNovoPaciente] = React.useState({
+    nome: '',
+    cpf: '',
+    nascimento: '',
+    nomeMae: '',
+    telefone: '',
+    convenio: '',
+    cep: '',
+    endereco: '',
+    alergias: ''
+  });
+
+  const pacientesFiltrados = pacientes
+    .filter((paciente) =>
+      (paciente.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+      (paciente.cpf || '').includes(busca) ||
+      (paciente.nascimento || '').includes(busca) ||
+      (paciente.nomeMae || '').toLowerCase().includes(busca.toLowerCase())
+    )
+    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+  const limparFormulario = () => {
+    setNovoPaciente({
+      nome: '',
+      cpf: '',
+      nascimento: '',
+      nomeMae: '',
+      telefone: '',
+      convenio: '',
+      cep: '',
+      endereco: '',
+      alergias: ''
+    });
+    setPacienteEditando(null);
+  };
+
+  const salvarPaciente = () => {
+    const temIdentificador =
+      novoPaciente.cpf || novoPaciente.nascimento || novoPaciente.nomeMae;
+
+    if (!novoPaciente.nome || !temIdentificador || !novoPaciente.telefone) {
+      alert(
+        'Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.'
+      );
+      return;
+    }
+
+    const cpfAtual = limparCPF(novoPaciente.cpf);
+
+    if (cpfAtual) {
+      const cpfDuplicado = pacientes.some((paciente) => {
+        const mesmoCpf = limparCPF(paciente.cpf) === cpfAtual;
+        const pacienteDiferente = paciente.id !== pacienteEditando?.id;
+        return mesmoCpf && pacienteDiferente;
+      });
+
+      if (cpfDuplicado) {
+        alert('Já existe um paciente cadastrado com este CPF.');
+        return;
+      }
+    }
+
+    if (pacienteEditando) {
+      const pacientesAtualizados = pacientes.map((paciente) =>
+        paciente.id === pacienteEditando.id
+          ? { ...paciente, ...novoPaciente }
+          : paciente
+      );
+
+      setPacientes(pacientesAtualizados);
+      limparFormulario();
+      return;
+    }
+
+    setPacientes([
+      ...pacientes,
+      {
+        id: Date.now(),
+        ...novoPaciente,
+        evolucoes: []
+      }
+    ]);
+
+    limparFormulario();
+  };
+
+  const editarPaciente = (paciente) => {
+    setPacienteEditando(paciente);
+
+    setNovoPaciente({
+      nome: paciente.nome || '',
+      cpf: paciente.cpf || '',
+      nascimento: paciente.nascimento || '',
+      nomeMae: paciente.nomeMae || '',
+      telefone: paciente.telefone || '',
+      convenio: paciente.convenio || '',
+      cep: paciente.cep || '',
+      endereco: paciente.endereco || '',
+      alergias: paciente.alergias || ''
+    });
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div>
+      <Header />
+
+      <h2>Cadastro de Pacientes</h2>
+
+      <div
+        style={{
+          backgroundColor: 'white',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          position: 'sticky',
+          top: '0',
+          zIndex: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+        }}
+      >
+        <h3 style={{ marginTop: 0 }}>
+          {pacienteEditando ? 'Editar Paciente' : 'Novo Paciente'}
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '10px' }}>
+          <input
+            placeholder="Nome completo *"
+            value={novoPaciente.nome}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, nome: e.target.value })}
+            style={{ padding: '10px', gridColumn: 'span 4' }}
+          />
+          <input
+            placeholder="CPF"
+            value={novoPaciente.cpf}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPF(e.target.value) })}
+            style={{ padding: '10px', gridColumn: 'span 2' }}
+          />
+          <input
+            type="date"
+            value={novoPaciente.nascimento}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, nascimento: e.target.value })}
+            style={{ padding: '10px', gridColumn: 'span 2' }}
+          />
+          <input
+            placeholder="Nome da mãe"
+            value={novoPaciente.nomeMae}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, nomeMae: e.target.value })}
+            style={{ padding: '10px', gridColumn: 'span 4' }}
+          />
+          <input
+            placeholder="(XX) XXXXX-XXXX"
+            value={novoPaciente.telefone}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, telefone: formatarTelefone(e.target.value) })}
+            style={{ padding: '10px', gridColumn: 'span 2' }}
+          />
+          <input
+            placeholder="CEP"
+            value={novoPaciente.cep}
+            onChange={(e) => {
+              const cepFormatado = formatarCEP(e.target.value);
+              setNovoPaciente(prev => ({ ...prev, cep: cepFormatado }));
+              buscarCEP(cepFormatado);
+            }}
+            style={{ padding: '10px', gridColumn: 'span 2' }}
+            maxLength={9}
+          />
+          <input
+            placeholder="Endereço (preenchido pelo CEP)"
+            value={novoPaciente.endereco}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, endereco: e.target.value })}
+            style={{ padding: '10px', gridColumn: 'span 6' }}
+          />
+          <input
+            placeholder="Convênio"
+            value={novoPaciente.convenio}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, convenio: e.target.value })}
+            list="lista-convenios"
+            style={{ padding: '10px', gridColumn: 'span 2' }}
+          />
+          <datalist id="lista-convenios">
+            <option value="Bradesco Saúde" />
+            <option value="CASSI" />
+            <option value="Unimed" />
+            <option value="Particular" />
+          </datalist>
+          <input
+            placeholder="Alergias"
+            value={novoPaciente.alergias}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, alergias: e.target.value })}
+            style={{ padding: '10px', gridColumn: 'span 9' }}
+          />
+          <button
+            onClick={salvarPaciente}
+            style={{ padding: '12px', backgroundColor: pacienteEditando ? '#f59e0b' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', gridColumn: 'span 3' }}
+          >
+            {pacienteEditando ? 'Salvar Alterações' : 'Salvar Paciente'}
+          </button>
+          {pacienteEditando && (
+            <button
+              onClick={limparFormulario}
+              style={{ padding: '12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', gridColumn: 'span 12' }}
+            >
+              Cancelar Edição
+            </button>
+          )}
+        </div>
+
+        <p style={{ fontSize: '13px', color: '#666', margin: '10px 0 0' }}>
+          * Obrigatório: nome, telefone e pelo menos CPF, data de nascimento ou nome da mãe.
+        </p>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: 'white',
+          padding: '20px',
+          borderRadius: '8px'
+        }}
+      >
+        <div
+          style={{
+            position: 'sticky',
+            top: pacienteEditando ? '255px' : '205px',
+            zIndex: 15,
+            backgroundColor: 'white',
+            padding: '10px 0 15px',
+            borderBottom: '1px solid #eee'
+          }}
+        >
+          <h3 style={{ marginTop: 0 }}>Lista de Pacientes</h3>
+
+          <input
+            placeholder="Buscar por nome, CPF, data de nascimento ou nome da mãe..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '6px',
+              border: '1px solid #ccc',
+              fontSize: '16px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: '15px', display: 'grid', gap: '8px' }}>
+          {pacientesFiltrados.length === 0 ? (
+            <p>Nenhum paciente encontrado.</p>
+          ) : (
+            pacientesFiltrados.map((paciente) => (
+              <div
+                key={paciente.id}
+                style={{
+                  border: '1px solid #ddd',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: '#f8f9fa'
+                }}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr 1.4fr',
+                    gap: '8px',
+                    alignItems: 'center'
+                  }}
+                >
+                  <div>
+                    <strong>{paciente.nome}</strong>
+                    <div style={{ fontSize: '13px', color: '#666' }}>
+                      Mãe: {paciente.nomeMae || 'Não informado'}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '13px' }}>
+                    <strong>CPF:</strong><br />
+                    {paciente.cpf || '-'}
+                  </div>
+
+                  <div style={{ fontSize: '13px' }}>
+                    <strong>Nasc.:</strong><br />
+                    {formatarData(paciente.nascimento)}
+                  </div>
+
+                  <div style={{ fontSize: '13px' }}>
+                    <strong>Tel.:</strong><br />
+                    {paciente.telefone || '-'}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '8px',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 2fr 1fr',
+                    gap: '8px',
+                    fontSize: '13px',
+                    color: '#444'
+                  }}
+                >
+                  <div>
+                    <strong>Convênio:</strong> {paciente.convenio || '-'}
+                  </div>
+
+                  <div>
+                    <strong>Endereço:</strong> {paciente.endereco || '-'}
+                  </div>
+
+                  <div>
+                    <strong>Alergias:</strong> {paciente.alergias || '-'}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    onClick={() => navigate(`/prontuario/${paciente.id}`)}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginRight: '8px'
+                    }}
+                  >
+                    Abrir Prontuário
+                  </button>
+
+                  <button
+                    onClick={() => editarPaciente(paciente)}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Editar Cadastro
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProntuarioPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
+  const [registroAberto, setRegistroAberto] = React.useState(null);
+  const [editandoClinicos, setEditandoClinicos] = React.useState(false);
+  const [clinicos, setClinicos] = React.useState({
+    has: '', dm: '', dac: '', dislipidemia: '',
+    tabagismo: '', etilismo: '', cirurgias: '',
+    medicamentosUso: '', alergias: ''
+  });
+
+  React.useEffect(() => {
+    if (paciente) {
+      setClinicos({
+        has: paciente.has || '',
+        dm: paciente.dm || '',
+        dac: paciente.dac || '',
+        dislipidemia: paciente.dislipidemia || '',
+        tabagismo: paciente.tabagismo || '',
+        etilismo: paciente.etilismo || '',
+        cirurgias: paciente.cirurgias || '',
+        medicamentosUso: paciente.medicamentosUso || '',
+        alergias: paciente.alergias || '',
+      });
+    }
+  }, [paciente?.id]);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const registros = paciente.registros || [];
+
+  const salvarAtendimento = () => {
+    if (!atendimentoAtual.trim()) return;
+    const agora = new Date();
+    const novoRegistro = {
+      id: Date.now(),
+      tipo: 'Consulta',
+      data: agora.toLocaleDateString('pt-BR'),
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      titulo: 'Atendimento médico',
+      conteudo: atendimentoAtual
+    };
+    setPacientes(pacientes.map((p) =>
+      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
+    ));
+    setAtendimentoAtual('');
+  };
+
+  const salvarClinicos = () => {
+    setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...clinicos } : p));
+    setEditandoClinicos(false);
+  };
+
+  const campoSelect = (label, key, extras = []) => (
+    <div key={key} style={{ marginBottom: '6px' }}>
+      <strong style={{ fontSize: '12px' }}>{label}: </strong>
+      {editandoClinicos ? (
+        <select
+          value={clinicos[key]}
+          onChange={(e) => setClinicos({ ...clinicos, [key]: e.target.value })}
+          style={{ fontSize: '12px', padding: '1px 4px' }}
+        >
+          <option value="">Não informado</option>
+          <option value="Sim">Sim</option>
+          <option value="Não">Não</option>
+          <option value="Em investigação">Em investigação</option>
+          {extras.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : (
+        <span style={{ fontSize: '12px', color: clinicos[key] ? '#333' : '#999' }}>
+          {clinicos[key] || 'Não informado'}
+        </span>
+      )}
+    </div>
+  );
+
+  const coresTipo = {
+    'Consulta': '#007bff', 'Atestado': '#28a745',
+    'Receituário': '#f59e0b', 'Prescrição': '#8b5cf6', 'Relatório': '#6c757d',
+  };
+
+  return (
+    <div>
+      <Header />
+      <Link to="/pacientes">← Voltar para pacientes</Link>
+      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '250px 1.4fr 1fr', gap: '18px', alignItems: 'start' }}>
+
+        {/* Painel esquerdo — dados do paciente */}
+        <div style={painelStyle}>
+          <div style={{ width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#dbeafe', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>👤</div>
+          <h2 style={{ marginBottom: '4px', fontSize: '15px', textAlign: 'center' }}>{paciente.nome}</h2>
+          <div style={{ fontSize: '12px', color: '#555', marginBottom: '10px' }}>
+            <p style={{ margin: '2px 0' }}><strong>CPF:</strong> {paciente.cpf || '-'}</p>
+            <p style={{ margin: '2px 0' }}><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}</p>
+            <p style={{ margin: '2px 0' }}><strong>Tel.:</strong> {paciente.telefone || '-'}</p>
+            <p style={{ margin: '2px 0' }}><strong>Convênio:</strong> {paciente.convenio || '-'}</p>
+          </div>
+          <hr />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' }}>
+            <strong style={{ fontSize: '13px' }}>Dados Clínicos</strong>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {editandoClinicos && (
+                <button onClick={() => setEditandoClinicos(false)} style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
+              )}
+              <button
+                onClick={() => editandoClinicos ? salvarClinicos() : setEditandoClinicos(true)}
+                style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: editandoClinicos ? '#28a745' : '#6c757d', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+              >
+                {editandoClinicos ? '✓ Salvar' : 'Editar'}
+              </button>
+            </div>
+          </div>
+          {campoSelect('HAS', 'has')}
+          {campoSelect('DM', 'dm')}
+          {campoSelect('DAC', 'dac')}
+          {campoSelect('Dislipidemia', 'dislipidemia')}
+          {campoSelect('Tabagismo', 'tabagismo', ['Ex-tabagista'])}
+          {campoSelect('Etilismo', 'etilismo', ['Ocasional'])}
+          <div style={{ marginBottom: '6px' }}>
+            <strong style={{ fontSize: '12px' }}>Cirurgias: </strong>
+            {editandoClinicos ? (
+              <textarea value={clinicos.cirurgias} onChange={(e) => setClinicos({ ...clinicos, cirurgias: e.target.value })} placeholder="Ex: Apendicectomia 2010" style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '2px' }} rows={2} />
+            ) : (
+              <span style={{ fontSize: '12px', color: clinicos.cirurgias ? '#333' : '#999' }}>{clinicos.cirurgias || 'Não informado'}</span>
+            )}
+          </div>
+          <hr />
+          <strong style={{ fontSize: '12px' }}>Medicamentos em uso</strong>
+          {editandoClinicos ? (
+            <textarea value={clinicos.medicamentosUso} onChange={(e) => setClinicos({ ...clinicos, medicamentosUso: e.target.value })} style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '4px' }} rows={3} />
+          ) : (
+            <p style={{ fontSize: '12px', color: clinicos.medicamentosUso ? '#333' : '#999', marginTop: '4px' }}>{clinicos.medicamentosUso || 'Não informado'}</p>
+          )}
+          <strong style={{ fontSize: '12px' }}>Alergias</strong>
+          {editandoClinicos ? (
+            <input value={clinicos.alergias} onChange={(e) => setClinicos({ ...clinicos, alergias: e.target.value })} style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '4px' }} />
+          ) : (
+            <p style={{ fontSize: '12px', color: clinicos.alergias ? '#dc3545' : '#999', fontWeight: clinicos.alergias ? 'bold' : 'normal', marginTop: '4px' }}>{clinicos.alergias || 'Não informado'}</p>
+          )}
+        </div>
+
+        {/* Painel central — atendimento atual */}
+        <div style={painelStyle}>
+          <h2 style={{ marginTop: 0 }}>Atendimento Atual</h2>
+          <textarea
+            placeholder="História clínica, exame físico, hipótese diagnóstica, conduta..."
+            value={atendimentoAtual}
+            onChange={(e) => setAtendimentoAtual(e.target.value)}
+            rows={18}
+            style={{ width: '100%', padding: '12px', fontSize: '15px', borderRadius: '6px', border: '1px solid #ccc', resize: 'vertical' }}
+          />
+          <button onClick={salvarAtendimento} style={{ marginTop: '10px', padding: '12px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            ✓ Salvar Atendimento
+          </button>
+          <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+            <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
+            <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
+            <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
+            <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>📊 Relatório</Link>
+          </div>
+        </div>
+
+        {/* Painel direito — histórico */}
+        <div style={painelStyle}>
+          <h2 style={{ marginTop: 0 }}>Histórico ({registros.length})</h2>
+          {registros.length === 0 ? (
+            <p style={{ color: '#999', fontSize: '14px' }}>Nenhum registro ainda.</p>
+          ) : (
+            registros.map((registro) => {
+              const cor = coresTipo[registro.tipo] || '#007bff';
+              const aberto = registroAberto === registro.id;
+              return (
+                <div key={registro.id} style={{ marginBottom: '8px' }}>
+                  <div
+                    onClick={() => setRegistroAberto(aberto ? null : registro.id)}
+                    style={{ borderLeft: `4px solid ${cor}`, backgroundColor: aberto ? '#f0f7ff' : '#f8f9fa', padding: '8px 10px', borderRadius: aberto ? '6px 6px 0 0' : '6px', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', backgroundColor: cor, color: 'white', padding: '1px 7px', borderRadius: '10px' }}>{registro.tipo}</span>
+                      <span style={{ fontSize: '11px', color: '#666' }}>{registro.data} {registro.hora}</span>
+                    </div>
+                    <p style={{ margin: '4px 0 2px', fontSize: '13px', fontWeight: '500' }}>{registro.titulo}</p>
+                    <small style={{ color: cor, fontSize: '11px' }}>{aberto ? '▲ Fechar' : '▼ Ver detalhes'}</small>
+                  </div>
+                  {aberto && (
+                    <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', padding: '10px 12px', borderRadius: '0 0 6px 6px', whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: '1.6', maxHeight: '280px', overflowY: 'auto' }}>
+                      {registro.conteudo}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AtestadoPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const hojeISO = new Date().toISOString().split('T')[0];
+
+  const [medico, setMedico] = React.useState('');
+  const [crm, setCrm] = React.useState('');
+  const [dias, setDias] = React.useState('1');
+  const [dataAtestado, setDataAtestado] = React.useState(hojeISO);
+  const [cid, setCid] = React.useState('');
+  const [observacoes, setObservacoes] = React.useState('');
+  const [salvo, setSalvo] = React.useState(false);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const dataFormatada = new Date(dataAtestado + 'T12:00:00').toLocaleDateString('pt-BR', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  const salvarNoProntuario = () => {
+    const conteudo = [
+      `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
+      `Afastamento: ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} a partir de ${dataFormatada}`,
+      cid ? `CID: ${cid}` : null,
+      observacoes ? `Observações: ${observacoes}` : null,
+    ].filter(Boolean).join('\n');
+
+    const agora = new Date();
+    const novoRegistro = {
+      id: Date.now(),
+      tipo: 'Atestado',
+      data: agora.toLocaleDateString('pt-BR'),
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      titulo: `Atestado — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
+      conteudo
+    };
+    setPacientes(pacientes.map((p) =>
+      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
+    ));
+    setSalvo(true);
+  };
+
+  return (
+    <div>
+      <div className="no-print">
+        <Header />
+        <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      </div>
+      <div style={{ maxWidth: '750px', margin: '20px auto' }}>
+        <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ marginTop: 0 }}>Preencher Atestado</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
+              <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
+              <input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+              <input type="date" value={dataAtestado} onChange={(e) => setDataAtestado(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Dias de afastamento</label>
+              <input type="number" min="1" value={dias} onChange={(e) => setDias(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID (opcional)</label>
+              <input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="Ex: Z00.0" style={{ width: '100%', padding: '8px' }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações (opcional)</label>
+            <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} rows={2} />
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button onClick={salvarNoProntuario} style={{ padding: '10px 18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              ✓ Salvar no Prontuário
+            </button>
+            <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              🖨️ Imprimir
+            </button>
+            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '50px 60px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
+          </div>
+          <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 40px' }}>ATESTADO MÉDICO</h2>
+          <p style={{ fontSize: '15px', lineHeight: '2.2', textAlign: 'justify' }}>
+            Atesto que o(a) paciente <strong>{paciente.nome}</strong>
+            {paciente.cpf ? `, portador(a) do CPF ${paciente.cpf},` : ','} esteve sob meus cuidados médicos
+            e necessita afastar-se de suas atividades por{' '}
+            <strong>{dias} {Number(dias) === 1 ? 'dia' : 'dias'}</strong>, a contar de {dataFormatada}.
+            {cid && ` CID: ${cid}.`}
+          </p>
+          {observacoes && <p style={{ fontSize: '15px', lineHeight: '2', textAlign: 'justify' }}>{observacoes}</p>}
+          <div style={{ marginTop: '80px', textAlign: 'right' }}>
+            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+            <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+              <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+                <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReceituarioPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const hojeISO = new Date().toISOString().split('T')[0];
+
+  const [medico, setMedico] = React.useState('');
+  const [crm, setCrm] = React.useState('');
+  const [dataReceita, setDataReceita] = React.useState(hojeISO);
+  const [salvo, setSalvo] = React.useState(false);
+  const [medicamentos, setMedicamentos] = React.useState([
+    { id: 1, nome: '', dose: '', frequencia: '', duracao: '', instrucoes: '' }
+  ]);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const adicionarMed = () => setMedicamentos([...medicamentos, {
+    id: Date.now(), nome: '', dose: '', frequencia: '', duracao: '', instrucoes: ''
+  }]);
+
+  const removerMed = (medId) => {
+    if (medicamentos.length > 1) setMedicamentos(medicamentos.filter(m => m.id !== medId));
+  };
+
+  const atualizarMed = (medId, campo, valor) => {
+    setMedicamentos(medicamentos.map(m => m.id === medId ? { ...m, [campo]: valor } : m));
+  };
+
+  const dataFormatada = new Date(dataReceita + 'T12:00:00').toLocaleDateString('pt-BR', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  const salvarNoProntuario = () => {
+    const medsTexto = medicamentos
+      .filter(m => m.nome)
+      .map((m, idx) => {
+        const linhas = [`${idx + 1}. ${m.nome}${m.dose ? ' ' + m.dose : ''}`];
+        if (m.frequencia || m.duracao) linhas.push(`   ${m.frequencia}${m.duracao ? ' por ' + m.duracao : ''}`);
+        if (m.instrucoes) linhas.push(`   ${m.instrucoes}`);
+        return linhas.join('\n');
+      })
+      .join('\n\n');
+
+    const conteudo = `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}\n\n${medsTexto}`;
+    const qtd = medicamentos.filter(m => m.nome).length;
+    const agora = new Date();
+    const novoRegistro = {
+      id: Date.now(),
+      tipo: 'Receituário',
+      data: agora.toLocaleDateString('pt-BR'),
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      titulo: `Receituário — ${qtd} medicamento${qtd !== 1 ? 's' : ''}`,
+      conteudo
+    };
+    setPacientes(pacientes.map((p) =>
+      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
+    ));
+    setSalvo(true);
+  };
+
+  return (
+    <div>
+      <div className="no-print">
+        <Header />
+        <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      </div>
+      <div style={{ maxWidth: '780px', margin: '20px auto' }}>
+        <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ marginTop: 0 }}>Preencher Receituário</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
+              <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
+              <input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+              <input type="date" value={dataReceita} onChange={(e) => setDataReceita(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+            </div>
+          </div>
+          <h4 style={{ margin: '0 0 10px' }}>Medicamentos</h4>
+          {medicamentos.map((med, idx) => (
+            <div key={med.id} style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '12px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <strong style={{ fontSize: '13px', color: '#374151' }}>Medicamento {idx + 1}</strong>
+                {medicamentos.length > 1 && (
+                  <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Remover</button>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Dose (50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Frequência (1x/dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Duração (30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+              </div>
+              <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
+            <button onClick={salvarNoProntuario} style={{ padding: '9px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>✓ Salvar no Prontuário</button>
+            <button onClick={() => window.print()} style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
+            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '50px 60px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
+          </div>
+          <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 20px' }}>RECEITUÁRIO</h2>
+          <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Paciente:</strong> {paciente.nome}</p>
+          {paciente.cpf && <p style={{ margin: '0 0 16px', fontSize: '14px' }}><strong>CPF:</strong> {paciente.cpf}</p>}
+          <hr style={{ margin: '16px 0' }} />
+          {medicamentos.filter(m => m.nome).map((med, idx) => (
+            <div key={med.id} style={{ marginBottom: '20px' }}>
+              <p style={{ margin: '0 0 4px', fontWeight: 'bold', fontSize: '15px' }}>
+                {idx + 1}. {med.nome}{med.dose ? ` ${med.dose}` : ''}
+              </p>
+              {(med.frequencia || med.duracao) && (
+                <p style={{ margin: '0 0 2px', paddingLeft: '20px', fontSize: '14px' }}>
+                  Tomar {med.frequencia}{med.duracao ? ` por ${med.duracao}` : ''}
+                </p>
+              )}
+              {med.instrucoes && (
+                <p style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#555', fontStyle: 'italic' }}>{med.instrucoes}</p>
+              )}
+            </div>
+          ))}
+          {medicamentos.filter(m => m.nome).length === 0 && (
+            <p style={{ color: '#999', textAlign: 'center', fontStyle: 'italic' }}>Preencha os medicamentos acima</p>
+          )}
+          <div style={{ marginTop: '70px', textAlign: 'right' }}>
+            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+            <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+              <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+                <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentoPage({ titulo, pacientes }) {
+  const { id } = useParams();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+
+  if (!paciente) {
+    return <p>Paciente não encontrado.</p>;
+  }
+
+  return (
+    <div>
+      <Header />
+
+      <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+
+      <div style={{
+        backgroundColor: 'white',
+        padding: '25px',
+        borderRadius: '8px',
+        marginTop: '20px'
+      }}>
+        <h2>{titulo}</h2>
+        <p><strong>Paciente:</strong> {paciente.nome}</p>
+        <p><strong>CPF:</strong> {paciente.cpf}</p>
+
+        <textarea
+          placeholder={`Digite aqui o conteúdo de ${titulo.toLowerCase()}...`}
+          rows={12}
+          style={{
+            width: '100%',
+            padding: '12px',
+            marginTop: '15px',
+            fontSize: '16px'
+          }}
+        />
+
+        <button style={{
+          marginTop: '12px',
+          padding: '12px 20px',
+          backgroundColor: '#007bff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}>
+          Salvar {titulo}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const painelStyle = {
+  backgroundColor: 'white',
+  padding: '18px',
+  borderRadius: '10px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+};
+const atalhoStyle = {
+  display: 'block',
+  textAlign: 'center',
+  padding: '16px',
+  backgroundColor: '#007bff',
+  color: 'white',
+  textDecoration: 'none',
+  borderRadius: '8px',
+  fontWeight: 'bold'
+};
+
+function AppContent() {
+  const [pacientes, setPacientes] = React.useState(initialPacientes);
+  const { user } = useAuth();
+
+  return (
+    <Routes>
+      <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
+      <Route path="/" element={<Navigate to="/pacientes" replace />} />
+      <Route
+        path="/pacientes"
+        element={
+          <ProtectedLayout>
+            <PacientesPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/prontuario/:id"
+        element={
+          <ProtectedLayout>
+            <ProntuarioPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/receituario/:id"
+        element={
+          <ProtectedLayout>
+            <ReceituarioPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/prescricao/:id"
+        element={
+          <ProtectedLayout>
+            <DocumentoPage titulo="Prescrição Médica" pacientes={pacientes} />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/atestados/:id"
+        element={
+          <ProtectedLayout>
+            <AtestadoPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/relatorios/:id"
+        element={
+          <ProtectedLayout>
+            <DocumentoPage titulo="Relatório Médico" pacientes={pacientes} />
+          </ProtectedLayout>
+        }
+      />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
