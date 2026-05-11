@@ -10,6 +10,8 @@ import {
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Login from './components/Login';
+import { pacientesService } from './services/pacientes.service';
+import { registrosService } from './services/registros.service';
 
 const initialPacientes = [
   {
@@ -183,54 +185,40 @@ function PacientesPage({ pacientes, setPacientes }) {
     setPacienteEditando(null);
   };
 
-  const salvarPaciente = () => {
+  const salvarPaciente = async () => {
     const temIdentificador =
       novoPaciente.cpf || novoPaciente.nascimento || novoPaciente.nomeMae;
 
     if (!novoPaciente.nome || !temIdentificador || !novoPaciente.telefone) {
-      alert(
-        'Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.'
-      );
+      alert('Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.');
       return;
     }
 
     const cpfAtual = limparCPF(novoPaciente.cpf);
-
     if (cpfAtual) {
-      const cpfDuplicado = pacientes.some((paciente) => {
-        const mesmoCpf = limparCPF(paciente.cpf) === cpfAtual;
-        const pacienteDiferente = paciente.id !== pacienteEditando?.id;
-        return mesmoCpf && pacienteDiferente;
-      });
-
+      const cpfDuplicado = pacientes.some((p) =>
+        limparCPF(p.cpf) === cpfAtual && p.id !== pacienteEditando?.id
+      );
       if (cpfDuplicado) {
         alert('Já existe um paciente cadastrado com este CPF.');
         return;
       }
     }
 
-    if (pacienteEditando) {
-      const pacientesAtualizados = pacientes.map((paciente) =>
-        paciente.id === pacienteEditando.id
-          ? { ...paciente, ...novoPaciente }
-          : paciente
-      );
-
-      setPacientes(pacientesAtualizados);
-      limparFormulario();
-      return;
-    }
-
-    setPacientes([
-      ...pacientes,
-      {
-        id: Date.now(),
-        ...novoPaciente,
-        evolucoes: []
+    try {
+      if (pacienteEditando) {
+        const atualizado = await pacientesService.atualizar(pacienteEditando.id, novoPaciente);
+        setPacientes(pacientes.map((p) =>
+          p.id === pacienteEditando.id ? { ...p, ...atualizado, registros: p.registros } : p
+        ));
+      } else {
+        const criado = await pacientesService.criar(novoPaciente);
+        setPacientes([...pacientes, { ...criado, registros: [] }]);
       }
-    ]);
-
-    limparFormulario();
+      limparFormulario();
+    } catch (err) {
+      alert('Erro ao salvar paciente: ' + err.message);
+    }
   };
 
   const editarPaciente = (paciente) => {
@@ -504,6 +492,7 @@ function PacientesPage({ pacientes, setPacientes }) {
 
 function ProntuarioPage({ pacientes, setPacientes }) {
   const { id } = useParams();
+  const { user } = useAuth();
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [registroAberto, setRegistroAberto] = React.useState(null);
@@ -527,6 +516,14 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         medicamentosUso: paciente.medicamentosUso || '',
         alergias: paciente.alergias || '',
       });
+      // Carrega histórico do banco se ainda não carregou
+      if (!paciente.registros?.length) {
+        registrosService.listarPorPaciente(paciente.id)
+          .then(registros => setPacientes(prev =>
+            prev.map(p => p.id === paciente.id ? { ...p, registros } : p)
+          ))
+          .catch(err => console.error('Erro ao carregar histórico:', err));
+      }
     }
   }, [paciente?.id]);
 
@@ -534,24 +531,36 @@ function ProntuarioPage({ pacientes, setPacientes }) {
 
   const registros = paciente.registros || [];
 
-  const salvarAtendimento = () => {
+  const salvarAtendimento = async () => {
     if (!atendimentoAtual.trim()) return;
     const agora = new Date();
-    const novoRegistro = {
-      id: Date.now(),
+    const registroLocal = {
       tipo: 'Consulta',
-      data: agora.toLocaleDateString('pt-BR'),
-      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       titulo: 'Atendimento médico',
-      conteudo: atendimentoAtual
+      conteudo: atendimentoAtual,
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
-    setPacientes(pacientes.map((p) =>
-      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
-    ));
+    try {
+      const salvo = await registrosService.criar(registroLocal, paciente.id, user?.id);
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [salvo, ...(p.registros || [])] } : p
+      ));
+    } catch (err) {
+      console.error('Erro ao salvar atendimento:', err);
+      // fallback local
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registroLocal, data: agora.toLocaleDateString('pt-BR') }, ...(p.registros || [])] } : p
+      ));
+    }
     setAtendimentoAtual('');
   };
 
-  const salvarClinicos = () => {
+  const salvarClinicos = async () => {
+    try {
+      await pacientesService.atualizar(paciente.id, { ...paciente, ...clinicos });
+    } catch (err) {
+      console.error('Erro ao salvar dados clínicos:', err);
+    }
     setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...clinicos } : p));
     setEditandoClinicos(false);
   };
@@ -704,6 +713,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
 
 function AtestadoPage({ pacientes, setPacientes }) {
   const { id } = useParams();
+  const { user } = useAuth();
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
@@ -721,7 +731,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  const salvarNoProntuario = () => {
+  const salvarNoProntuario = async () => {
     const conteudo = [
       `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
       `Afastamento: ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} a partir de ${dataFormatada}`,
@@ -729,18 +739,23 @@ function AtestadoPage({ pacientes, setPacientes }) {
       observacoes ? `Observações: ${observacoes}` : null,
     ].filter(Boolean).join('\n');
 
-    const agora = new Date();
-    const novoRegistro = {
-      id: Date.now(),
+    const registro = {
       tipo: 'Atestado',
-      data: agora.toLocaleDateString('pt-BR'),
-      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       titulo: `Atestado — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
-      conteudo
+      conteudo,
     };
-    setPacientes(pacientes.map((p) =>
-      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
-    ));
+    try {
+      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
+      ));
+    } catch (err) {
+      console.error('Erro ao salvar atestado:', err);
+      const agora = new Date();
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
+      ));
+    }
     setSalvo(true);
   };
 
@@ -821,6 +836,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
 
 function ReceituarioPage({ pacientes, setPacientes }) {
   const { id } = useParams();
+  const { user } = useAuth();
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
@@ -850,7 +866,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  const salvarNoProntuario = () => {
+  const salvarNoProntuario = async () => {
     const medsTexto = medicamentos
       .filter(m => m.nome)
       .map((m, idx) => {
@@ -863,18 +879,23 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
     const conteudo = `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}\n\n${medsTexto}`;
     const qtd = medicamentos.filter(m => m.nome).length;
-    const agora = new Date();
-    const novoRegistro = {
-      id: Date.now(),
+    const registro = {
       tipo: 'Receituário',
-      data: agora.toLocaleDateString('pt-BR'),
-      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       titulo: `Receituário — ${qtd} medicamento${qtd !== 1 ? 's' : ''}`,
-      conteudo
+      conteudo,
     };
-    setPacientes(pacientes.map((p) =>
-      p.id === paciente.id ? { ...p, registros: [novoRegistro, ...(p.registros || [])] } : p
-    ));
+    try {
+      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
+      ));
+    } catch (err) {
+      console.error('Erro ao salvar receituário:', err);
+      const agora = new Date();
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
+      ));
+    }
     setSalvo(true);
   };
 
@@ -1038,8 +1059,25 @@ const atalhoStyle = {
 };
 
 function AppContent() {
-  const [pacientes, setPacientes] = React.useState(initialPacientes);
   const { user } = useAuth();
+  const [pacientes, setPacientes] = React.useState([]);
+  const [inicializando, setInicializando] = React.useState(true);
+
+  React.useEffect(() => {
+    if (!user) return;
+    pacientesService.listar()
+      .then(data => setPacientes(data))
+      .catch(err => console.error('Erro ao carregar pacientes:', err))
+      .finally(() => setInicializando(false));
+  }, [user?.id]);
+
+  if (inicializando && user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#666', fontSize: '16px' }}>Carregando pacientes...</p>
+      </div>
+    );
+  }
 
   return (
     <Routes>
