@@ -10,17 +10,30 @@ const fromDb = (c) => ({
     ? c.data.split('-').reverse().join('/')
     : new Date().toLocaleDateString('pt-BR'),
   hora: c.hora || '',
+  createdBy: c.created_by || null,
+  createdAt: c.created_at || null,
 });
 
 export const registrosService = {
   async listarPorPaciente(pacienteId) {
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, tipo, titulo, conteudo, data, hora')
+      .select('id, tipo, titulo, conteudo, data, hora, created_by, created_at')
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data || []).map(fromDb);
+  },
+
+  async atualizar(id, campos) {
+    const { data, error } = await supabase
+      .from('consultas')
+      .update({ titulo: campos.titulo, conteudo: campos.conteudo })
+      .eq('id', id)
+      .select('id, tipo, titulo, conteudo, data, hora')
+      .single();
+    if (error) throw error;
+    return fromDb(data);
   },
 
   async criar(registro, pacienteId, userId) {

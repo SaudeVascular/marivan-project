@@ -9,15 +9,222 @@ body {
   box-sizing: border-box;
 }
 
+/* ===== LAYOUT CLASSES ===== */
+
+.pep-outer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #dbeafe 100%);
+  padding: 25px;
+}
+
+.pep-header {
+  background-color: #007bff;
+  color: white;
+  padding: 15px 20px;
+  margin-bottom: 25px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pep-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Patient registration form — 12-column grid */
+.form-grid-paciente {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 10px;
+}
+
+/* Patient list rows */
+.paciente-row-1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.4fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.paciente-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #444;
+}
+
+/* Prontuário 3-panel layout */
+.prontuario-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: 250px 1.4fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* Main 2-column grid below the info strip */
+.prontuario-main-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+/* Quick-access links in prontuário */
+.atalhos-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+/* 3-column form grid (atestado / receituário / relatório) */
+.form-grid-3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Medication fields grid */
+.form-grid-meds {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Document print preview */
+.doc-preview {
+  background-color: white;
+  padding: 50px 60px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== TABLET (769px – 1024px) ===== */
+@media (max-width: 1024px) {
+  .pep-outer {
+    padding: 16px;
+  }
+
+  /* 6-column form: each inline span still works within 6 columns */
+  .form-grid-paciente {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  /* Prontuário: left sidebar + main column; history goes below */
+  .prontuario-grid {
+    grid-template-columns: 210px 1fr;
+  }
+
+  .prontuario-grid > *:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .form-grid-meds {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ===== MOBILE (≤ 768px) ===== */
+@media (max-width: 768px) {
+  .pep-outer {
+    padding: 10px;
+  }
+
+  .pep-header {
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    border-radius: 6px;
+  }
+
+  .pep-header h1 {
+    font-size: 16px !important;
+  }
+
+  .pep-header p {
+    display: none;
+  }
+
+  .pep-header-email {
+    display: none;
+  }
+
+  /* Form: 1 column, override all inline gridColumn spans */
+  .form-grid-paciente {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-paciente > * {
+    grid-column: 1 !important;
+  }
+
+  /* Patient list: 2 columns, then 1 */
+  .paciente-row-1 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .paciente-row-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Document forms: single column */
+  .form-grid-3col {
+    grid-template-columns: 1fr;
+  }
+
+  /* Medication fields: 2 columns */
+  .form-grid-meds {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Document preview: compact padding */
+  .doc-preview {
+    padding: 24px 18px;
+  }
+}
+
+/* ===== SMALL MOBILE (≤ 480px) ===== */
+@media (max-width: 480px) {
+  .paciente-row-1 {
+    grid-template-columns: 1fr;
+  }
+
+  .atalhos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid-meds {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ===== PRINT ===== */
 @media print {
   .no-print {
     display: none !important;
   }
+
   body {
     background: white !important;
     padding: 0 !important;
     margin: 0 !important;
   }
+
   div[style*="background"] {
     background: white !important;
     box-shadow: none !important;

@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { supabase } from '../services/supabase';
+import { usuariosService } from '../services/usuarios.service';
 
 const AuthContext = createContext();
 
@@ -23,6 +24,9 @@ export const AuthProvider = ({ children }) => {
         console.log("Auth state changed:", event);
         setUser(session?.user ?? null);
         setLoading(false);
+        if (event === 'SIGNED_IN' && session?.user) {
+          usuariosService.garantirPerfil(session.user).catch(() => {});
+        }
       }
     );
 

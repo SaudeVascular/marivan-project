@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import { pacientesService } from './services/pacientes.service';
 import { registrosService } from './services/registros.service';
+import { usuariosService } from './services/usuarios.service';
 
 const initialPacientes = [
   {
@@ -48,22 +49,16 @@ const formatarData = (dataISO) => {
 function Header() {
   const { logout, user } = useAuth();
   return (
-    <div style={{
-      backgroundColor: '#007bff',
-      color: 'white',
-      padding: '15px 20px',
-      marginBottom: '25px',
-      borderRadius: '8px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
+    <div className="pep-header">
       <div>
         <h1 style={{ margin: 0, fontSize: '20px' }}>PEP - Prontuário Eletrônico</h1>
         <p style={{ margin: '4px 0 0', fontSize: '13px', opacity: 0.85 }}>Sistema médico</p>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <span style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
+      <div className="pep-header-right">
+        <span className="pep-header-email" style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
+        <Link to="/usuarios" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          👥 Usuários
+        </Link>
         <button
           onClick={logout}
           style={{
@@ -94,11 +89,7 @@ function ProtectedLayout({ children }) {
   }
   if (!user) return <Navigate to="/login" replace />;
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #dbeafe 100%)',
-      padding: '25px'
-    }}>
+    <div className="pep-outer">
       {children}
     </div>
   );
@@ -261,7 +252,7 @@ function PacientesPage({ pacientes, setPacientes }) {
           {pacienteEditando ? 'Editar Paciente' : 'Novo Paciente'}
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '10px' }}>
+        <div className="form-grid-paciente">
           <input
             placeholder="Nome completo *"
             value={novoPaciente.nome}
@@ -397,14 +388,7 @@ function PacientesPage({ pacientes, setPacientes }) {
                   backgroundColor: '#f8f9fa'
                 }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1fr 1.4fr',
-                    gap: '8px',
-                    alignItems: 'center'
-                  }}
-                >
+                <div className="paciente-row-1">
                   <div>
                     <strong>{paciente.nome}</strong>
                     <div style={{ fontSize: '13px', color: '#666' }}>
@@ -428,16 +412,7 @@ function PacientesPage({ pacientes, setPacientes }) {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: '8px',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 2fr 1fr',
-                    gap: '8px',
-                    fontSize: '13px',
-                    color: '#444'
-                  }}
-                >
+                <div className="paciente-row-2">
                   <div>
                     <strong>Convênio:</strong> {paciente.convenio || '-'}
                   </div>
@@ -496,6 +471,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [registroAberto, setRegistroAberto] = React.useState(null);
+  const [registroEditando, setRegistroEditando] = React.useState(null); // { id, titulo, conteudo }
+  const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
   const [editandoClinicos, setEditandoClinicos] = React.useState(false);
   const [clinicos, setClinicos] = React.useState({
     has: '', dm: '', dac: '', dislipidemia: '',
@@ -555,14 +532,39 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     setAtendimentoAtual('');
   };
 
-  const salvarClinicos = async () => {
+  const salvarEdicaoRegistro = async () => {
+    if (!registroEditando) return;
+    setSalvandoEdicao(true);
     try {
-      await pacientesService.atualizar(paciente.id, { ...paciente, ...clinicos });
+      const atualizado = await registrosService.atualizar(registroEditando.id, registroEditando);
+      setPacientes(pacientes.map(p =>
+        p.id === paciente.id
+          ? { ...p, registros: p.registros.map(r => r.id === atualizado.id ? atualizado : r) }
+          : p
+      ));
+      setRegistroEditando(null);
+    } catch (err) {
+      alert('Erro ao salvar edição: ' + err.message);
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
+
+  const salvarClinicos = async (novoClinicos = clinicos) => {
+    try {
+      await pacientesService.atualizar(paciente.id, { ...paciente, ...novoClinicos });
+      setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
     } catch (err) {
       console.error('Erro ao salvar dados clínicos:', err);
     }
-    setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...clinicos } : p));
     setEditandoClinicos(false);
+  };
+
+  const toggleComorbidade = (key, ciclo) => {
+    if (!editandoClinicos) return;
+    const idx = ciclo.indexOf(clinicos[key]);
+    const proximo = ciclo[(idx + 1) % ciclo.length];
+    setClinicos(prev => ({ ...prev, [key]: proximo }));
   };
 
   const campoSelect = (label, key, extras = []) => (
@@ -597,20 +599,29 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     <div>
       <Header />
       <Link to="/pacientes">← Voltar para pacientes</Link>
-      <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '250px 1.4fr 1fr', gap: '18px', alignItems: 'start' }}>
+      {/* Faixa horizontal fixa: dados do paciente + dados clínicos */}
+      <div style={{ ...painelStyle, marginTop: '16px', display: 'flex', gap: '0', alignItems: 'flex-start', flexWrap: 'wrap', position: 'sticky', top: '0', zIndex: 15, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
 
-        {/* Painel esquerdo — dados do paciente */}
-        <div style={painelStyle}>
-          <div style={{ width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#dbeafe', margin: '0 auto 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>👤</div>
-          <h2 style={{ marginBottom: '4px', fontSize: '15px', textAlign: 'center' }}>{paciente.nome}</h2>
-          <div style={{ fontSize: '12px', color: '#555', marginBottom: '10px' }}>
-            <p style={{ margin: '2px 0' }}><strong>CPF:</strong> {paciente.cpf || '-'}</p>
-            <p style={{ margin: '2px 0' }}><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}</p>
-            <p style={{ margin: '2px 0' }}><strong>Tel.:</strong> {paciente.telefone || '-'}</p>
-            <p style={{ margin: '2px 0' }}><strong>Convênio:</strong> {paciente.convenio || '-'}</p>
+        {/* Identificação do paciente */}
+        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingRight: '20px', flexShrink: 0, flexWrap: 'wrap' }}>
+          <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>👤</div>
+          <div>
+            <h2 style={{ margin: '0 0 4px', fontSize: '16px' }}>{paciente.nome}</h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '12px', color: '#555' }}>
+              <span><strong>CPF:</strong> {paciente.cpf || '-'}</span>
+              <span><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}</span>
+              <span><strong>Tel.:</strong> {paciente.telefone || '-'}</span>
+              <span><strong>Convênio:</strong> {paciente.convenio || '-'}</span>
+            </div>
           </div>
-          <hr />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '8px 0' }}>
+        </div>
+
+        {/* Separador vertical */}
+        <div style={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#e5e7eb', margin: '0 20px', flexShrink: 0 }} />
+
+        {/* Dados clínicos */}
+        <div style={{ flex: 1, minWidth: '260px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <strong style={{ fontSize: '13px' }}>Dados Clínicos</strong>
             <div style={{ display: 'flex', gap: '4px' }}>
               {editandoClinicos && (
@@ -624,34 +635,77 @@ function ProntuarioPage({ pacientes, setPacientes }) {
               </button>
             </div>
           </div>
-          {campoSelect('HAS', 'has')}
-          {campoSelect('DM', 'dm')}
-          {campoSelect('DAC', 'dac')}
-          {campoSelect('Dislipidemia', 'dislipidemia')}
-          {campoSelect('Tabagismo', 'tabagismo', ['Ex-tabagista'])}
-          {campoSelect('Etilismo', 'etilismo', ['Ocasional'])}
-          <div style={{ marginBottom: '6px' }}>
-            <strong style={{ fontSize: '12px' }}>Cirurgias: </strong>
-            {editandoClinicos ? (
-              <textarea value={clinicos.cirurgias} onChange={(e) => setClinicos({ ...clinicos, cirurgias: e.target.value })} placeholder="Ex: Apendicectomia 2010" style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '2px' }} rows={2} />
-            ) : (
-              <span style={{ fontSize: '12px', color: clinicos.cirurgias ? '#333' : '#999' }}>{clinicos.cirurgias || 'Não informado'}</span>
-            )}
+
+          {/* Botões de comorbidade — clique para ativar/desativar */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+            {[
+              { key: 'has',          label: 'HAS',         ciclo: ['', 'Sim', 'Não'] },
+              { key: 'dm',           label: 'DM',          ciclo: ['', 'Sim', 'Não'] },
+              { key: 'dac',          label: 'DAC',         ciclo: ['', 'Sim', 'Não'] },
+              { key: 'dislipidemia', label: 'Dislipidemia',ciclo: ['', 'Sim', 'Não'] },
+              { key: 'tabagismo',    label: 'Tabagismo',   ciclo: ['', 'Sim', 'Ex-tabagista'] },
+              { key: 'etilismo',     label: 'Etilismo',    ciclo: ['', 'Sim', 'Ocasional'] },
+            ].map(({ key, label, ciclo }) => {
+              const valor = clinicos[key];
+              const ativo   = valor === 'Sim';
+              const especial = valor === 'Ex-tabagista' || valor === 'Ocasional';
+              const bg    = ativo ? '#dc2626' : especial ? '#f59e0b' : '#f1f5f9';
+              const color = (ativo || especial) ? 'white' : '#64748b';
+              const border = ativo ? '#b91c1c' : especial ? '#d97706' : '#e2e8f0';
+              return (
+                <button
+                  key={key}
+                  onClick={() => toggleComorbidade(key, ciclo)}
+                  disabled={!editandoClinicos}
+                  title={!editandoClinicos ? 'Clique em Editar para alterar' : especial ? valor : ativo ? 'Clique para alterar' : 'Clique para ativar'}
+                  style={{
+                    padding: '5px 12px',
+                    backgroundColor: bg,
+                    color,
+                    border: `1px solid ${border}`,
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: ativo || especial ? '700' : '400',
+                    cursor: editandoClinicos ? 'pointer' : 'default',
+                    transition: 'all 0.15s',
+                    whiteSpace: 'nowrap',
+                    opacity: editandoClinicos ? 1 : 0.85,
+                  }}
+                >
+                  {especial ? `${label} · ${valor}` : label}
+                </button>
+              );
+            })}
           </div>
-          <hr />
-          <strong style={{ fontSize: '12px' }}>Medicamentos em uso</strong>
-          {editandoClinicos ? (
-            <textarea value={clinicos.medicamentosUso} onChange={(e) => setClinicos({ ...clinicos, medicamentosUso: e.target.value })} style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '4px' }} rows={3} />
-          ) : (
-            <p style={{ fontSize: '12px', color: clinicos.medicamentosUso ? '#333' : '#999', marginTop: '4px' }}>{clinicos.medicamentosUso || 'Não informado'}</p>
-          )}
-          <strong style={{ fontSize: '12px' }}>Alergias</strong>
-          {editandoClinicos ? (
-            <input value={clinicos.alergias} onChange={(e) => setClinicos({ ...clinicos, alergias: e.target.value })} style={{ width: '100%', fontSize: '12px', padding: '4px', marginTop: '4px' }} />
-          ) : (
-            <p style={{ fontSize: '12px', color: clinicos.alergias ? '#dc3545' : '#999', fontWeight: clinicos.alergias ? 'bold' : 'normal', marginTop: '4px' }}>{clinicos.alergias || 'Não informado'}</p>
-          )}
+
+          {/* Cirurgias, Medicamentos, Alergias em linha */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px', fontSize: '12px' }}>
+            <div>
+              <strong>Cirurgias: </strong>
+              {editandoClinicos
+                ? <input value={clinicos.cirurgias} onChange={e => setClinicos({ ...clinicos, cirurgias: e.target.value })} placeholder="Ex: Apendicectomia 2010" style={{ fontSize: '12px', padding: '2px 4px', width: '160px' }} />
+                : <span style={{ color: clinicos.cirurgias ? '#333' : '#999' }}>{clinicos.cirurgias || '-'}</span>
+              }
+            </div>
+            <div>
+              <strong>Medicamentos: </strong>
+              {editandoClinicos
+                ? <input value={clinicos.medicamentosUso} onChange={e => setClinicos({ ...clinicos, medicamentosUso: e.target.value })} style={{ fontSize: '12px', padding: '2px 4px', width: '200px' }} />
+                : <span style={{ color: clinicos.medicamentosUso ? '#333' : '#999' }}>{clinicos.medicamentosUso || '-'}</span>
+              }
+            </div>
+            <div>
+              <strong>Alergias: </strong>
+              {editandoClinicos
+                ? <input value={clinicos.alergias} onChange={e => setClinicos({ ...clinicos, alergias: e.target.value })} style={{ fontSize: '12px', padding: '2px 4px', width: '140px' }} />
+                : <span style={{ color: clinicos.alergias ? '#dc3545' : '#999', fontWeight: clinicos.alergias ? 'bold' : 'normal' }}>{clinicos.alergias || '-'}</span>
+              }
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div className="prontuario-main-grid">
 
         {/* Painel central — atendimento atual */}
         <div style={painelStyle}>
@@ -666,7 +720,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
           <button onClick={salvarAtendimento} style={{ marginTop: '10px', padding: '12px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             ✓ Salvar Atendimento
           </button>
-          <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          <div className="atalhos-grid">
             <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
             <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
             <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
@@ -683,22 +737,79 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             registros.map((registro) => {
               const cor = coresTipo[registro.tipo] || '#007bff';
               const aberto = registroAberto === registro.id;
+              const editando = registroEditando?.id === registro.id;
+              const dentroDE24h = registro.createdAt
+                && (Date.now() - new Date(registro.createdAt).getTime()) < 24 * 60 * 60 * 1000;
+              const podeEditar = registro.createdBy === user?.id && dentroDE24h;
               return (
                 <div key={registro.id} style={{ marginBottom: '8px' }}>
+                  {/* Cabeçalho clicável */}
                   <div
-                    onClick={() => setRegistroAberto(aberto ? null : registro.id)}
-                    style={{ borderLeft: `4px solid ${cor}`, backgroundColor: aberto ? '#f0f7ff' : '#f8f9fa', padding: '8px 10px', borderRadius: aberto ? '6px 6px 0 0' : '6px', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => !editando && setRegistroAberto(aberto ? null : registro.id)}
+                    style={{ borderLeft: `4px solid ${cor}`, backgroundColor: aberto || editando ? '#f0f7ff' : '#f8f9fa', padding: '8px 10px', borderRadius: aberto || editando ? '6px 6px 0 0' : '6px', cursor: editando ? 'default' : 'pointer', userSelect: 'none' }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', backgroundColor: cor, color: 'white', padding: '1px 7px', borderRadius: '10px' }}>{registro.tipo}</span>
                       <span style={{ fontSize: '11px', color: '#666' }}>{registro.data} {registro.hora}</span>
                     </div>
                     <p style={{ margin: '4px 0 2px', fontSize: '13px', fontWeight: '500' }}>{registro.titulo}</p>
-                    <small style={{ color: cor, fontSize: '11px' }}>{aberto ? '▲ Fechar' : '▼ Ver detalhes'}</small>
+                    {!editando && (
+                      <small style={{ color: cor, fontSize: '11px' }}>{aberto ? '▲ Fechar' : '▼ Ver detalhes'}</small>
+                    )}
                   </div>
-                  {aberto && (
-                    <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', padding: '10px 12px', borderRadius: '0 0 6px 6px', whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: '1.6', maxHeight: '280px', overflowY: 'auto' }}>
-                      {registro.conteudo}
+
+                  {/* Conteúdo expandido — modo leitura */}
+                  {aberto && !editando && (
+                    <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', padding: '10px 12px', borderRadius: '0 0 6px 6px' }}>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: '1.6', maxHeight: '280px', overflowY: 'auto', marginBottom: '8px' }}>
+                        {registro.conteudo}
+                      </div>
+                      {podeEditar && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRegistroEditando({ id: registro.id, titulo: registro.titulo, conteudo: registro.conteudo }); }}
+                          style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#f0f7ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          ✏️ Editar
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Modo edição inline */}
+                  {editando && (
+                    <div style={{ backgroundColor: 'white', border: '1px solid #3b82f6', borderTop: 'none', padding: '12px', borderRadius: '0 0 6px 6px' }}>
+                      <div style={{ marginBottom: '8px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Título</label>
+                        <input
+                          value={registroEditando.titulo}
+                          onChange={e => setRegistroEditando({ ...registroEditando, titulo: e.target.value })}
+                          style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                        />
+                      </div>
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Conteúdo</label>
+                        <textarea
+                          value={registroEditando.conteudo}
+                          onChange={e => setRegistroEditando({ ...registroEditando, conteudo: e.target.value })}
+                          rows={6}
+                          style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px', resize: 'vertical' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={salvarEdicaoRegistro}
+                          disabled={salvandoEdicao}
+                          style={{ padding: '6px 14px', backgroundColor: salvandoEdicao ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicao ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                        >
+                          {salvandoEdicao ? 'Salvando...' : '✓ Salvar'}
+                        </button>
+                        <button
+                          onClick={() => setRegistroEditando(null)}
+                          style={{ padding: '6px 14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -768,7 +879,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
       <div style={{ maxWidth: '750px', margin: '20px auto' }}>
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <h3 style={{ marginTop: 0 }}>Preencher Atestado</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div className="form-grid-3col">
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
               <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
@@ -805,7 +916,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
           </div>
         </div>
 
-        <div style={{ backgroundColor: 'white', padding: '50px 60px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <div className="doc-preview">
           <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
             <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
             <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
@@ -908,7 +1019,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       <div style={{ maxWidth: '780px', margin: '20px auto' }}>
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <h3 style={{ marginTop: 0 }}>Preencher Receituário</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div className="form-grid-3col" style={{ marginBottom: '16px' }}>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
               <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
@@ -931,7 +1042,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                   <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Remover</button>
                 )}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <div className="form-grid-meds">
                 <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Dose (50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Frequência (1x/dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
@@ -948,7 +1059,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
           </div>
         </div>
 
-        <div style={{ backgroundColor: 'white', padding: '50px 60px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <div className="doc-preview">
           <div style={{ textAlign: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
             <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
             <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
@@ -985,6 +1096,344 @@ function ReceituarioPage({ pacientes, setPacientes }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RelatorioPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const hojeISO = new Date().toISOString().split('T')[0];
+
+  const [medico, setMedico] = React.useState('');
+  const [crm, setCrm] = React.useState('');
+  const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
+  const [finalidade, setFinalidade] = React.useState('');
+  const [diagnostico, setDiagnostico] = React.useState('');
+  const [historico, setHistorico] = React.useState('');
+  const [exames, setExames] = React.useState('');
+  const [conduta, setConduta] = React.useState('');
+  const [conclusao, setConclusao] = React.useState('');
+  const [salvo, setSalvo] = React.useState(false);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const dataFormatada = new Date(dataRelatorio + 'T12:00:00').toLocaleDateString('pt-BR', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  const salvarNoProntuario = async () => {
+    const conteudo = [
+      `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
+      finalidade ? `Finalidade: ${finalidade}` : null,
+      diagnostico ? `\nDIAGNÓSTICO:\n${diagnostico}` : null,
+      historico ? `\nHISTÓRICO CLÍNICO E EVOLUÇÃO:\n${historico}` : null,
+      exames ? `\nEXAMES COMPLEMENTARES:\n${exames}` : null,
+      conduta ? `\nCONDUTA TERAPÊUTICA:\n${conduta}` : null,
+      conclusao ? `\nCONCLUSÃO E PARECER:\n${conclusao}` : null,
+    ].filter(Boolean).join('\n');
+
+    const registro = {
+      tipo: 'Relatório',
+      titulo: `Relatório Médico${finalidade ? ' — ' + finalidade : ''}`,
+      conteudo,
+    };
+    try {
+      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
+      ));
+    } catch (err) {
+      console.error('Erro ao salvar relatório:', err);
+      const agora = new Date();
+      setPacientes(pacientes.map((p) =>
+        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
+      ));
+    }
+    setSalvo(true);
+  };
+
+  const campo = (label, value, setter, rows = 3, placeholder = '') => (
+    <div style={{ marginBottom: '14px' }}>
+      <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => setter(e.target.value)}
+        rows={rows}
+        placeholder={placeholder}
+        style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }}
+      />
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="no-print">
+        <Header />
+        <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      </div>
+      <div style={{ maxWidth: '800px', margin: '20px auto' }}>
+
+        {/* Formulário */}
+        <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <h3 style={{ marginTop: 0 }}>Preencher Relatório Médico</h3>
+
+          <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
+              <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
+              <input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+              <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Finalidade do Relatório</label>
+            <select value={finalidade} onChange={(e) => setFinalidade(e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+              <option value="">Selecione ou deixe em branco</option>
+              <option value="Perícia médica">Perícia médica</option>
+              <option value="Encaminhamento médico">Encaminhamento médico</option>
+              <option value="Solicitação de benefício INSS">Solicitação de benefício INSS</option>
+              <option value="Afastamento do trabalho">Afastamento do trabalho</option>
+              <option value="Seguro de vida / plano de saúde">Seguro de vida / plano de saúde</option>
+              <option value="Uso particular">Uso particular</option>
+            </select>
+          </div>
+
+          {campo('Diagnóstico(s)', diagnostico, setDiagnostico, 2, 'Ex: Hipertensão arterial sistêmica (I10), Diabetes mellitus tipo 2 (E11)')}
+          {campo('Histórico clínico e evolução', historico, setHistorico, 6, 'Descreva o quadro clínico, evolução da doença e tratamentos realizados...')}
+          {campo('Exames complementares (opcional)', exames, setExames, 3, 'Resultados de exames laboratoriais, imagens, etc.')}
+          {campo('Conduta terapêutica atual', conduta, setConduta, 2, 'Medicamentos em uso, terapias, restrições...')}
+          {campo('Conclusão e parecer médico', conclusao, setConclusao, 3, 'Parecer final do médico sobre o caso...')}
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={salvarNoProntuario} style={{ padding: '10px 18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              ✓ Salvar no Prontuário
+            </button>
+            <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              🖨️ Imprimir
+            </button>
+            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          </div>
+        </div>
+
+        {/* Documento para impressão */}
+        <div className="doc-preview">
+          <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
+          </div>
+
+          <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>RELATÓRIO MÉDICO</h2>
+          {finalidade && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 24px' }}>{finalidade}</p>}
+
+          <div style={{ borderTop: '1px solid #ddd', paddingTop: '16px', marginBottom: '16px' }}>
+            <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Paciente:</strong> {paciente.nome}</p>
+            {paciente.cpf && <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>CPF:</strong> {paciente.cpf}</p>}
+            {paciente.nascimento && <p style={{ margin: '0', fontSize: '14px' }}><strong>Data de nascimento:</strong> {formatarData(paciente.nascimento)}</p>}
+          </div>
+
+          {diagnostico && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Diagnóstico</h3>
+              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{diagnostico}</p>
+            </div>
+          )}
+
+          {historico && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Histórico Clínico e Evolução</h3>
+              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{historico}</p>
+            </div>
+          )}
+
+          {exames && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Exames Complementares</h3>
+              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{exames}</p>
+            </div>
+          )}
+
+          {conduta && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conduta Terapêutica Atual</h3>
+              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{conduta}</p>
+            </div>
+          )}
+
+          {conclusao && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conclusão e Parecer Médico</h3>
+              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{conclusao}</p>
+            </div>
+          )}
+
+          {!diagnostico && !historico && !conduta && !conclusao && (
+            <p style={{ color: '#bbb', textAlign: 'center', fontStyle: 'italic', margin: '40px 0' }}>Preencha os campos acima para visualizar o relatório</p>
+          )}
+
+          <div style={{ marginTop: '70px', textAlign: 'right' }}>
+            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+            <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+              <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+                <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UsuariosPage() {
+  const [usuarios, setUsuarios] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(true);
+  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico' });
+  const [mostraSenha, setMostraSenha] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [msg, setMsg] = React.useState(null);
+
+  React.useEffect(() => {
+    usuariosService.listar()
+      .then(setUsuarios)
+      .catch(err => console.error(err))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const criarUsuario = async (e) => {
+    e.preventDefault();
+    setMsg(null);
+    if (form.senha !== form.confirmar) {
+      setMsg({ tipo: 'erro', texto: 'As senhas não conferem.' });
+      return;
+    }
+    if (form.senha.length < 6) {
+      setMsg({ tipo: 'erro', texto: 'A senha deve ter no mínimo 6 caracteres.' });
+      return;
+    }
+    setSalvando(true);
+    try {
+      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao });
+      const lista = await usuariosService.listar();
+      setUsuarios(lista);
+      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico' });
+      setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
+    } catch (err) {
+      setMsg({ tipo: 'erro', texto: err.message });
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const alterarStatus = async (id, ativoAtual) => {
+    try {
+      await usuariosService.alterarStatus(id, !ativoAtual);
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ativo: !ativoAtual } : u));
+    } catch (err) {
+      alert('Erro ao alterar status: ' + err.message);
+    }
+  };
+
+  const funcaoIcone = { 'Médico': '👨‍⚕️', 'Enfermeiro(a)': '👩‍⚕️', 'Recepcionista': '💼', 'Administrador': '⚙️' };
+
+  return (
+    <div>
+      <Header />
+      <Link to="/pacientes">← Voltar</Link>
+
+      <h2 style={{ marginTop: '20px' }}>Gerenciar Usuários do Sistema</h2>
+
+      {/* Formulário novo usuário */}
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <h3 style={{ marginTop: 0 }}>Novo Usuário</h3>
+        <form onSubmit={criarUsuario}>
+          <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome completo *</label>
+              <input required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Dr. João Silva" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>E-mail *</label>
+              <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="usuario@clinica.com" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Função</label>
+              <select value={form.funcao} onChange={e => setForm({ ...form, funcao: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+                <option>Médico</option>
+                <option>Enfermeiro(a)</option>
+                <option>Recepcionista</option>
+                <option>Administrador</option>
+              </select>
+            </div>
+            <div style={{ position: 'relative' }}>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Senha temporária *</label>
+              <input required type={mostraSenha ? 'text' : 'password'} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="mín. 6 caracteres" style={{ width: '100%', padding: '8px', paddingRight: '72px' }} />
+              <button type="button" onClick={() => setMostraSenha(!mostraSenha)} style={{ position: 'absolute', right: '4px', top: '29px', padding: '4px 8px', fontSize: '11px', background: '#f3f4f6', border: '1px solid #ddd', borderRadius: '3px', cursor: 'pointer' }}>
+                {mostraSenha ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Confirmar senha *</label>
+              <input required type={mostraSenha ? 'text' : 'password'} value={form.confirmar} onChange={e => setForm({ ...form, confirmar: e.target.value })} placeholder="repita a senha" style={{ width: '100%', padding: '8px' }} />
+            </div>
+          </div>
+
+          {msg && (
+            <div style={{ padding: '10px 14px', borderRadius: '6px', marginBottom: '12px', backgroundColor: msg.tipo === 'sucesso' ? '#d1fae5' : '#fee2e2', color: msg.tipo === 'sucesso' ? '#065f46' : '#991b1b', fontSize: '14px' }}>
+              {msg.tipo === 'sucesso' ? '✓ ' : '⚠ '}{msg.texto}
+            </div>
+          )}
+
+          <button type="submit" disabled={salvando} style={{ padding: '10px 20px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            {salvando ? 'Criando...' : '+ Criar Usuário'}
+          </button>
+          <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#6b7280' }}>
+            * Informe a senha temporária ao novo usuário. Ele precisará confirmar o e-mail antes de fazer o primeiro login.
+          </p>
+        </form>
+      </div>
+
+      {/* Lista de usuários */}
+      <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <h3 style={{ marginTop: 0 }}>Usuários Cadastrados ({usuarios.length})</h3>
+        {carregando ? (
+          <p style={{ color: '#666' }}>Carregando...</p>
+        ) : usuarios.length === 0 ? (
+          <p style={{ color: '#999' }}>Nenhum usuário encontrado. Faça logout e login novamente para que seu perfil apareça aqui.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {usuarios.map(u => (
+              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: u.ativo ? '#fff' : '#f9fafb', opacity: u.ativo ? 1 : 0.65, flexWrap: 'wrap' }}>
+                <div style={{ width: '46px', height: '46px', borderRadius: '50%', backgroundColor: u.ativo ? '#dbeafe' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                  {funcaoIcone[u.funcao] || '👤'}
+                </div>
+                <div style={{ flex: 1, minWidth: '160px' }}>
+                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
+                  <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{u.funcao}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
+                    {u.ativo ? 'Ativo' : 'Inativo'}
+                  </span>
+                  <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                    {u.ativo ? 'Desativar' : 'Reativar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1084,6 +1533,14 @@ function AppContent() {
       <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
       <Route
+        path="/usuarios"
+        element={
+          <ProtectedLayout>
+            <UsuariosPage />
+          </ProtectedLayout>
+        }
+      />
+      <Route
         path="/pacientes"
         element={
           <ProtectedLayout>
@@ -1127,7 +1584,7 @@ function AppContent() {
         path="/relatorios/:id"
         element={
           <ProtectedLayout>
-            <DocumentoPage titulo="Relatório Médico" pacientes={pacientes} />
+            <RelatorioPage pacientes={pacientes} setPacientes={setPacientes} />
           </ProtectedLayout>
         }
       />
