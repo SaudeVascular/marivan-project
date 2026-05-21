@@ -10,26 +10,38 @@ export const usuariosService = {
     return data || [];
   },
 
-  async criar({ nome, email, senha, funcao }) {
-    // Salva sessão atual do admin antes de criar o novo usuário
+  async buscarPerfil(userId) {
+    const { data, error } = await supabase
+      .from('perfis')
+      .select('nome, crm, funcao, email')
+      .eq('id', userId)
+      .single();
+    if (error) return null;
+    return data;
+  },
+
+  async criar({ nome, email, senha, funcao, crm }) {
     const { data: sessaoAtual } = await supabase.auth.getSession();
     const sessaoAdmin = sessaoAtual?.session;
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password: senha,
-      options: { data: { nome, funcao } },
+      options: { data: { nome, funcao, crm: crm || '' } },
     });
 
     if (error) throw error;
 
-    // Se o Supabase criou sessão para o novo usuário (confirmação de e-mail desabilitada),
-    // restaura a sessão do admin para não deslogá-lo.
     if (data.session && sessaoAdmin) {
       await supabase.auth.setSession({
         access_token: sessaoAdmin.access_token,
         refresh_token: sessaoAdmin.refresh_token,
       });
+    }
+
+    // Salva o CRM no perfil após criação
+    if (data.user && crm) {
+      await supabase.from('perfis').update({ crm }).eq('id', data.user.id);
     }
 
     return data.user;

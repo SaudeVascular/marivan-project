@@ -1118,18 +1118,20 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const [crm, setCrm]       = React.useState('');
   const [dataReceita]       = React.useState(hojeISO);
   const [salvo, setSalvo]   = React.useState(false);
-  const [editandoMedico, setEditandoMedico] = React.useState(false);
   const [medicamentos, setMedicamentos] = React.useState([
     { id: 1, nome: '', dose: '', frequencia: '', duracao: '', instrucoes: '' }
   ]);
 
   React.useEffect(() => {
-    const m = localStorage.getItem('pep_medico') || '';
-    const c = localStorage.getItem('pep_crm') || '';
-    setMedico(m);
-    setCrm(c);
-    if (!m) setEditandoMedico(true);
-  }, []);
+    if (user?.id) {
+      usuariosService.buscarPerfil(user.id).then(perfil => {
+        if (perfil) {
+          setMedico(perfil.nome || '');
+          setCrm(perfil.crm || '');
+        }
+      });
+    }
+  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1160,8 +1162,6 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       })
       .join('\n\n');
 
-    localStorage.setItem('pep_medico', medico);
-    localStorage.setItem('pep_crm', crm);
     const conteudo = `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}\n\n${medsTexto}`;
     const qtd = medicamentos.filter(m => m.nome).length;
     const registro = {
@@ -1193,35 +1193,6 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       <div style={{ maxWidth: '780px', margin: '20px auto' }}>
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <h3 style={{ marginTop: 0 }}>Receituário</h3>
-
-          {/* Barra de identificação do médico */}
-          {!editandoMedico ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '6px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', color: '#0369a1' }}>
-                <strong>{medico || 'Médico não informado'}</strong>
-                {crm && <span style={{ color: '#64748b' }}> · {crm}</span>}
-                <span style={{ color: '#64748b' }}> · {new Date(dataReceita + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
-              </span>
-              <button onClick={() => setEditandoMedico(true)} style={{ fontSize: '12px', padding: '3px 10px', backgroundColor: 'white', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
-                ✎ Alterar
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '16px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '6px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 2, minWidth: '160px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nome do Médico</label>
-                <input value={medico} onChange={e => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '7px' }} />
-              </div>
-              <div style={{ flex: 1, minWidth: '120px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
-                <input value={crm} onChange={e => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '7px' }} />
-              </div>
-              <button onClick={() => { localStorage.setItem('pep_medico', medico); localStorage.setItem('pep_crm', crm); setEditandoMedico(false); }} style={{ padding: '7px 14px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                ✓ Confirmar
-              </button>
-            </div>
-          )}
-
           <h4 style={{ margin: '0 0 10px' }}>Medicamentos</h4>
           {medicamentos.map((med, idx) => (
             <div key={med.id} style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '12px', marginBottom: '8px' }}>
@@ -2089,7 +2060,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
 function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico' });
+  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '' });
   const [mostraSenha, setMostraSenha] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
@@ -2114,10 +2085,10 @@ function UsuariosPage() {
     }
     setSalvando(true);
     try {
-      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao });
+      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm });
       const lista = await usuariosService.listar();
       setUsuarios(lista);
-      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico' });
+      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '' });
       setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
@@ -2166,6 +2137,10 @@ function UsuariosPage() {
                 <option>Administrador</option>
               </select>
             </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
+              <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+            </div>
             <div style={{ position: 'relative' }}>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Senha temporária *</label>
               <input required type={mostraSenha ? 'text' : 'password'} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="mín. 6 caracteres" style={{ width: '100%', padding: '8px', paddingRight: '72px' }} />
@@ -2211,7 +2186,9 @@ function UsuariosPage() {
                 <div style={{ flex: 1, minWidth: '160px' }}>
                   <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
                   <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{u.funcao}</div>
+                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                    {u.funcao}{u.crm ? ` · ${u.crm}` : ''}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                   <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
