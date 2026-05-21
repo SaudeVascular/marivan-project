@@ -105,6 +105,64 @@ function RodapeImpresso() {
   );
 }
 
+const EXAMES_DISPONIVEIS = [
+  {
+    categoria: 'Laboratório — Rotina',
+    exames: [
+      { id: 'hemograma',  nome: 'Hemograma completo',               tuss: '40303289' },
+      { id: 'glicemia',   nome: 'Glicemia de jejum',                tuss: '40302032' },
+      { id: 'hba1c',      nome: 'Hemoglobina glicada (HbA1c)',      tuss: '40302024' },
+      { id: 'col',        nome: 'Colesterol total e frações',       tuss: '40302059' },
+      { id: 'trig',       nome: 'Triglicerídeos',                   tuss: '40302121' },
+      { id: 'creat',      nome: 'Creatinina',                       tuss: '40302067' },
+      { id: 'ureia',      nome: 'Ureia',                            tuss: '40302130' },
+      { id: 'acur',       nome: 'Ácido úrico',                      tuss: '40302016' },
+      { id: 'sodio',      nome: 'Sódio',                            tuss: '40302113' },
+      { id: 'potassio',   nome: 'Potássio',                         tuss: '40302091' },
+      { id: 'magnesio',   nome: 'Magnésio',                         tuss: '40302075' },
+      { id: 'tgo',        nome: 'TGO (AST)',                        tuss: '40302105' },
+      { id: 'tgp',        nome: 'TGP (ALT)',                        tuss: '40302113' },
+      { id: 'pcr',        nome: 'Proteína C reativa (PCR)',         tuss: '40302091' },
+      { id: 'tsh',        nome: 'TSH',                              tuss: '40302210' },
+      { id: 't4l',        nome: 'T4 livre',                         tuss: '40302202' },
+    ],
+  },
+  {
+    categoria: 'Laboratório — Cardiológico',
+    exames: [
+      { id: 'troponina',  nome: 'Troponina I ou T',                 tuss: '40302229' },
+      { id: 'bnp',        nome: 'BNP / NT-proBNP',                  tuss: '40302350' },
+      { id: 'ddi',        nome: 'D-dímero',                         tuss: '40302270' },
+      { id: 'coag',       nome: 'Coagulograma (TAP / INR / TTPA)',  tuss: '40303157' },
+      { id: 'ferrit',     nome: 'Ferritina',                        tuss: '40302044' },
+      { id: 'vitd',       nome: 'Vitamina D (25-OH)',               tuss: '40302563' },
+    ],
+  },
+  {
+    categoria: 'Cardiologia',
+    exames: [
+      { id: 'ecg',        nome: 'Eletrocardiograma (ECG)',          tuss: '40301010' },
+      { id: 'eco',        nome: 'Ecocardiograma transtorácico',     tuss: '40901254' },
+      { id: 'ergom',      nome: 'Teste ergométrico',                tuss: '40301052' },
+      { id: 'holter',     nome: 'Holter 24 horas',                  tuss: '40301036' },
+      { id: 'mapa',       nome: 'MAPA 24 horas',                    tuss: '40301028' },
+      { id: 'cinti',      nome: 'Cintilografia miocárdica',         tuss: '40801293' },
+      { id: 'angiotc',    nome: 'Angiotomografia coronariana',      tuss: '40901122' },
+      { id: 'rmcard',     nome: 'Ressonância magnética cardíaca',   tuss: '40914153' },
+    ],
+  },
+  {
+    categoria: 'Imagem',
+    exames: [
+      { id: 'rxtorax',    nome: 'Radiografia de tórax',            tuss: '40901130' },
+      { id: 'usgabd',     nome: 'Ultrassom de abdome total',        tuss: '40901041' },
+      { id: 'dopcar',     nome: 'Doppler de carótidas e vertebrais',tuss: '40901386' },
+      { id: 'dopvein',    nome: 'Doppler venoso de MMII',           tuss: '40901203' },
+      { id: 'itb',        nome: 'Índice tornozelo-braquial (ITB)', tuss: '40301079' },
+    ],
+  },
+];
+
 function Header() {
   const { logout, user } = useAuth();
   return (
@@ -531,9 +589,34 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [registroAberto, setRegistroAberto] = React.useState(null);
-  const [registroEditando, setRegistroEditando] = React.useState(null); // { id, titulo, conteudo }
+  const [registroEditando, setRegistroEditando] = React.useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
   const [editandoClinicos, setEditandoClinicos] = React.useState(false);
+  const [splitPct, setSplitPct] = React.useState(55);
+  const isDragging = React.useRef(false);
+  const splitContainerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const onMove = (clientX) => {
+      if (!isDragging.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const pct = ((clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.min(Math.max(pct, 25), 75));
+    };
+    const onMouseMove = (e) => onMove(e.clientX);
+    const onTouchMove = (e) => onMove(e.touches[0].clientX);
+    const onEnd = () => { isDragging.current = false; };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, []);
   const [clinicos, setClinicos] = React.useState({
     has: '', dm: '', dac: '', dislipidemia: '',
     tabagismo: '', etilismo: '', cirurgias: '',
@@ -653,6 +736,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   const coresTipo = {
     'Consulta': '#007bff', 'Atestado': '#28a745',
     'Receituário': '#f59e0b', 'Prescrição': '#8b5cf6', 'Relatório': '#6c757d',
+    'Pedido de Exames': '#0891b2',
   };
 
   return (
@@ -765,10 +849,10 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         </div>
       </div>
 
-      <div className="prontuario-main-grid">
+      <div ref={splitContainerRef} style={{ marginTop: '16px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
 
-        {/* Painel central — atendimento atual */}
-        <div style={painelStyle}>
+        {/* Painel esquerdo — atendimento atual */}
+        <div style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>Atendimento Atual</h2>
           <textarea
             placeholder="História clínica, exame físico, hipótese diagnóstica, conduta..."
@@ -785,11 +869,24 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
             <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
             <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>📊 Relatório</Link>
+            <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, gridColumn: 'span 2', backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
           </div>
         </div>
 
+        {/* Divisor arrastável */}
+        <div
+          onMouseDown={(e) => { isDragging.current = true; e.preventDefault(); }}
+          onTouchStart={() => { isDragging.current = true; }}
+          style={{ width: '10px', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', transition: 'background-color 0.15s' }}
+          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#94a3b8'}
+          onMouseLeave={e => e.currentTarget.style.backgroundColor = '#e2e8f0'}
+          title="Arraste para redimensionar"
+        >
+          <div style={{ width: '3px', height: '48px', backgroundColor: '#94a3b8', borderRadius: '3px', pointerEvents: 'none' }} />
+        </div>
+
         {/* Painel direito — histórico */}
-        <div style={painelStyle}>
+        <div style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>Histórico ({registros.length})</h2>
           {registros.length === 0 ? (
             <p style={{ color: '#999', fontSize: '14px' }}>Nenhum registro ainda.</p>
@@ -1459,6 +1556,334 @@ function ImprimirAtendimentoPage() {
   );
 }
 
+function PedidoExamesPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const hojeISO = new Date().toISOString().split('T')[0];
+
+  const [medico, setMedico]         = React.useState('');
+  const [crm, setCrm]               = React.useState('');
+  const [dataExame, setDataExame]   = React.useState(hojeISO);
+  const [indicacao, setIndicacao]   = React.useState('');
+  const [cid, setCid]               = React.useState('');
+  const [numeroBenef, setNumeroBenef] = React.useState('');
+  const [validadeCart, setValidadeCart] = React.useState('');
+  const [examesSel, setExamesSel]   = React.useState(new Set());
+  const [modo, setModo]             = React.useState('receituario');
+  const [salvo, setSalvo]           = React.useState(false);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const toggle = (exId) => setExamesSel(prev => {
+    const n = new Set(prev);
+    n.has(exId) ? n.delete(exId) : n.add(exId);
+    return n;
+  });
+
+  const examsPorCategoria = EXAMES_DISPONIVEIS
+    .map(cat => ({ ...cat, exames: cat.exames.filter(e => examesSel.has(e.id)) }))
+    .filter(cat => cat.exames.length > 0);
+
+  const todosExamesSel = EXAMES_DISPONIVEIS.flatMap(c => c.exames).filter(e => examesSel.has(e.id));
+
+  const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const salvarNoProntuario = async () => {
+    const conteudo = examsPorCategoria.map(cat =>
+      `${cat.categoria}:\n` + cat.exames.map(e => `  • ${e.nome}`).join('\n')
+    ).join('\n\n') + (indicacao ? `\n\nIndicação: ${indicacao}` : '') + (cid ? `  CID: ${cid}` : '');
+
+    const registro = { tipo: 'Pedido de Exames', titulo: `Pedido de Exames — ${todosExamesSel.length} exame(s)`, conteudo };
+    try {
+      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      setPacientes(pacientes.map(p => p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p));
+    } catch (err) {
+      console.error('Erro ao salvar pedido:', err);
+    }
+    setSalvo(true);
+  };
+
+  const btnModo = (m, label) => (
+    <button onClick={() => setModo(m)} style={{ padding: '7px 16px', backgroundColor: modo === m ? '#1d4ed8' : '#e5e7eb', color: modo === m ? 'white' : '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: modo === m ? 'bold' : 'normal', fontSize: '13px' }}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div>
+      <div className="no-print">
+        <Header />
+        <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      </div>
+
+      {/* Formulário */}
+      <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <h3 style={{ marginTop: 0 }}>Pedido de Exames — {paciente.nome}</h3>
+
+        {/* Linha médico/CRM/data */}
+        <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico</label>
+            <input value={medico} onChange={e => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
+            <input value={crm} onChange={e => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+            <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+          </div>
+        </div>
+
+        {/* Dados TISS (só mostram quando modo TISS) */}
+        {modo === 'tiss' && (
+          <div className="form-grid-3col" style={{ marginBottom: '14px', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '6px' }}>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
+              <input value={paciente.convenio || ''} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#f8fafc' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nº Carteira do Beneficiário</label>
+              <input value={numeroBenef} onChange={e => setNumeroBenef(e.target.value)} placeholder="000000000000000" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Validade da Carteira</label>
+              <input type="date" value={validadeCart} onChange={e => setValidadeCart(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+            </div>
+          </div>
+        )}
+
+        {/* Indicação e CID */}
+        <div className="form-grid-3col" style={{ marginBottom: '16px' }}>
+          <div style={{ gridColumn: 'span 2' }}>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Indicação clínica</label>
+            <input value={indicacao} onChange={e => setIndicacao(e.target.value)} placeholder="Ex: Hipertensão arterial, investigação de dislipidemia..." style={{ width: '100%', padding: '8px' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID</label>
+            <input value={cid} onChange={e => setCid(e.target.value)} placeholder="Ex: I10" style={{ width: '100%', padding: '8px' }} />
+          </div>
+        </div>
+
+        {/* Seleção de exames */}
+        <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <strong style={{ fontSize: '14px' }}>Selecione os exames</strong>
+            <span style={{ fontSize: '12px', backgroundColor: examesSel.size > 0 ? '#dbeafe' : '#f3f4f6', color: examesSel.size > 0 ? '#1d4ed8' : '#6b7280', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
+              {examesSel.size} selecionado(s)
+            </span>
+          </div>
+          {EXAMES_DISPONIVEIS.map(cat => (
+            <div key={cat.categoria} style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', borderBottom: '1px solid #f3f4f6', paddingBottom: '4px', marginBottom: '6px' }}>
+                {cat.categoria}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {cat.exames.map(ex => {
+                  const sel = examesSel.has(ex.id);
+                  return (
+                    <button key={ex.id} onClick={() => toggle(ex.id)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: sel ? '#dbeafe' : '#f9fafb', color: sel ? '#1d4ed8' : '#374151', border: `1px solid ${sel ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '4px', cursor: 'pointer', fontWeight: sel ? '700' : '400' }}>
+                      {sel ? '✓ ' : ''}{ex.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Ações */}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={salvarNoProntuario} disabled={examesSel.size === 0} style={{ padding: '9px 16px', backgroundColor: examesSel.size === 0 ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: examesSel.size === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+            ✓ Salvar no Prontuário
+          </button>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <span style={{ fontSize: '13px', color: '#6b7280' }}>Visualizar como:</span>
+            {btnModo('receituario', '📋 Receituário')}
+            {btnModo('tiss', '📄 Guia TISS')}
+          </div>
+          <button onClick={() => window.print()} disabled={examesSel.size === 0} style={{ padding: '9px 16px', backgroundColor: examesSel.size === 0 ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: examesSel.size === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+            🖨️ Imprimir
+          </button>
+          {salvo && <span style={{ color: '#28a745', fontSize: '13px', fontWeight: 'bold' }}>✓ Salvo!</span>}
+        </div>
+      </div>
+
+      {/* ===== PREVIEW RECEITUÁRIO ===== */}
+      {modo === 'receituario' && (
+        <div className="doc-preview">
+          <CabecalhoImpresso paciente={paciente} />
+          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
+            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+          </div>
+          <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '17px', margin: '0 0 24px' }}>PEDIDO DE EXAMES</h2>
+
+          {examsPorCategoria.length === 0
+            ? <p style={{ color: '#bbb', textAlign: 'center', fontStyle: 'italic' }}>Nenhum exame selecionado</p>
+            : examsPorCategoria.map(cat => (
+              <div key={cat.categoria} style={{ marginBottom: '16px' }}>
+                <p style={{ margin: '0 0 6px', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', color: '#374151', borderBottom: '1px solid #eee', paddingBottom: '3px' }}>{cat.categoria}</p>
+                {cat.exames.map(e => <p key={e.id} style={{ margin: '3px 0 3px 12px', fontSize: '14px' }}>• {e.nome}</p>)}
+              </div>
+            ))
+          }
+
+          {(indicacao || cid) && (
+            <div style={{ marginTop: '16px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '13px' }}>
+              {indicacao && <p style={{ margin: '2px 0' }}><strong>Indicação:</strong> {indicacao}</p>}
+              {cid && <p style={{ margin: '2px 0' }}><strong>CID:</strong> {cid}</p>}
+            </div>
+          )}
+
+          <div style={{ marginTop: '50px', textAlign: 'right' }}>
+            <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
+            <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+              <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              </div>
+            </div>
+          </div>
+          <RodapeImpresso />
+        </div>
+      )}
+
+      {/* ===== PREVIEW GUIA TISS ===== */}
+      {modo === 'tiss' && (
+        <div style={{ backgroundColor: 'white', padding: '24px 28px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', fontFamily: 'Arial, sans-serif', fontSize: '11px' }}>
+          {/* Cabeçalho TISS */}
+          <div style={{ border: '2px solid #222', marginBottom: '0' }}>
+            <div style={{ backgroundColor: '#1d4ed8', color: 'white', padding: '6px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <LogoClinica size={28} />
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{CLINICA.nome}</div>
+                  <div style={{ fontSize: '10px', opacity: 0.85 }}>{CLINICA.subtitulo}</div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '12px' }}>GUIA DE SOLICITAÇÃO DE EXAME</div>
+                <div style={{ fontSize: '10px' }}>Padrão TISS — ANS</div>
+              </div>
+            </div>
+
+            {/* Linha 1: Nº guia / Operadora / Data */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderBottom: '1px solid #aaa' }}>
+              {[['Nº Guia do Prestador', ''], ['Nº Guia Operadora', ''], ['Data de Emissão', dataFormatada]].map(([l, v], i) => (
+                <div key={i} style={{ padding: '4px 8px', borderRight: i < 2 ? '1px solid #aaa' : 'none' }}>
+                  <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>{l}</div>
+                  <div style={{ fontWeight: 'bold', minHeight: '14px' }}>{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Dados do beneficiário */}
+            <div style={{ borderBottom: '1px solid #aaa' }}>
+              <div style={{ backgroundColor: '#f3f4f6', padding: '3px 8px', fontSize: '10px', fontWeight: 'bold', borderBottom: '1px solid #ddd' }}>DADOS DO BENEFICIÁRIO</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '4px 0' }}>
+                {[['Nome do Beneficiário', paciente.nome], ['Nº Carteira', numeroBenef || '_______________'], ['Validade', validadeCart ? new Date(validadeCart + 'T12:00:00').toLocaleDateString('pt-BR') : '__/__/____']].map(([l, v], i) => (
+                  <div key={i} style={{ padding: '3px 8px', borderRight: i < 2 ? '1px solid #ddd' : 'none' }}>
+                    <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>{l}</div>
+                    <div style={{ fontWeight: 'bold' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '0', borderTop: '1px solid #ddd' }}>
+                {[['Plano / Produto', paciente.convenio || '_______________'], ['CPF', paciente.cpf || '___.___.___-__']].map(([l, v], i) => (
+                  <div key={i} style={{ padding: '3px 8px', borderRight: i === 0 ? '1px solid #ddd' : 'none' }}>
+                    <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>{l}</div>
+                    <div style={{ fontWeight: 'bold' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Dados do prestador */}
+            <div style={{ borderBottom: '1px solid #aaa' }}>
+              <div style={{ backgroundColor: '#f3f4f6', padding: '3px 8px', fontSize: '10px', fontWeight: 'bold', borderBottom: '1px solid #ddd' }}>DADOS DO PRESTADOR SOLICITANTE</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '4px 0' }}>
+                {[['Nome do Prestador', CLINICA.nome], ['Código CNES', '0000000'], ['CRM Médico', crm || '___________']].map(([l, v], i) => (
+                  <div key={i} style={{ padding: '3px 8px', borderRight: i < 2 ? '1px solid #ddd' : 'none' }}>
+                    <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>{l}</div>
+                    <div style={{ fontWeight: 'bold' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', borderTop: '1px solid #ddd' }}>
+                <div style={{ padding: '3px 8px', borderRight: '1px solid #ddd' }}>
+                  <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>Nome do Médico Solicitante</div>
+                  <div style={{ fontWeight: 'bold' }}>{medico || '_______________________________'}</div>
+                </div>
+                <div style={{ padding: '3px 8px' }}>
+                  <div style={{ fontSize: '9px', color: '#555', marginBottom: '2px' }}>CID Principal</div>
+                  <div style={{ fontWeight: 'bold' }}>{cid || '______'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Indicação */}
+            {indicacao && (
+              <div style={{ borderBottom: '1px solid #aaa', padding: '4px 8px' }}>
+                <span style={{ fontSize: '9px', color: '#555' }}>Indicação clínica: </span>
+                <span style={{ fontWeight: 'bold' }}>{indicacao}</span>
+              </div>
+            )}
+
+            {/* Tabela de exames */}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f3f4f6' }}>
+                  {['Cód. TUSS', 'Descrição do Procedimento', 'Qtd.', 'Tp. Atend.', 'Autorizado', 'Qtd. Aut.'].map((h, i) => (
+                    <th key={i} style={{ padding: '4px 6px', textAlign: 'left', fontSize: '9px', borderBottom: '1px solid #aaa', borderRight: '1px solid #ddd', fontWeight: 'bold' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {todosExamesSel.length === 0
+                  ? <tr><td colSpan={6} style={{ padding: '8px', textAlign: 'center', color: '#aaa', fontStyle: 'italic' }}>Nenhum exame selecionado</td></tr>
+                  : todosExamesSel.map((ex, i) => (
+                    <tr key={ex.id} style={{ backgroundColor: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', borderRight: '1px solid #ddd', fontWeight: 'bold' }}>{ex.tuss}</td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', borderRight: '1px solid #ddd' }}>{ex.nome}</td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', borderRight: '1px solid #ddd', textAlign: 'center' }}>1</td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', borderRight: '1px solid #ddd', textAlign: 'center' }}>AMB</td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', borderRight: '1px solid #ddd', minWidth: '60px' }}>&nbsp;</td>
+                      <td style={{ padding: '4px 6px', borderBottom: '1px solid #eee', minWidth: '50px' }}>&nbsp;</td>
+                    </tr>
+                  ))
+                }
+              </tbody>
+            </table>
+
+            {/* Assinaturas */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid #aaa' }}>
+              <div style={{ padding: '8px', borderRight: '1px solid #aaa', minHeight: '55px' }}>
+                <div style={{ fontSize: '9px', color: '#555', marginBottom: '4px' }}>Assinatura e carimbo do médico solicitante</div>
+                <div style={{ borderTop: '1px solid #333', marginTop: '30px', paddingTop: '4px', fontSize: '9px', textAlign: 'center' }}>
+                  {medico || '_______________________________'}{crm ? ` — ${crm}` : ''}
+                </div>
+              </div>
+              <div style={{ padding: '8px', minHeight: '55px' }}>
+                <div style={{ fontSize: '9px', color: '#555', marginBottom: '4px' }}>Assinatura do beneficiário / responsável</div>
+                <div style={{ borderTop: '1px solid #333', marginTop: '30px', paddingTop: '4px', fontSize: '9px', textAlign: 'center' }}>
+                  {paciente.nome}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '8px', fontSize: '9px', color: '#888', textAlign: 'center' }}>
+            {CLINICA.endereco} — {CLINICA.cidade} — {CLINICA.telefone}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
@@ -1696,6 +2121,14 @@ function AppContent() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
+      <Route
+        path="/pedido-exames/:id"
+        element={
+          <ProtectedLayout>
+            <PedidoExamesPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
       <Route
         path="/imprimir/:pacienteId/:registroId"
         element={
