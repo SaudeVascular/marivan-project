@@ -737,6 +737,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     'Consulta': '#007bff', 'Atestado': '#28a745',
     'Receituário': '#f59e0b', 'Prescrição': '#8b5cf6', 'Relatório': '#6c757d',
     'Pedido de Exames': '#0891b2',
+    'Laudo': '#7c3aed',
   };
 
   return (
@@ -869,7 +870,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
             <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
             <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>📊 Relatório</Link>
-            <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, gridColumn: 'span 2', backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
+            <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
+            <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudos</Link>
           </div>
         </div>
 
@@ -1556,6 +1558,180 @@ function ImprimirAtendimentoPage() {
   );
 }
 
+const TIPOS_EXAME = [
+  'Eletrocardiograma (ECG)',
+  'Ecocardiograma transtorácico',
+  'Ecocardiograma transesofágico',
+  'Teste ergométrico',
+  'Holter 24 horas',
+  'MAPA 24 horas',
+  'Cintilografia miocárdica',
+  'Angiotomografia coronariana',
+  'Ressonância magnética cardíaca',
+  'Radiografia de tórax',
+  'Ultrassom de abdome',
+  'Doppler de carótidas',
+  'Doppler venoso de MMII',
+  'Espirometria',
+  'Outro',
+];
+
+function LaudoPage({ pacientes, setPacientes }) {
+  const { id } = useParams();
+  const { user } = useAuth();
+  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const hojeISO = new Date().toISOString().split('T')[0];
+
+  const [medico, setMedico]           = React.useState('');
+  const [crm, setCrm]                 = React.useState('');
+  const [dataExame, setDataExame]     = React.useState(hojeISO);
+  const [tipoExame, setTipoExame]     = React.useState('');
+  const [tipoOutro, setTipoOutro]     = React.useState('');
+  const [achados, setAchados]         = React.useState('');
+  const [conclusao, setConclusao]     = React.useState('');
+  const [salvo, setSalvo]             = React.useState(false);
+  const [salvando, setSalvando]       = React.useState(false);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const nomeExame = tipoExame === 'Outro' ? tipoOutro : tipoExame;
+  const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const salvarNoProntuario = async () => {
+    if (!achados && !conclusao) return;
+    setSalvando(true);
+    const conteudo = [
+      `Exame: ${nomeExame || 'Não informado'}`,
+      achados   ? `\nACHADOS:\n${achados}`   : null,
+      conclusao ? `\nCONCLUSÃO:\n${conclusao}` : null,
+    ].filter(Boolean).join('\n');
+    const registro = {
+      tipo: 'Laudo',
+      titulo: `Laudo — ${nomeExame || 'Exame'}`,
+      conteudo,
+    };
+    try {
+      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      setPacientes(pacientes.map(p =>
+        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
+      ));
+      setSalvo(true);
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="no-print">
+        <Header />
+        <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      </div>
+
+      {/* Formulário */}
+      <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+        <h3 style={{ marginTop: 0 }}>Laudo — {paciente.nome}</h3>
+
+        <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico</label>
+            <input value={medico} onChange={e => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
+            <input value={crm} onChange={e => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data do exame</label>
+            <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ width: '100%', padding: '8px' }} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tipo de exame</label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <select value={tipoExame} onChange={e => setTipoExame(e.target.value)} style={{ padding: '8px', fontSize: '14px', flex: '1', minWidth: '200px' }}>
+              <option value="">Selecione o exame...</option>
+              {TIPOS_EXAME.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {tipoExame === 'Outro' && (
+              <input value={tipoOutro} onChange={e => setTipoOutro(e.target.value)} placeholder="Descreva o exame" style={{ padding: '8px', fontSize: '14px', flex: '2', minWidth: '200px' }} />
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Achados / Descrição</label>
+          <textarea value={achados} onChange={e => setAchados(e.target.value)} rows={7} placeholder="Descreva os achados do exame..." style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Conclusão / Impressão diagnóstica</label>
+          <textarea value={conclusao} onChange={e => setConclusao(e.target.value)} rows={4} placeholder="Conclusão do laudo..." style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={salvarNoProntuario} disabled={salvando || (!achados && !conclusao)} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
+          </button>
+          <button onClick={() => window.print()} disabled={!achados && !conclusao} style={{ padding: '10px 18px', backgroundColor: !achados && !conclusao ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            🖨️ Imprimir
+          </button>
+          {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+        </div>
+      </div>
+
+      {/* Documento para impressão */}
+      <div className="doc-preview">
+        <CabecalhoImpresso paciente={paciente} />
+
+        <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
+          <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
+          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+        </div>
+
+        <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>LAUDO</h2>
+        {nomeExame && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 20px' }}>{nomeExame}</p>}
+
+        <div style={{ borderTop: '1px solid #ddd', paddingTop: '14px', marginBottom: '14px', fontSize: '13px' }}>
+          <span><strong>Data do exame:</strong> {dataFormatada}</span>
+        </div>
+
+        {achados && (
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Achados</h3>
+            <p style={{ fontSize: '14px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{achados}</p>
+          </div>
+        )}
+
+        {conclusao && (
+          <div style={{ marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Conclusão</h3>
+            <p style={{ fontSize: '14px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{conclusao}</p>
+          </div>
+        )}
+
+        {!achados && !conclusao && (
+          <p style={{ color: '#bbb', textAlign: 'center', fontStyle: 'italic', margin: '40px 0' }}>Preencha os campos acima para visualizar o laudo</p>
+        )}
+
+        <div style={{ marginTop: '60px', textAlign: 'right' }}>
+          <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
+          <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+            <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+            </div>
+          </div>
+        </div>
+        <RodapeImpresso />
+      </div>
+    </div>
+  );
+}
+
 function PedidoExamesPage({ pacientes, setPacientes }) {
   const { id } = useParams();
   const { user } = useAuth();
@@ -2121,6 +2297,14 @@ function AppContent() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
+      <Route
+        path="/laudos/:id"
+        element={
+          <ProtectedLayout>
+            <LaudoPage pacientes={pacientes} setPacientes={setPacientes} />
+          </ProtectedLayout>
+        }
+      />
       <Route
         path="/pedido-exames/:id"
         element={
