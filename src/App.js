@@ -751,10 +751,10 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingRight: '20px', flexShrink: 0, flexWrap: 'wrap' }}>
           <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>👤</div>
           <div>
-            <h2 style={{ margin: '0 0 4px', fontSize: '16px' }}>{paciente.nome}</h2>
+            <h2 style={{ margin: '0 0 6px', fontSize: '20px' }}>{paciente.nome}</h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '12px', color: '#555' }}>
               <span><strong>CPF:</strong> {paciente.cpf || '-'}</span>
-              <span><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}</span>
+              <span><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}{paciente.nascimento ? ` (${calcularIdade(paciente.nascimento)} anos)` : ''}</span>
               <span><strong>Tel.:</strong> {paciente.telefone || '-'}</span>
               <span><strong>Convênio:</strong> {paciente.convenio || '-'}</span>
             </div>
