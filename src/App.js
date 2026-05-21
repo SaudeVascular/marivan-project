@@ -869,7 +869,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
             <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
             <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
-            <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>📊 Relatório</Link>
+            <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>🩺 Relatório</Link>
             <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
             <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudos</Link>
           </div>
