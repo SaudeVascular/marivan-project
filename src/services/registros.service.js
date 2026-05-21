@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 
+const CAMPOS = 'id, tipo, titulo, conteudo, data, hora, created_by, created_at';
+
 // DB → React
 const fromDb = (c) => ({
   id: c.id,
@@ -18,11 +20,21 @@ export const registrosService = {
   async listarPorPaciente(pacienteId) {
     const { data, error } = await supabase
       .from('consultas')
-      .select('id, tipo, titulo, conteudo, data, hora, created_by, created_at')
+      .select(CAMPOS)
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data || []).map(fromDb);
+  },
+
+  async buscarPorId(registroId) {
+    const { data, error } = await supabase
+      .from('consultas')
+      .select(CAMPOS)
+      .eq('id', registroId)
+      .single();
+    if (error) throw error;
+    return fromDb(data);
   },
 
   async atualizar(id, campos) {
@@ -30,7 +42,7 @@ export const registrosService = {
       .from('consultas')
       .update({ titulo: campos.titulo, conteudo: campos.conteudo })
       .eq('id', id)
-      .select('id, tipo, titulo, conteudo, data, hora')
+      .select(CAMPOS)
       .single();
     if (error) throw error;
     return fromDb(data);
@@ -49,7 +61,7 @@ export const registrosService = {
         hora: registro.hora || agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         created_by: userId,
       }])
-      .select('id, tipo, titulo, conteudo, data, hora')
+      .select(CAMPOS)
       .single();
     if (error) throw error;
     return fromDb(data);

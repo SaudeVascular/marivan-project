@@ -46,6 +46,65 @@ const formatarData = (dataISO) => {
   return `${partes[2]}/${partes[1]}/${partes[0]}`;
 };
 
+const calcularIdade = (nascimento) => {
+  if (!nascimento) return null;
+  const hoje = new Date();
+  const nasc = new Date(nascimento + 'T12:00:00');
+  let idade = hoje.getFullYear() - nasc.getFullYear();
+  const mes = hoje.getMonth() - nasc.getMonth();
+  if (mes < 0 || (mes === 0 && hoje.getDate() < nasc.getDate())) idade--;
+  return idade;
+};
+
+const CLINICA = {
+  nome: 'Clínica CardioVida',
+  subtitulo: 'Cardiologia & Medicina Interna',
+  endereco: 'Av. das Palmeiras, 1234 — Sala 501 — Jardim América',
+  cidade: 'São Paulo — SP — CEP 01310-100',
+  telefone: 'Tel.: (11) 3456-7890 | cardiovida@clinica.com.br',
+};
+
+const LogoClinica = ({ size = 44 }) => (
+  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="50" fill="#1d4ed8" />
+    <path d="M50 78 C50 78 20 60 20 40 C20 29 29 22 38 22 C43 22 48 25 50 28 C52 25 57 22 62 22 C71 22 80 29 80 40 C80 60 50 78 50 78Z" fill="white" />
+    <rect x="44" y="35" width="12" height="28" rx="3" fill="#1d4ed8" />
+    <rect x="36" y="43" width="28" height="12" rx="3" fill="#1d4ed8" />
+  </svg>
+);
+
+function CabecalhoImpresso({ paciente }) {
+  const idade = paciente ? calcularIdade(paciente.nascimento) : null;
+  return (
+    <div style={{ borderBottom: '2px solid #1d4ed8', paddingBottom: '12px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
+        <LogoClinica size={52} />
+        <div>
+          <h1 style={{ margin: 0, fontSize: '20px', color: '#1d4ed8', fontWeight: '800', letterSpacing: '0.5px' }}>{CLINICA.nome}</h1>
+          <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>{CLINICA.subtitulo}</p>
+        </div>
+      </div>
+      {paciente && (
+        <div style={{ backgroundColor: '#eff6ff', borderRadius: '6px', padding: '7px 12px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', gap: '6px 24px' }}>
+          <span><strong>Paciente:</strong> {paciente.nome}</span>
+          {idade !== null && <span><strong>Idade:</strong> {idade} anos</span>}
+          {paciente.cpf && <span><strong>CPF:</strong> {paciente.cpf}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RodapeImpresso() {
+  return (
+    <div style={{ borderTop: '1px solid #ddd', marginTop: '40px', paddingTop: '10px', textAlign: 'center', fontSize: '11px', color: '#666' }}>
+      <p style={{ margin: '2px 0' }}>{CLINICA.endereco}</p>
+      <p style={{ margin: '2px 0' }}>{CLINICA.cidade}</p>
+      <p style={{ margin: '2px 0' }}>{CLINICA.telefone}</p>
+    </div>
+  );
+}
+
 function Header() {
   const { logout, user } = useAuth();
   return (
@@ -468,6 +527,7 @@ function PacientesPage({ pacientes, setPacientes }) {
 function ProntuarioPage({ pacientes, setPacientes }) {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [registroAberto, setRegistroAberto] = React.useState(null);
@@ -739,14 +799,16 @@ function ProntuarioPage({ pacientes, setPacientes }) {
               const aberto = registroAberto === registro.id;
               const editando = registroEditando?.id === registro.id;
               const dentroDE24h = registro.createdAt
-                && (Date.now() - new Date(registro.createdAt).getTime()) < 24 * 60 * 60 * 1000;
+                && (Date.now() - new Date(registro.createdAt).getTime()) < 8 * 60 * 60 * 1000;
               const podeEditar = registro.createdBy === user?.id && dentroDE24h;
               return (
                 <div key={registro.id} style={{ marginBottom: '8px' }}>
                   {/* Cabeçalho clicável */}
                   <div
                     onClick={() => !editando && setRegistroAberto(aberto ? null : registro.id)}
+                    onDoubleClick={() => !editando && window.open(`/imprimir/${paciente.id}/${registro.id}`, '_blank')}
                     style={{ borderLeft: `4px solid ${cor}`, backgroundColor: aberto || editando ? '#f0f7ff' : '#f8f9fa', padding: '8px 10px', borderRadius: aberto || editando ? '6px 6px 0 0' : '6px', cursor: editando ? 'default' : 'pointer', userSelect: 'none' }}
+                    title="Clique para expandir · Duplo clique para imprimir"
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '11px', backgroundColor: cor, color: 'white', padding: '1px 7px', borderRadius: '10px' }}>{registro.tipo}</span>
@@ -917,11 +979,12 @@ function AtestadoPage({ pacientes, setPacientes }) {
         </div>
 
         <div className="doc-preview">
-          <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
+          <CabecalhoImpresso paciente={paciente} />
+          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
+            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '13px' }}>{crm || 'CRM _______________'}</p>
           </div>
-          <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 40px' }}>ATESTADO MÉDICO</h2>
+          <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 30px' }}>ATESTADO MÉDICO</h2>
           <p style={{ fontSize: '15px', lineHeight: '2.2', textAlign: 'justify' }}>
             Atesto que o(a) paciente <strong>{paciente.nome}</strong>
             {paciente.cpf ? `, portador(a) do CPF ${paciente.cpf},` : ','} esteve sob meus cuidados médicos
@@ -930,7 +993,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
             {cid && ` CID: ${cid}.`}
           </p>
           {observacoes && <p style={{ fontSize: '15px', lineHeight: '2', textAlign: 'justify' }}>{observacoes}</p>}
-          <div style={{ marginTop: '80px', textAlign: 'right' }}>
+          <div style={{ marginTop: '60px', textAlign: 'right' }}>
             <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
@@ -939,6 +1002,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
               </div>
             </div>
           </div>
+          <RodapeImpresso />
         </div>
       </div>
     </div>
@@ -1060,7 +1124,8 @@ function ReceituarioPage({ pacientes, setPacientes }) {
         </div>
 
         <div className="doc-preview">
-          <div style={{ textAlign: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
+          <CabecalhoImpresso paciente={paciente} />
+          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
             <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
             <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
           </div>
@@ -1086,7 +1151,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
           {medicamentos.filter(m => m.nome).length === 0 && (
             <p style={{ color: '#999', textAlign: 'center', fontStyle: 'italic' }}>Preencha os medicamentos acima</p>
           )}
-          <div style={{ marginTop: '70px', textAlign: 'right' }}>
+          <div style={{ marginTop: '50px', textAlign: 'right' }}>
             <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
@@ -1095,6 +1160,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
               </div>
             </div>
           </div>
+          <RodapeImpresso />
         </div>
       </div>
     </div>
@@ -1227,9 +1293,10 @@ function RelatorioPage({ pacientes, setPacientes }) {
 
         {/* Documento para impressão */}
         <div className="doc-preview">
-          <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '16px', borderBottom: '2px solid #222' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
+          <CabecalhoImpresso paciente={paciente} />
+          <div style={{ textAlign: 'center', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
+            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '13px' }}>{crm || 'CRM _______________'}</p>
           </div>
 
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>RELATÓRIO MÉDICO</h2>
@@ -1280,7 +1347,7 @@ function RelatorioPage({ pacientes, setPacientes }) {
             <p style={{ color: '#bbb', textAlign: 'center', fontStyle: 'italic', margin: '40px 0' }}>Preencha os campos acima para visualizar o relatório</p>
           )}
 
-          <div style={{ marginTop: '70px', textAlign: 'right' }}>
+          <div style={{ marginTop: '50px', textAlign: 'right' }}>
             <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
@@ -1289,7 +1356,104 @@ function RelatorioPage({ pacientes, setPacientes }) {
               </div>
             </div>
           </div>
+          <RodapeImpresso />
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ImprimirAtendimentoPage() {
+  const { pacienteId, registroId } = useParams();
+  const [paciente, setPaciente] = React.useState(null);
+  const [registro, setRegistro] = React.useState(null);
+  const [carregando, setCarregando] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      pacientesService.buscarPorId(pacienteId),
+      registrosService.buscarPorId(registroId),
+    ])
+      .then(([p, r]) => { setPaciente(p); setRegistro(r); })
+      .catch(console.error)
+      .finally(() => setCarregando(false));
+  }, [pacienteId, registroId]);
+
+  if (carregando) return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando...</div>;
+  if (!paciente || !registro) return <div style={{ padding: '40px' }}>Registro não encontrado.</div>;
+
+  const comorbidades = [
+    { label: 'HAS',          valor: paciente.has },
+    { label: 'DM',           valor: paciente.dm },
+    { label: 'DAC',          valor: paciente.dac },
+    { label: 'Dislipidemia', valor: paciente.dislipidemia },
+    { label: 'Tabagismo',    valor: paciente.tabagismo },
+    { label: 'Etilismo',     valor: paciente.etilismo },
+  ].filter(c => c.valor && c.valor !== 'Não' && c.valor !== '');
+
+  return (
+    <div>
+      {/* Barra de ações — oculta na impressão */}
+      <div className="no-print" style={{ padding: '12px 24px', backgroundColor: '#f3f4f6', borderBottom: '1px solid #ddd', display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+          🖨️ Imprimir
+        </button>
+        <button onClick={() => window.close()} style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}>
+          Fechar
+        </button>
+        <span style={{ fontSize: '13px', color: '#555' }}>
+          {paciente.nome} — {registro.data} às {registro.hora}
+        </span>
+      </div>
+
+      {/* Documento */}
+      <div className="doc-preview" style={{ maxWidth: '800px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.6' }}>
+        <CabecalhoImpresso paciente={paciente} />
+
+        {/* Título e data */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', letterSpacing: '2px', textTransform: 'uppercase' }}>Registro de Atendimento</h2>
+          <span style={{ fontSize: '13px', color: '#555' }}>{registro.data} às {registro.hora}</span>
+        </div>
+
+        {/* Antecedentes médicos */}
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
+            Antecedentes Médicos
+          </h3>
+          {comorbidades.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+              {comorbidades.map(c => (
+                <span key={c.label} style={{ padding: '3px 12px', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                  {c.label}{c.valor !== 'Sim' ? `: ${c.valor}` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+          {!comorbidades.length && <p style={{ color: '#999', margin: '0 0 8px' }}>Sem comorbidades registradas.</p>}
+          {paciente.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {paciente.cirurgias}</p>}
+          {paciente.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {paciente.medicamentosUso}</p>}
+          {paciente.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {paciente.alergias}</p>}
+        </div>
+
+        {/* História clínica */}
+        <div style={{ marginBottom: '50px' }}>
+          <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
+            {registro.tipo === 'Consulta' ? 'História Clínica' : registro.titulo}
+          </h3>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.9', textAlign: 'justify' }}>{registro.conteudo}</p>
+        </div>
+
+        {/* Assinatura */}
+        <div style={{ marginTop: '50px', textAlign: 'right' }}>
+          <p style={{ marginBottom: '50px', fontSize: '13px' }}>{registro.data}</p>
+          <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
+            <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
+              <p style={{ margin: 0, fontSize: '13px' }}>Assinatura e carimbo do médico</p>
+            </div>
+          </div>
+        </div>
+        <RodapeImpresso />
       </div>
     </div>
   );
@@ -1532,6 +1696,14 @@ function AppContent() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
+      <Route
+        path="/imprimir/:pacienteId/:registroId"
+        element={
+          <ProtectedLayout>
+            <ImprimirAtendimentoPage />
+          </ProtectedLayout>
+        }
+      />
       <Route
         path="/usuarios"
         element={
