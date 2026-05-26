@@ -13,6 +13,7 @@ import Login from './components/Login';
 import { pacientesService } from './services/pacientes.service';
 import { registrosService } from './services/registros.service';
 import { usuariosService } from './services/usuarios.service';
+import { modelosService } from './services/modelos.service';
 
 const initialPacientes = [
   {
@@ -1127,32 +1128,34 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   ]);
 
   React.useEffect(() => {
-    if (user?.id) {
-      usuariosService.buscarPerfil(user.id).then(perfil => {
-        if (perfil) {
-          setMedico(perfil.nome || '');
-          setCrm(perfil.crm || '');
-        }
-      });
-    }
-    const salvos = JSON.parse(localStorage.getItem('pep_modelos_receita') || '[]');
-    setModelos(salvos);
+    if (!user?.id) return;
+    usuariosService.buscarPerfil(user.id).then(perfil => {
+      if (perfil) { setMedico(perfil.nome || ''); setCrm(perfil.crm || ''); }
+    });
+    modelosService.listar(user.id)
+      .then(setModelos)
+      .catch(() => {});
   }, [user?.id]);
 
-  const salvarModelo = () => {
+  const salvarModelo = async () => {
     if (!nomeModelo.trim() || !textoLivre.trim()) return;
-    const novo = { id: Date.now(), nome: nomeModelo.trim(), conteudo: textoLivre };
-    const atualizados = [...modelos, novo];
-    setModelos(atualizados);
-    localStorage.setItem('pep_modelos_receita', JSON.stringify(atualizados));
-    setNomeModelo('');
-    setSalvandoModelo(false);
+    try {
+      const novo = await modelosService.criar(user.id, nomeModelo.trim(), textoLivre);
+      setModelos(prev => [...prev, novo]);
+      setNomeModelo('');
+      setSalvandoModelo(false);
+    } catch (err) {
+      alert('Erro ao salvar modelo: ' + err.message);
+    }
   };
 
-  const excluirModelo = (id) => {
-    const atualizados = modelos.filter(m => m.id !== id);
-    setModelos(atualizados);
-    localStorage.setItem('pep_modelos_receita', JSON.stringify(atualizados));
+  const excluirModelo = async (id) => {
+    try {
+      await modelosService.excluir(id);
+      setModelos(prev => prev.filter(m => m.id !== id));
+    } catch (err) {
+      alert('Erro ao excluir modelo: ' + err.message);
+    }
   };
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
