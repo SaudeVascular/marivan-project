@@ -1119,7 +1119,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const [dataReceita]       = React.useState(hojeISO);
   const [salvo, setSalvo]   = React.useState(false);
   const [medicamentos, setMedicamentos] = React.useState([
-    { id: 1, nome: '', dose: '', frequencia: '', duracao: '', instrucoes: '' }
+    { id: 1, nome: '', dose: '', quantidade: '', frequencia: '', duracao: '', instrucoes: '' }
   ]);
 
   React.useEffect(() => {
@@ -1136,7 +1136,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
   const adicionarMed = () => setMedicamentos([...medicamentos, {
-    id: Date.now(), nome: '', dose: '', frequencia: '', duracao: '', instrucoes: ''
+    id: Date.now(), nome: '', dose: '', quantidade: '', frequencia: '', duracao: '', instrucoes: ''
   }]);
 
   const removerMed = (medId) => {
@@ -1202,11 +1202,14 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                   <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Remover</button>
                 )}
               </div>
-              <div className="form-grid-meds">
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
                 <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Dose (50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Frequência (1x/dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Duração (30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Apresentação (ex: 50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Quantidade (ex: 2 caixas)" value={med.quantidade} onChange={(e) => atualizarMed(med.id, 'quantidade', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+                <input placeholder="Frequência (ex: 1x ao dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Duração (ex: 30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
               </div>
               <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
             </div>
@@ -1221,38 +1224,45 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
-          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>{crm || 'CRM _______________'}</p>
-          </div>
           <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 20px' }}>RECEITUÁRIO</h2>
-          <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Paciente:</strong> {paciente.nome}</p>
-          {paciente.cpf && <p style={{ margin: '0 0 16px', fontSize: '14px' }}><strong>CPF:</strong> {paciente.cpf}</p>}
-          <hr style={{ margin: '16px 0' }} />
-          {medicamentos.filter(m => m.nome).map((med, idx) => (
-            <div key={med.id} style={{ marginBottom: '20px' }}>
-              <p style={{ margin: '0 0 4px', fontWeight: 'bold', fontSize: '15px' }}>
-                {idx + 1}. {med.nome}{med.dose ? ` ${med.dose}` : ''}
-              </p>
-              {(med.frequencia || med.duracao) && (
-                <p style={{ margin: '0 0 2px', paddingLeft: '20px', fontSize: '14px' }}>
-                  Tomar {med.frequencia}{med.duracao ? ` por ${med.duracao}` : ''}
-                </p>
-              )}
-              {med.instrucoes && (
-                <p style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#555', fontStyle: 'italic' }}>{med.instrucoes}</p>
-              )}
-            </div>
-          ))}
+          <hr style={{ margin: '0 0 20px', borderColor: '#ddd' }} />
+
           {medicamentos.filter(m => m.nome).length === 0 && (
             <p style={{ color: '#999', textAlign: 'center', fontStyle: 'italic' }}>Preencha os medicamentos acima</p>
           )}
-          <div style={{ marginTop: '50px', textAlign: 'right' }}>
-            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+
+          {medicamentos.filter(m => m.nome).map((med, idx) => (
+            <div key={med.id} style={{ marginBottom: '22px' }}>
+              {/* Linha principal: nome (apresentação) ......... quantidade */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '15px', whiteSpace: 'nowrap' }}>
+                  {idx + 1}. {med.nome}{med.dose ? ` (${med.dose})` : ''}
+                </span>
+                <span style={{ flex: 1, borderBottom: '1px dotted #555', marginBottom: '3px', minWidth: '20px' }} />
+                <span style={{ fontSize: '14px', whiteSpace: 'nowrap', fontWeight: '500' }}>
+                  {med.quantidade || '_____________'}
+                </span>
+              </div>
+              {/* Posologia */}
+              {(med.frequencia || med.duracao) && (
+                <p style={{ margin: '0 0 2px', paddingLeft: '18px', fontSize: '13.5px', color: '#333' }}>
+                  {med.frequencia}{med.duracao ? ` — por ${med.duracao}` : ''}
+                </p>
+              )}
+              {med.instrucoes && (
+                <p style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#555', fontStyle: 'italic' }}>
+                  {med.instrucoes}
+                </p>
+              )}
+            </div>
+          ))}
+
+          <div style={{ marginTop: '60px', textAlign: 'right' }}>
+            <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
               </div>
             </div>
           </div>
