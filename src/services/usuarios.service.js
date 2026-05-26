@@ -47,6 +47,14 @@ export const usuariosService = {
     return data.user;
   },
 
+  async atualizar(id, { nome, funcao, crm }) {
+    const { error } = await supabase
+      .from('perfis')
+      .update({ nome, funcao, crm: crm || '' })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
   async alterarStatus(id, ativo) {
     const { error } = await supabase.from('perfis').update({ ativo }).eq('id', id);
     if (error) throw error;

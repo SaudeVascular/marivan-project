@@ -2190,6 +2190,7 @@ function UsuariosPage() {
   const [mostraSenha, setMostraSenha] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
+  const [editando, setEditando] = React.useState(null); // { id, nome, funcao, crm }
 
   React.useEffect(() => {
     usuariosService.listar()
@@ -2220,6 +2221,17 @@ function UsuariosPage() {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const salvarEdicao = async () => {
+    if (!editando?.nome.trim()) return;
+    try {
+      await usuariosService.atualizar(editando.id, editando);
+      setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...editando } : u));
+      setEditando(null);
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message);
     }
   };
 
@@ -2305,25 +2317,70 @@ function UsuariosPage() {
         ) : (
           <div style={{ display: 'grid', gap: '10px' }}>
             {usuarios.map(u => (
-              <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: u.ativo ? '#fff' : '#f9fafb', opacity: u.ativo ? 1 : 0.65, flexWrap: 'wrap' }}>
-                <div style={{ width: '46px', height: '46px', borderRadius: '50%', backgroundColor: u.ativo ? '#dbeafe' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                  {funcaoIcone[u.funcao] || '👤'}
-                </div>
-                <div style={{ flex: 1, minWidth: '160px' }}>
-                  <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
-                  <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
-                  <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
-                    {u.funcao}{u.crm ? ` · ${u.crm}` : ''}
+              <div key={u.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: u.ativo ? '#fff' : '#f9fafb', opacity: u.ativo ? 1 : 0.65, overflow: 'hidden' }}>
+
+                {/* Modo visualização */}
+                {editando?.id !== u.id && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px', flexWrap: 'wrap' }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', backgroundColor: u.ativo ? '#dbeafe' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+                      {funcaoIcone[u.funcao] || '👤'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: '160px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
+                      <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
+                      <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                        {u.funcao}{u.crm ? ` · ${u.crm}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
+                        {u.ativo ? 'Ativo' : 'Inativo'}
+                      </span>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                        ✎ Editar
+                      </button>
+                      <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                        {u.ativo ? 'Desativar' : 'Reativar'}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
-                    {u.ativo ? 'Ativo' : 'Inativo'}
-                  </span>
-                  <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
-                    {u.ativo ? 'Desativar' : 'Reativar'}
-                  </button>
-                </div>
+                )}
+
+                {/* Modo edição inline */}
+                {editando?.id === u.id && (
+                  <div style={{ padding: '14px 16px', backgroundColor: '#f0f9ff', borderTop: '2px solid #0369a1' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nome</label>
+                        <input value={editando.nome} onChange={e => setEditando({ ...editando, nome: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Função</label>
+                        <select value={editando.funcao} onChange={e => setEditando({ ...editando, funcao: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }}>
+                          <option>Médico</option>
+                          <option>Enfermeiro(a)</option>
+                          <option>Recepcionista</option>
+                          <option>Administrador</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
+                        <input value={editando.crm} onChange={e => setEditando({ ...editando, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+                      E-mail: <strong>{u.email}</strong> <span style={{ color: '#9ca3af' }}>(não editável)</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={salvarEdicao} style={{ padding: '7px 16px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                        ✓ Salvar
+                      </button>
+                      <button onClick={() => setEditando(null)} style={{ padding: '7px 12px', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
