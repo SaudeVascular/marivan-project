@@ -1119,7 +1119,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const [dataReceita]       = React.useState(hojeISO);
   const [salvo, setSalvo]   = React.useState(false);
   const [medicamentos, setMedicamentos] = React.useState([
-    { id: 1, nome: '', dose: '', quantidade: '', frequencia: '', duracao: '', instrucoes: '' }
+    { id: 1, nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: '' }
   ]);
 
   React.useEffect(() => {
@@ -1136,7 +1136,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
   const adicionarMed = () => setMedicamentos([...medicamentos, {
-    id: Date.now(), nome: '', dose: '', quantidade: '', frequencia: '', duracao: '', instrucoes: ''
+    id: Date.now(), nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: ''
   }]);
 
   const removerMed = (medId) => {
@@ -1207,10 +1207,23 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                 <input placeholder="Apresentação (ex: 50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Quantidade (ex: 2 caixas)" value={med.quantidade} onChange={(e) => atualizarMed(med.id, 'quantidade', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+                <input placeholder="Administração (ex: via oral)" value={med.via} onChange={(e) => atualizarMed(med.id, 'via', e.target.value)} list="lista-vias" style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Frequência (ex: 1x ao dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Duração (ex: 30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
               </div>
+              <datalist id="lista-vias">
+                <option value="via oral" />
+                <option value="uso tópico" />
+                <option value="via sublingual" />
+                <option value="via inalatória" />
+                <option value="via injetável (IM)" />
+                <option value="via injetável (IV)" />
+                <option value="via nasal" />
+                <option value="via oftálmica" />
+                <option value="via retal" />
+                <option value="via transdérmica" />
+              </datalist>
               <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
             </div>
           ))}
@@ -1244,9 +1257,10 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                 </span>
               </div>
               {/* Posologia */}
-              {(med.frequencia || med.duracao) && (
+              {(med.via || med.frequencia || med.duracao) && (
                 <p style={{ margin: '0 0 2px', paddingLeft: '18px', fontSize: '13.5px', color: '#333' }}>
-                  {med.frequencia}{med.duracao ? ` — por ${med.duracao}` : ''}
+                  <strong>Uso: </strong>
+                  {[med.via, med.frequencia, med.duracao ? `por ${med.duracao}` : ''].filter(Boolean).join(' — ')}
                 </p>
               )}
               {med.instrucoes && (
