@@ -1114,10 +1114,11 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico] = React.useState('');
-  const [crm, setCrm]       = React.useState('');
-  const [dataReceita]       = React.useState(hojeISO);
-  const [salvo, setSalvo]   = React.useState(false);
+  const [medico, setMedico]           = React.useState('');
+  const [crm, setCrm]                 = React.useState('');
+  const [dataReceita]                 = React.useState(hojeISO);
+  const [salvo, setSalvo]             = React.useState(false);
+  const [textoLivre, setTextoLivre]   = React.useState('');
   const [medicamentos, setMedicamentos] = React.useState([
     { id: 1, nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: '' }
   ]);
@@ -1162,7 +1163,11 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       })
       .join('\n\n');
 
-    const conteudo = `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}\n\n${medsTexto}`;
+    const conteudo = [
+      `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
+      medsTexto || null,
+      textoLivre ? `---\n${textoLivre}` : null,
+    ].filter(Boolean).join('\n\n');
     const qtd = medicamentos.filter(m => m.nome).length;
     const registro = {
       tipo: 'Receituário',
@@ -1227,11 +1232,25 @@ function ReceituarioPage({ pacientes, setPacientes }) {
               <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
             </div>
           ))}
-          <div style={{ display: 'flex', gap: '10px', marginTop: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
             <button onClick={salvarNoProntuario} style={{ padding: '9px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>✓ Salvar no Prontuário</button>
             <button onClick={() => window.print()} style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
             {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          </div>
+
+          {/* Texto livre */}
+          <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: '14px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#374151' }}>
+              Texto livre <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>— escreva livremente ou cole uma prescrição</span>
+            </label>
+            <textarea
+              value={textoLivre}
+              onChange={e => setTextoLivre(e.target.value)}
+              rows={6}
+              placeholder="Digite ou cole aqui medicamentos em formato livre..."
+              style={{ width: '100%', padding: '10px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.6' }}
+            />
           </div>
         </div>
 
@@ -1240,7 +1259,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
           <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 20px' }}>RECEITUÁRIO</h2>
           <hr style={{ margin: '0 0 20px', borderColor: '#ddd' }} />
 
-          {medicamentos.filter(m => m.nome).length === 0 && (
+          {medicamentos.filter(m => m.nome).length === 0 && !textoLivre && (
             <p style={{ color: '#999', textAlign: 'center', fontStyle: 'italic' }}>Preencha os medicamentos acima</p>
           )}
 
@@ -1270,6 +1289,13 @@ function ReceituarioPage({ pacientes, setPacientes }) {
               )}
             </div>
           ))}
+
+          {/* Texto livre no impresso */}
+          {textoLivre && (
+            <div style={{ marginTop: medicamentos.filter(m => m.nome).length > 0 ? '16px' : '0', paddingTop: medicamentos.filter(m => m.nome).length > 0 ? '16px' : '0', borderTop: medicamentos.filter(m => m.nome).length > 0 ? '1px dashed #ccc' : 'none' }}>
+              <p style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.8', margin: 0 }}>{textoLivre}</p>
+            </div>
+          )}
 
           <div style={{ marginTop: '60px', textAlign: 'right' }}>
             <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
