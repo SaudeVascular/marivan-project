@@ -1260,7 +1260,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
               {(med.via || med.frequencia || med.duracao) && (
                 <p style={{ margin: '0 0 2px', paddingLeft: '18px', fontSize: '13.5px', color: '#333' }}>
                   <strong>Uso: </strong>
-                  {[med.via, med.frequencia, med.duracao ? `por ${med.duracao}` : ''].filter(Boolean).join(' — ')}
+                  {[med.via, med.frequencia, med.duracao].filter(Boolean).join(' — ')}
                 </p>
               )}
               {med.instrucoes && (
