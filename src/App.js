@@ -57,6 +57,14 @@ const calcularIdade = (nascimento) => {
   return idade;
 };
 
+const formatarCPF = (valor) => {
+  const n = valor.replace(/\D/g, '').slice(0, 11);
+  return n
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+};
+
 const CLINICA = {
   nome: 'Clínica CardioVida',
   subtitulo: 'Cardiologia & Medicina Interna',
@@ -219,7 +227,7 @@ function PacientesPage({ pacientes, setPacientes }) {
   const [busca, setBusca] = React.useState('');
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
 
-  const formatarCPF = (valor) => {
+  const formatarCPFLocal = (valor) => {
     const numeros = valor.replace(/\D/g, '').slice(0, 11);
     return numeros
       .replace(/(\d{3})(\d)/, '$1.$2')
@@ -380,7 +388,7 @@ function PacientesPage({ pacientes, setPacientes }) {
           <input
             placeholder="CPF"
             value={novoPaciente.cpf}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPF(e.target.value) })}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPFLocal(e.target.value) })}
             style={{ padding: '10px', gridColumn: 'span 2' }}
           />
           <input
@@ -1130,7 +1138,11 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   React.useEffect(() => {
     if (!user?.id) return;
     usuariosService.buscarPerfil(user.id).then(perfil => {
-      if (perfil) { setMedico(perfil.nome || ''); setCrm(perfil.crm || ''); }
+      if (perfil) {
+        const titulo = perfil.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
+        setMedico(`${titulo} ${perfil.nome || ''}`.trim());
+        setCrm(perfil.crm || '');
+      }
     });
     modelosService.listar(user.id)
       .then(setModelos)
@@ -2186,7 +2198,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
 function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '' });
+  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '' });
   const [mostraSenha, setMostraSenha] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
@@ -2212,10 +2224,10 @@ function UsuariosPage() {
     }
     setSalvando(true);
     try {
-      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm });
+      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf });
       const lista = await usuariosService.listar();
       setUsuarios(lista);
-      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '' });
+      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '' });
       setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
@@ -2279,6 +2291,22 @@ function UsuariosPage() {
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
               <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
             </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sexo</label>
+              <select value={form.sexo} onChange={e => setForm({ ...form, sexo: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+                <option value="">Não informado</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data de nascimento</label>
+              <input type="date" value={form.nascimento} onChange={e => setForm({ ...form, nascimento: e.target.value })} style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CPF</label>
+              <input value={form.cpf} onChange={e => setForm({ ...form, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '8px' }} />
+            </div>
             <div style={{ position: 'relative' }}>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Senha temporária *</label>
               <input required type={mostraSenha ? 'text' : 'password'} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="mín. 6 caracteres" style={{ width: '100%', padding: '8px', paddingRight: '72px' }} />
@@ -2336,7 +2364,7 @@ function UsuariosPage() {
                       <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
@@ -2349,7 +2377,7 @@ function UsuariosPage() {
                 {/* Modo edição inline */}
                 {editando?.id === u.id && (
                   <div style={{ padding: '14px 16px', backgroundColor: '#f0f9ff', borderTop: '2px solid #0369a1' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                       <div>
                         <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nome</label>
                         <input value={editando.nome} onChange={e => setEditando({ ...editando, nome: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
@@ -2365,7 +2393,25 @@ function UsuariosPage() {
                       </div>
                       <div>
                         <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
-                        <input value={editando.crm} onChange={e => setEditando({ ...editando, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Sexo</label>
+                        <select value={editando.sexo || ''} onChange={e => setEditando({ ...editando, sexo: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }}>
+                          <option value="">Não informado</option>
+                          <option value="Masculino">Masculino</option>
+                          <option value="Feminino">Feminino</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Data de nascimento</label>
+                        <input type="date" value={editando.nascimento || ''} onChange={e => setEditando({ ...editando, nascimento: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CPF</label>
+                        <input value={editando.cpf || ''} onChange={e => setEditando({ ...editando, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
                       </div>
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
