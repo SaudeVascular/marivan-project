@@ -1114,11 +1114,14 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]           = React.useState('');
-  const [crm, setCrm]                 = React.useState('');
-  const [dataReceita]                 = React.useState(hojeISO);
-  const [salvo, setSalvo]             = React.useState(false);
-  const [textoLivre, setTextoLivre]   = React.useState('');
+  const [medico, setMedico]             = React.useState('');
+  const [crm, setCrm]                   = React.useState('');
+  const [dataReceita]                   = React.useState(hojeISO);
+  const [salvo, setSalvo]               = React.useState(false);
+  const [textoLivre, setTextoLivre]     = React.useState('');
+  const [modelos, setModelos]           = React.useState([]);
+  const [salvandoModelo, setSalvandoModelo] = React.useState(false);
+  const [nomeModelo, setNomeModelo]     = React.useState('');
   const [medicamentos, setMedicamentos] = React.useState([
     { id: 1, nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: '' }
   ]);
@@ -1132,7 +1135,25 @@ function ReceituarioPage({ pacientes, setPacientes }) {
         }
       });
     }
+    const salvos = JSON.parse(localStorage.getItem('pep_modelos_receita') || '[]');
+    setModelos(salvos);
   }, [user?.id]);
+
+  const salvarModelo = () => {
+    if (!nomeModelo.trim() || !textoLivre.trim()) return;
+    const novo = { id: Date.now(), nome: nomeModelo.trim(), conteudo: textoLivre };
+    const atualizados = [...modelos, novo];
+    setModelos(atualizados);
+    localStorage.setItem('pep_modelos_receita', JSON.stringify(atualizados));
+    setNomeModelo('');
+    setSalvandoModelo(false);
+  };
+
+  const excluirModelo = (id) => {
+    const atualizados = modelos.filter(m => m.id !== id);
+    setModelos(atualizados);
+    localStorage.setItem('pep_modelos_receita', JSON.stringify(atualizados));
+  };
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1241,9 +1262,61 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
           {/* Texto livre */}
           <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: '14px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '6px', color: '#374151' }}>
-              Texto livre <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>— escreva livremente ou cole uma prescrição</span>
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+                Texto livre <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>— escreva livremente ou cole uma prescrição</span>
+              </label>
+              {textoLivre.trim() && !salvandoModelo && (
+                <button onClick={() => setSalvandoModelo(true)} style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}>
+                  💾 Salvar como modelo
+                </button>
+              )}
+            </div>
+
+            {/* Modelos salvos */}
+            {modelos.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                {modelos.map(m => (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '16px', overflow: 'hidden' }}>
+                    <button
+                      onClick={() => setTextoLivre(m.conteudo)}
+                      title="Clique para carregar este modelo"
+                      style={{ padding: '3px 10px', fontSize: '12px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+                    >
+                      📋 {m.nome}
+                    </button>
+                    <button
+                      onClick={() => excluirModelo(m.id)}
+                      title="Excluir modelo"
+                      style={{ padding: '3px 6px', fontSize: '11px', color: '#dc2626', background: 'none', border: 'none', borderLeft: '1px solid #bfdbfe', cursor: 'pointer' }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Input para nomear o modelo */}
+            {salvandoModelo && (
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  autoFocus
+                  value={nomeModelo}
+                  onChange={e => setNomeModelo(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') salvarModelo(); if (e.key === 'Escape') setSalvandoModelo(false); }}
+                  placeholder="Nome do modelo (ex: HAS básico)"
+                  style={{ flex: 1, minWidth: '180px', padding: '6px 10px', fontSize: '13px', border: '1px solid #86efac', borderRadius: '4px', outline: 'none' }}
+                />
+                <button onClick={salvarModelo} style={{ padding: '6px 12px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  Salvar
+                </button>
+                <button onClick={() => { setSalvandoModelo(false); setNomeModelo(''); }} style={{ padding: '6px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                  Cancelar
+                </button>
+              </div>
+            )}
+
             <textarea
               value={textoLivre}
               onChange={e => setTextoLivre(e.target.value)}
