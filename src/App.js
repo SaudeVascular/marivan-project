@@ -1125,6 +1125,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
   const [medico, setMedico]             = React.useState('');
   const [crm, setCrm]                   = React.useState('');
+  const [especialidade, setEspecialidade] = React.useState('');
   const [dataReceita]                   = React.useState(hojeISO);
   const [salvo, setSalvo]               = React.useState(false);
   const [textoLivre, setTextoLivre]     = React.useState('');
@@ -1142,6 +1143,8 @@ function ReceituarioPage({ pacientes, setPacientes }) {
         const titulo = perfil.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
         setMedico(`${titulo} ${perfil.nome || ''}`.trim());
         setCrm(perfil.crm || '');
+        const esp = [perfil.especialidade, perfil.area_atuacao].filter(Boolean).join(' — ');
+        setEspecialidade(esp);
       }
     });
     modelosService.listar(user.id)
@@ -1391,6 +1394,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
           </div>
@@ -2198,7 +2202,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
 function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '' });
+  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
   const [mostraSenha, setMostraSenha] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
@@ -2224,10 +2228,10 @@ function UsuariosPage() {
     }
     setSalvando(true);
     try {
-      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf });
+      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao });
       const lista = await usuariosService.listar();
       setUsuarios(lista);
-      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '' });
+      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
       setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
@@ -2307,6 +2311,19 @@ function UsuariosPage() {
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CPF</label>
               <input value={form.cpf} onChange={e => setForm({ ...form, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '8px' }} />
             </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Especialidade médica</label>
+              <input value={form.especialidade} onChange={e => setForm({ ...form, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Área de atuação</label>
+              <input value={form.area_atuacao} onChange={e => setForm({ ...form, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '8px' }} />
+            </div>
+            <datalist id="lista-especialidades">
+              {['Cardiologia','Clínica Médica','Endocrinologia','Gastroenterologia','Geriatria',
+                'Ginecologia','Neurologia','Oftalmologia','Ortopedia','Pediatria',
+                'Pneumologia','Psiquiatria','Reumatologia','Urologia'].map(e => <option key={e} value={e} />)}
+            </datalist>
             <div style={{ position: 'relative' }}>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Senha temporária *</label>
               <input required type={mostraSenha ? 'text' : 'password'} value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="mín. 6 caracteres" style={{ width: '100%', padding: '8px', paddingRight: '72px' }} />
@@ -2364,7 +2381,7 @@ function UsuariosPage() {
                       <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
@@ -2412,6 +2429,16 @@ function UsuariosPage() {
                       <div>
                         <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CPF</label>
                         <input value={editando.cpf || ''} onChange={e => setEditando({ ...editando, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Especialidade médica</label>
+                        <input value={editando.especialidade || ''} onChange={e => setEditando({ ...editando, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Área de atuação</label>
+                        <input value={editando.area_atuacao || ''} onChange={e => setEditando({ ...editando, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
                       </div>
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>

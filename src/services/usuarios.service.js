@@ -13,7 +13,7 @@ export const usuariosService = {
   async buscarPerfil(userId) {
     const { data, error } = await supabase
       .from('perfis')
-      .select('nome, crm, funcao, email, sexo, nascimento, cpf')
+      .select('nome, crm, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao')
       .eq('id', userId)
       .single();
     if (error) return null;
@@ -47,10 +47,18 @@ export const usuariosService = {
     return data.user;
   },
 
-  async atualizar(id, { nome, funcao, crm, sexo, nascimento, cpf }) {
+  async atualizar(id, { nome, funcao, crm, sexo, nascimento, cpf, especialidade, area_atuacao }) {
     const { error } = await supabase
       .from('perfis')
-      .update({ nome, funcao, crm: crm || '', sexo: sexo || '', nascimento: nascimento || null, cpf: cpf || '' })
+      .update({
+        nome, funcao,
+        crm: crm || '',
+        sexo: sexo || '',
+        nascimento: nascimento || null,
+        cpf: cpf || '',
+        especialidade: especialidade || '',
+        area_atuacao: area_atuacao || '',
+      })
       .eq('id', id);
     if (error) throw error;
   },
