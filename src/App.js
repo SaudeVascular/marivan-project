@@ -1000,11 +1000,24 @@ function AtestadoPage({ pacientes, setPacientes }) {
 
   const [medico, setMedico] = React.useState('');
   const [crm, setCrm] = React.useState('');
+  const [especialidade, setEspecialidade] = React.useState('');
   const [dias, setDias] = React.useState('1');
   const [dataAtestado, setDataAtestado] = React.useState(hojeISO);
   const [cid, setCid] = React.useState('');
   const [observacoes, setObservacoes] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    usuariosService.buscarPerfil(user.id).then(p => {
+      if (p) {
+        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
+        setMedico(`${titulo} ${p.nome || ''}`.trim());
+        setCrm(p.crm || '');
+        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
+      }
+    });
+  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1048,16 +1061,8 @@ function AtestadoPage({ pacientes, setPacientes }) {
       </div>
       <div style={{ maxWidth: '750px', margin: '20px auto' }}>
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Preencher Atestado</h3>
-          <div className="form-grid-3col">
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
-              <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
-              <input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
-            </div>
+          <h3 style={{ marginTop: 0 }}>Atestado Médico</h3>
+          <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
               <input type="date" value={dataAtestado} onChange={(e) => setDataAtestado(e.target.value)} style={{ width: '100%', padding: '8px' }} />
@@ -1088,10 +1093,6 @@ function AtestadoPage({ pacientes, setPacientes }) {
 
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
-          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '13px' }}>{crm || 'CRM _______________'}</p>
-          </div>
           <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 30px' }}>ATESTADO MÉDICO</h2>
           <p style={{ fontSize: '15px', lineHeight: '2.2', textAlign: 'justify' }}>
             Atesto que o(a) paciente <strong>{paciente.nome}</strong>
@@ -1106,7 +1107,8 @@ function AtestadoPage({ pacientes, setPacientes }) {
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
           </div>
@@ -1413,6 +1415,7 @@ function RelatorioPage({ pacientes, setPacientes }) {
 
   const [medico, setMedico] = React.useState('');
   const [crm, setCrm] = React.useState('');
+  const [especialidade, setEspecialidade] = React.useState('');
   const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
   const [finalidade, setFinalidade] = React.useState('');
   const [diagnostico, setDiagnostico] = React.useState('');
@@ -1421,6 +1424,18 @@ function RelatorioPage({ pacientes, setPacientes }) {
   const [conduta, setConduta] = React.useState('');
   const [conclusao, setConclusao] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    usuariosService.buscarPerfil(user.id).then(p => {
+      if (p) {
+        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
+        setMedico(`${titulo} ${p.nome || ''}`.trim());
+        setCrm(p.crm || '');
+        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
+      }
+    });
+  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1482,21 +1497,10 @@ function RelatorioPage({ pacientes, setPacientes }) {
 
         {/* Formulário */}
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Preencher Relatório Médico</h3>
-
-          <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome do Médico</label>
-              <input value={medico} onChange={(e) => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
-              <input value={crm} onChange={(e) => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
-              <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ width: '100%', padding: '8px' }} />
-            </div>
+          <h3 style={{ marginTop: 0 }}>Relatório Médico</h3>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+            <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
           </div>
 
           <div style={{ marginBottom: '14px' }}>
@@ -1532,11 +1536,6 @@ function RelatorioPage({ pacientes, setPacientes }) {
         {/* Documento para impressão */}
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
-          <div style={{ textAlign: 'center', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '13px' }}>{crm || 'CRM _______________'}</p>
-          </div>
-
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>RELATÓRIO MÉDICO</h2>
           {finalidade && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 24px' }}>{finalidade}</p>}
 
@@ -1590,7 +1589,8 @@ function RelatorioPage({ pacientes, setPacientes }) {
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
           </div>
@@ -1721,15 +1721,28 @@ function LaudoPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]           = React.useState('');
-  const [crm, setCrm]                 = React.useState('');
-  const [dataExame, setDataExame]     = React.useState(hojeISO);
-  const [tipoExame, setTipoExame]     = React.useState('');
-  const [tipoOutro, setTipoOutro]     = React.useState('');
-  const [achados, setAchados]         = React.useState('');
-  const [conclusao, setConclusao]     = React.useState('');
-  const [salvo, setSalvo]             = React.useState(false);
-  const [salvando, setSalvando]       = React.useState(false);
+  const [medico, setMedico]               = React.useState('');
+  const [crm, setCrm]                     = React.useState('');
+  const [especialidade, setEspecialidade] = React.useState('');
+  const [dataExame, setDataExame]         = React.useState(hojeISO);
+  const [tipoExame, setTipoExame]         = React.useState('');
+  const [tipoOutro, setTipoOutro]         = React.useState('');
+  const [achados, setAchados]             = React.useState('');
+  const [conclusao, setConclusao]         = React.useState('');
+  const [salvo, setSalvo]                 = React.useState(false);
+  const [salvando, setSalvando]           = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    usuariosService.buscarPerfil(user.id).then(p => {
+      if (p) {
+        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
+        setMedico(`${titulo} ${p.nome || ''}`.trim());
+        setCrm(p.crm || '');
+        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
+      }
+    });
+  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1772,20 +1785,9 @@ function LaudoPage({ pacientes, setPacientes }) {
       {/* Formulário */}
       <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <h3 style={{ marginTop: 0 }}>Laudo — {paciente.nome}</h3>
-
-        <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico</label>
-            <input value={medico} onChange={e => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
-            <input value={crm} onChange={e => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data do exame</label>
-            <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ width: '100%', padding: '8px' }} />
-          </div>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data do exame</label>
+          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
         </div>
 
         <div style={{ marginBottom: '14px' }}>
@@ -1825,12 +1827,6 @@ function LaudoPage({ pacientes, setPacientes }) {
       {/* Documento para impressão */}
       <div className="doc-preview">
         <CabecalhoImpresso paciente={paciente} />
-
-        <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-          <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
-        </div>
-
         <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>LAUDO</h2>
         {nomeExame && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 20px' }}>{nomeExame}</p>}
 
@@ -1862,6 +1858,7 @@ function LaudoPage({ pacientes, setPacientes }) {
             <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
               <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
               <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
             </div>
           </div>
         </div>
@@ -1877,16 +1874,29 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
   const paciente = pacientes.find((p) => String(p.id) === String(id));
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]         = React.useState('');
-  const [crm, setCrm]               = React.useState('');
-  const [dataExame, setDataExame]   = React.useState(hojeISO);
-  const [indicacao, setIndicacao]   = React.useState('');
-  const [cid, setCid]               = React.useState('');
-  const [numeroBenef, setNumeroBenef] = React.useState('');
-  const [validadeCart, setValidadeCart] = React.useState('');
-  const [examesSel, setExamesSel]   = React.useState(new Set());
-  const [modo, setModo]             = React.useState('receituario');
-  const [salvo, setSalvo]           = React.useState(false);
+  const [medico, setMedico]               = React.useState('');
+  const [crm, setCrm]                     = React.useState('');
+  const [especialidade, setEspecialidade] = React.useState('');
+  const [dataExame, setDataExame]         = React.useState(hojeISO);
+  const [indicacao, setIndicacao]         = React.useState('');
+  const [cid, setCid]                     = React.useState('');
+  const [numeroBenef, setNumeroBenef]     = React.useState('');
+  const [validadeCart, setValidadeCart]   = React.useState('');
+  const [examesSel, setExamesSel]         = React.useState(new Set());
+  const [modo, setModo]                   = React.useState('receituario');
+  const [salvo, setSalvo]                 = React.useState(false);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    usuariosService.buscarPerfil(user.id).then(p => {
+      if (p) {
+        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
+        setMedico(`${titulo} ${p.nome || ''}`.trim());
+        setCrm(p.crm || '');
+        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
+      }
+    });
+  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1935,21 +1945,9 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
       {/* Formulário */}
       <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <h3 style={{ marginTop: 0 }}>Pedido de Exames — {paciente.nome}</h3>
-
-        {/* Linha médico/CRM/data */}
-        <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico</label>
-            <input value={medico} onChange={e => setMedico(e.target.value)} placeholder="Dr. Nome Sobrenome" style={{ width: '100%', padding: '8px' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM</label>
-            <input value={crm} onChange={e => setCrm(e.target.value)} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
-            <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ width: '100%', padding: '8px' }} />
-          </div>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
         </div>
 
         {/* Dados TISS (só mostram quando modo TISS) */}
@@ -2030,10 +2028,6 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
       {modo === 'receituario' && (
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
-          <div style={{ textAlign: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #ddd' }}>
-            <h2 style={{ margin: '0 0 2px', fontSize: '16px' }}>{medico || 'Dr. _______________________'}</h2>
-            <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{crm || 'CRM _______________'}</p>
-          </div>
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '17px', margin: '0 0 24px' }}>PEDIDO DE EXAMES</h2>
 
           {examsPorCategoria.length === 0
@@ -2059,6 +2053,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
           </div>
@@ -2178,7 +2173,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
               <div style={{ padding: '8px', borderRight: '1px solid #aaa', minHeight: '55px' }}>
                 <div style={{ fontSize: '9px', color: '#555', marginBottom: '4px' }}>Assinatura e carimbo do médico solicitante</div>
                 <div style={{ borderTop: '1px solid #333', marginTop: '30px', paddingTop: '4px', fontSize: '9px', textAlign: 'center' }}>
-                  {medico || '_______________________________'}{crm ? ` — ${crm}` : ''}
+                  {medico || '_______________________________'}{crm ? ` — ${crm}` : ''}{especialidade ? ` — ${especialidade}` : ''}
                 </div>
               </div>
               <div style={{ padding: '8px', minHeight: '55px' }}>
