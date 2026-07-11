@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# backups e cópias de trabalho — não devem entrar no repositório
+*.save
+*_backup.js
+*_backup.jsx

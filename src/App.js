@@ -14,48 +14,9 @@ import { pacientesService } from './services/pacientes.service';
 import { registrosService } from './services/registros.service';
 import { usuariosService } from './services/usuarios.service';
 import { modelosService } from './services/modelos.service';
+import { formatDate, calcularIdade } from './utils/formatters';
 
-const initialPacientes = [
-  {
-    id: 1,
-    nome: 'Maria Silva Santos',
-    cpf: '123.456.789-00',
-    nascimento: '1985-03-15',
-    telefone: '(11) 99999-9999',
-    convenio: 'Unimed',
-    alergias: 'Penicilina',
-    medicamentos: 'Losartana 50mg',
-    evolucoes: ['Paciente hipertensa controlada.']
-  },
-  {
-    id: 2,
-    nome: 'José Oliveira Lima',
-    cpf: '987.654.321-00',
-    nascimento: '1970-08-22',
-    telefone: '(11) 98888-8888',
-    convenio: 'Particular',
-    alergias: 'Nega alergias',
-    medicamentos: 'Metformina 850mg',
-    evolucoes: ['Paciente diabético tipo 2 em acompanhamento.']
-  }
-];
-
-const formatarData = (dataISO) => {
-  if (!dataISO) return '-';
-  const partes = dataISO.split('-');
-  if (partes.length !== 3) return dataISO;
-  return `${partes[2]}/${partes[1]}/${partes[0]}`;
-};
-
-const calcularIdade = (nascimento) => {
-  if (!nascimento) return null;
-  const hoje = new Date();
-  const nasc = new Date(nascimento + 'T12:00:00');
-  let idade = hoje.getFullYear() - nasc.getFullYear();
-  const mes = hoje.getMonth() - nasc.getMonth();
-  if (mes < 0 || (mes === 0 && hoje.getDate() < nasc.getDate())) idade--;
-  return idade;
-};
+const formatarData = (dataISO) => (dataISO ? formatDate(dataISO) : '-');
 
 const formatarCPF = (valor) => {
   const n = valor.replace(/\D/g, '').slice(0, 11);
@@ -227,14 +188,6 @@ function PacientesPage({ pacientes, setPacientes }) {
   const [busca, setBusca] = React.useState('');
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
 
-  const formatarCPFLocal = (valor) => {
-    const numeros = valor.replace(/\D/g, '').slice(0, 11);
-    return numeros
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-  };
-
   const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
 
   const formatarTelefone = (valor) => {
@@ -388,7 +341,7 @@ function PacientesPage({ pacientes, setPacientes }) {
           <input
             placeholder="CPF"
             value={novoPaciente.cpf}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPFLocal(e.target.value) })}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPF(e.target.value) })}
             style={{ padding: '10px', gridColumn: 'span 2' }}
           />
           <input

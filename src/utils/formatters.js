@@ -1,5 +1,18 @@
 // Formatadores de dados para o prontuário eletrônico
 
+// Datas como 'YYYY-MM-DD' não têm hora, então `new Date(date)` as interpreta
+// como meia-noite UTC — em horário de Brasília isso pode voltar um dia.
+// Construindo a data a partir dos componentes locais evitamos esse desvio.
+const parseDateLocal = (date) => {
+  if (date instanceof Date) return date;
+  if (typeof date === 'string') {
+    const [datePart] = date.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    if (year && month && day) return new Date(year, month - 1, day);
+  }
+  return new Date(date);
+};
+
 export const formatCPF = (cpf) => {
   // Remove caracteres não numéricos
   const cleaned = cpf.replace(/\D/g, '');
@@ -23,8 +36,8 @@ export const formatPhone = (phone) => {
 
 export const formatDate = (date) => {
   if (!date) return '';
-  
-  const d = new Date(date);
+
+  const d = parseDateLocal(date);
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
@@ -38,8 +51,9 @@ export const formatDateTime = (date, time) => {
 };
 
 export const calcularIdade = (dataNascimento) => {
+  if (!dataNascimento) return null;
   const hoje = new Date();
-  const nascimento = new Date(dataNascimento);
+  const nascimento = parseDateLocal(dataNascimento);
   let idade = hoje.getFullYear() - nascimento.getFullYear();
   const m = hoje.getMonth() - nascimento.getMonth();
   
