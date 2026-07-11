@@ -136,7 +136,7 @@ const EXAMES_DISPONIVEIS = [
 ];
 
 function Header() {
-  const { logout, user } = useAuth();
+  const { logout, user, funcao } = useAuth();
   return (
     <div className="pep-header">
       <div>
@@ -145,9 +145,11 @@ function Header() {
       </div>
       <div className="pep-header-right">
         <span className="pep-header-email" style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
-        <Link to="/usuarios" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-          👥 Usuários
-        </Link>
+        {funcao === 'Administrador' && (
+          <Link to="/usuarios" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+            👥 Usuários
+          </Link>
+        )}
         <button
           onClick={logout}
           style={{
@@ -182,6 +184,12 @@ function ProtectedLayout({ children }) {
       {children}
     </div>
   );
+}
+
+function SomenteAdmin({ children }) {
+  const { funcao } = useAuth();
+  if (funcao !== 'Administrador') return <Navigate to="/pacientes" replace />;
+  return children;
 }
 
 function PacientesPage({ pacientes, setPacientes }) {
@@ -2422,7 +2430,9 @@ function AppContent() {
         path="/usuarios"
         element={
           <ProtectedLayout>
-            <UsuariosPage />
+            <SomenteAdmin>
+              <UsuariosPage />
+            </SomenteAdmin>
           </ProtectedLayout>
         }
       />

@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
 
@@ -6,13 +6,34 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Busca (e garante que existe) o perfil/função do usuário logado. Se a
+  // conta foi desativada por um administrador, encerra a sessão aqui —
+  // hoje uma conta com ativo=false continuava logada normalmente.
+  const carregarPerfil = useCallback(async (authUser) => {
+    if (!authUser) {
+      setPerfil(null);
+      return;
+    }
+    await usuariosService.garantirPerfil(authUser).catch(() => {});
+    const p = await usuariosService.buscarPerfil(authUser.id).catch(() => null);
+    if (p && p.ativo === false) {
+      await supabase.auth.signOut();
+      setUser(null);
+      setPerfil(null);
+      return;
+    }
+    setPerfil(p);
+  }, []);
 
   useEffect(() => {
     // Verificar sessão atual
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
+      await carregarPerfil(session?.user ?? null);
       setLoading(false);
     };
 
@@ -21,31 +42,22 @@ export const AuthProvider = ({ children }) => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("Auth state changed:", event);
         setUser(session?.user ?? null);
+        await carregarPerfil(session?.user ?? null);
         setLoading(false);
-        if (event === 'SIGNED_IN' && session?.user) {
-          usuariosService.garantirPerfil(session.user).catch(() => {});
-        }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [carregarPerfil]);
 
   const login = async (email, password) => {
-    console.log("Fazendo login...");
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     });
 
-    if (error) {
-      console.error("Erro no login:", error);
-      throw error;
-    }
-
-    console.log("Login realizado!");
+    if (error) throw error;
     return data;
   };
 
@@ -54,7 +66,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, perfil, funcao: perfil?.funcao ?? null, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -13,7 +13,7 @@ export const usuariosService = {
   async buscarPerfil(userId) {
     const { data, error } = await supabase
       .from('perfis')
-      .select('nome, crm, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao')
+      .select('nome, crm, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo')
       .eq('id', userId)
       .single();
     if (error) return null;
