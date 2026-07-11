@@ -1,28 +1,10 @@
 import { supabase } from './supabase';
 
-console.log("authService.js carregado!");
-
 const authService = {
   async login(email, password) {
-    console.log("1. Tentando login direto");
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
-      
-      console.log("2. Resposta recebida:", data ? "SUCESSO" : "FALHA", error?.message || "");
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error("3. Erro capturado:", error.message);
-      throw error;
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   async logout() {
@@ -33,7 +15,22 @@ const authService = {
   async getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
-  }
+  },
+
+  // Envia o e-mail de recuperação de senha; o link leva o usuário de volta
+  // para /redefinir-senha, já autenticado numa sessão de recuperação.
+  async resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) throw error;
+  },
+
+  // Usado na tela /redefinir-senha, após o usuário clicar no link do e-mail.
+  async updatePassword(novaSenha) {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) throw error;
+  },
 };
 
 export { authService };
