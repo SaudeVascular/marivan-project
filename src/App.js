@@ -138,6 +138,18 @@ const EXAMES_DISPONIVEIS = [
 
 function Header() {
   const { logout, user, funcao } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Erro ao sair:', err);
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
+
   return (
     <div className="pep-header">
       <div>
@@ -152,7 +164,7 @@ function Header() {
           </Link>
         )}
         <button
-          onClick={logout}
+          onClick={handleLogout}
           style={{
             padding: '6px 14px',
             backgroundColor: 'rgba(255,255,255,0.2)',
