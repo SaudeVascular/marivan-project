@@ -205,8 +205,20 @@ function SomenteAdmin({ children }) {
   return children;
 }
 
+// Mesmo conjunto de funções liberado para consultas/medicamentos_receita
+// em supabase_rls_rbac.sql — mantenha os dois em sincronia.
+const FUNCOES_CLINICAS = ['Médico', 'Enfermeiro(a)', 'Administrador'];
+
+function SomenteClinico({ children }) {
+  const { funcao } = useAuth();
+  if (!FUNCOES_CLINICAS.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
 function PacientesPage({ pacientes, setPacientes }) {
   const navigate = useNavigate();
+  const { funcao } = useAuth();
+  const podeVerProntuario = FUNCOES_CLINICAS.includes(funcao);
 
   const [busca, setBusca] = React.useState('');
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
@@ -529,20 +541,22 @@ function PacientesPage({ pacientes, setPacientes }) {
                 </div>
 
                 <div style={{ marginTop: '8px' }}>
-                  <button
-                    onClick={() => navigate(`/prontuario/${paciente.id}`)}
-                    style={{
-                      padding: '8px 12px',
-                      backgroundColor: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      marginRight: '8px'
-                    }}
-                  >
-                    Abrir Prontuário
-                  </button>
+                  {podeVerProntuario && (
+                    <button
+                      onClick={() => navigate(`/prontuario/${paciente.id}`)}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        marginRight: '8px'
+                      }}
+                    >
+                      Abrir Prontuário
+                    </button>
+                  )}
 
                   <button
                     onClick={() => editarPaciente(paciente)}
@@ -2495,7 +2509,9 @@ function AppContent() {
         path="/laudos/:id"
         element={
           <ProtectedLayout>
-            <LaudoPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <LaudoPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2503,7 +2519,9 @@ function AppContent() {
         path="/pedido-exames/:id"
         element={
           <ProtectedLayout>
-            <PedidoExamesPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <PedidoExamesPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2511,7 +2529,9 @@ function AppContent() {
         path="/imprimir/:pacienteId/:registroId"
         element={
           <ProtectedLayout>
-            <ImprimirAtendimentoPage />
+            <SomenteClinico>
+              <ImprimirAtendimentoPage />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2537,7 +2557,9 @@ function AppContent() {
         path="/prontuario/:id"
         element={
           <ProtectedLayout>
-            <ProntuarioPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <ProntuarioPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2545,7 +2567,9 @@ function AppContent() {
         path="/receituario/:id"
         element={
           <ProtectedLayout>
-            <ReceituarioPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <ReceituarioPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2553,7 +2577,9 @@ function AppContent() {
         path="/prescricao/:id"
         element={
           <ProtectedLayout>
-            <DocumentoPage titulo="Prescrição Médica" pacientes={pacientes} />
+            <SomenteClinico>
+              <DocumentoPage titulo="Prescrição Médica" pacientes={pacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2561,7 +2587,9 @@ function AppContent() {
         path="/atestados/:id"
         element={
           <ProtectedLayout>
-            <AtestadoPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <AtestadoPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
@@ -2569,7 +2597,9 @@ function AppContent() {
         path="/relatorios/:id"
         element={
           <ProtectedLayout>
-            <RelatorioPage pacientes={pacientes} setPacientes={setPacientes} />
+            <SomenteClinico>
+              <RelatorioPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteClinico>
           </ProtectedLayout>
         }
       />
