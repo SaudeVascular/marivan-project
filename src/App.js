@@ -11,10 +11,12 @@ import {
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Login from './components/Login';
 import { pacientesService } from './services/pacientes.service';
-import { registrosService } from './services/registros.service';
+import { registrosService, salvarRegistroComFallback } from './services/registros.service';
 import { usuariosService } from './services/usuarios.service';
 import { modelosService } from './services/modelos.service';
 import { formatDate, calcularIdade } from './utils/formatters';
+import { useMedicoPerfil } from './hooks/useMedicoPerfil';
+import { usePacienteAtual } from './hooks/usePacienteAtual';
 
 const formatarData = (dataISO) => (dataISO ? formatDate(dataISO) : '-');
 
@@ -545,10 +547,9 @@ function PacientesPage({ pacientes, setPacientes }) {
 }
 
 function ProntuarioPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [registroAberto, setRegistroAberto] = React.useState(null);
   const [registroEditando, setRegistroEditando] = React.useState(null);
@@ -946,31 +947,16 @@ function ProntuarioPage({ pacientes, setPacientes }) {
 }
 
 function AtestadoPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico] = React.useState('');
-  const [crm, setCrm] = React.useState('');
-  const [especialidade, setEspecialidade] = React.useState('');
+  const { medico, crm, especialidade } = useMedicoPerfil();
   const [dias, setDias] = React.useState('1');
   const [dataAtestado, setDataAtestado] = React.useState(hojeISO);
   const [cid, setCid] = React.useState('');
   const [observacoes, setObservacoes] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!user?.id) return;
-    usuariosService.buscarPerfil(user.id).then(p => {
-      if (p) {
-        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
-        setMedico(`${titulo} ${p.nome || ''}`.trim());
-        setCrm(p.crm || '');
-        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
-      }
-    });
-  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -991,18 +977,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
       titulo: `Atestado — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
       conteudo,
     };
-    try {
-      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
-      ));
-    } catch (err) {
-      console.error('Erro ao salvar atestado:', err);
-      const agora = new Date();
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
-      ));
-    }
+    await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'atestado' });
     setSalvo(true);
   };
 
@@ -1073,14 +1048,11 @@ function AtestadoPage({ pacientes, setPacientes }) {
 }
 
 function ReceituarioPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]             = React.useState('');
-  const [crm, setCrm]                   = React.useState('');
-  const [especialidade, setEspecialidade] = React.useState('');
+  const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataReceita]                   = React.useState(hojeISO);
   const [salvo, setSalvo]               = React.useState(false);
   const [textoLivre, setTextoLivre]     = React.useState('');
@@ -1093,15 +1065,6 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
   React.useEffect(() => {
     if (!user?.id) return;
-    usuariosService.buscarPerfil(user.id).then(perfil => {
-      if (perfil) {
-        const titulo = perfil.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
-        setMedico(`${titulo} ${perfil.nome || ''}`.trim());
-        setCrm(perfil.crm || '');
-        const esp = [perfil.especialidade, perfil.area_atuacao].filter(Boolean).join(' — ');
-        setEspecialidade(esp);
-      }
-    });
     modelosService.listar(user.id)
       .then(setModelos)
       .catch(() => {});
@@ -1168,18 +1131,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       titulo: `Receituário — ${qtd} medicamento${qtd !== 1 ? 's' : ''}`,
       conteudo,
     };
-    try {
-      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
-      ));
-    } catch (err) {
-      console.error('Erro ao salvar receituário:', err);
-      const agora = new Date();
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
-      ));
-    }
+    await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'receituário' });
     setSalvo(true);
   };
 
@@ -1361,14 +1313,11 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 }
 
 function RelatorioPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico] = React.useState('');
-  const [crm, setCrm] = React.useState('');
-  const [especialidade, setEspecialidade] = React.useState('');
+  const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
   const [finalidade, setFinalidade] = React.useState('');
   const [diagnostico, setDiagnostico] = React.useState('');
@@ -1377,18 +1326,6 @@ function RelatorioPage({ pacientes, setPacientes }) {
   const [conduta, setConduta] = React.useState('');
   const [conclusao, setConclusao] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!user?.id) return;
-    usuariosService.buscarPerfil(user.id).then(p => {
-      if (p) {
-        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
-        setMedico(`${titulo} ${p.nome || ''}`.trim());
-        setCrm(p.crm || '');
-        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
-      }
-    });
-  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1412,18 +1349,7 @@ function RelatorioPage({ pacientes, setPacientes }) {
       titulo: `Relatório Médico${finalidade ? ' — ' + finalidade : ''}`,
       conteudo,
     };
-    try {
-      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
-      ));
-    } catch (err) {
-      console.error('Erro ao salvar relatório:', err);
-      const agora = new Date();
-      setPacientes(pacientes.map((p) =>
-        p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registro, data: agora.toLocaleDateString('pt-BR'), hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }, ...(p.registros || [])] } : p
-      ));
-    }
+    await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'relatório' });
     setSalvo(true);
   };
 
@@ -1669,14 +1595,11 @@ const TIPOS_EXAME = [
 ];
 
 function LaudoPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]               = React.useState('');
-  const [crm, setCrm]                     = React.useState('');
-  const [especialidade, setEspecialidade] = React.useState('');
+  const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   const [tipoExame, setTipoExame]         = React.useState('');
   const [tipoOutro, setTipoOutro]         = React.useState('');
@@ -1684,18 +1607,6 @@ function LaudoPage({ pacientes, setPacientes }) {
   const [conclusao, setConclusao]         = React.useState('');
   const [salvo, setSalvo]                 = React.useState(false);
   const [salvando, setSalvando]           = React.useState(false);
-
-  React.useEffect(() => {
-    if (!user?.id) return;
-    usuariosService.buscarPerfil(user.id).then(p => {
-      if (p) {
-        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
-        setMedico(`${titulo} ${p.nome || ''}`.trim());
-        setCrm(p.crm || '');
-        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
-      }
-    });
-  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1822,14 +1733,11 @@ function LaudoPage({ pacientes, setPacientes }) {
 }
 
 function PedidoExamesPage({ pacientes, setPacientes }) {
-  const { id } = useParams();
   const { user } = useAuth();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
 
-  const [medico, setMedico]               = React.useState('');
-  const [crm, setCrm]                     = React.useState('');
-  const [especialidade, setEspecialidade] = React.useState('');
+  const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   const [indicacao, setIndicacao]         = React.useState('');
   const [cid, setCid]                     = React.useState('');
@@ -1838,18 +1746,6 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
   const [examesSel, setExamesSel]         = React.useState(new Set());
   const [modo, setModo]                   = React.useState('receituario');
   const [salvo, setSalvo]                 = React.useState(false);
-
-  React.useEffect(() => {
-    if (!user?.id) return;
-    usuariosService.buscarPerfil(user.id).then(p => {
-      if (p) {
-        const titulo = p.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
-        setMedico(`${titulo} ${p.nome || ''}`.trim());
-        setCrm(p.crm || '');
-        setEspecialidade([p.especialidade, p.area_atuacao].filter(Boolean).join(' — '));
-      }
-    });
-  }, [user?.id]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1873,12 +1769,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
     ).join('\n\n') + (indicacao ? `\n\nIndicação: ${indicacao}` : '') + (cid ? `  CID: ${cid}` : '');
 
     const registro = { tipo: 'Pedido de Exames', titulo: `Pedido de Exames — ${todosExamesSel.length} exame(s)`, conteudo };
-    try {
-      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
-      setPacientes(pacientes.map(p => p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p));
-    } catch (err) {
-      console.error('Erro ao salvar pedido:', err);
-    }
+    await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'pedido de exames' });
     setSalvo(true);
   };
 
@@ -2412,8 +2303,7 @@ function UsuariosPage() {
 }
 
 function DocumentoPage({ titulo, pacientes }) {
-  const { id } = useParams();
-  const paciente = pacientes.find((p) => String(p.id) === String(id));
+  const { paciente } = usePacienteAtual(pacientes);
 
   if (!paciente) {
     return <p>Paciente não encontrado.</p>;

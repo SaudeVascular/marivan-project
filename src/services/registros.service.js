@@ -67,3 +67,29 @@ export const registrosService = {
     return fromDb(data);
   },
 };
+
+// Salva um registro no prontuário; se a chamada ao Supabase falhar (ex: rede
+// instável durante o atendimento), insere localmente um registro otimista
+// com id temporário para não perder o que o médico digitou.
+export async function salvarRegistroComFallback({ registro, paciente, userId, pacientes, setPacientes, contexto }) {
+  try {
+    const salvoDb = await registrosService.criar(registro, paciente.id, userId);
+    setPacientes(pacientes.map((p) =>
+      p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
+    ));
+  } catch (err) {
+    console.error(`Erro ao salvar ${contexto}:`, err);
+    const agora = new Date();
+    setPacientes(pacientes.map((p) =>
+      p.id === paciente.id ? {
+        ...p,
+        registros: [{
+          id: Date.now(),
+          ...registro,
+          data: agora.toLocaleDateString('pt-BR'),
+          hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        }, ...(p.registros || [])],
+      } : p
+    ));
+  }
+}
