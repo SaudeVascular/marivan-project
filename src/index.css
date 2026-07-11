@@ -61,24 +61,6 @@ body {
   color: #444;
 }
 
-/* Prontuário 3-panel layout */
-.prontuario-grid {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: 250px 1.4fr 1fr;
-  gap: 18px;
-  align-items: start;
-}
-
-/* Main 2-column grid below the info strip */
-.prontuario-main-grid {
-  margin-top: 16px;
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 18px;
-  align-items: start;
-}
-
 /* Quick-access links in prontuário */
 .atalhos-grid {
   margin-top: 16px;
@@ -93,14 +75,6 @@ body {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   margin-bottom: 12px;
-}
-
-/* Medication fields grid */
-.form-grid-meds {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
 }
 
 /* Document print preview */
@@ -122,17 +96,10 @@ body {
     grid-template-columns: repeat(6, 1fr);
   }
 
-  /* Prontuário: left sidebar + main column; history goes below */
-  .prontuario-grid {
-    grid-template-columns: 210px 1fr;
-  }
-
-  .prontuario-grid > *:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .form-grid-meds {
-    grid-template-columns: 1fr 1fr;
+  /* Campos de medicamento (receituário): 3 colunas viram 2 */
+  .med-campos-principais,
+  .med-campos-secundarios {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 
@@ -178,8 +145,22 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .prontuario-main-grid {
-    grid-template-columns: 1fr;
+  /* Prontuário: painéis de atendimento e histórico empilham em vez de
+     ficar lado a lado (o width em % e o divisor arrastável são para
+     telas largas o suficiente para caber os dois) */
+  .prontuario-split {
+    flex-direction: column;
+    gap: 12px !important;
+  }
+
+  .prontuario-split-left,
+  .prontuario-split-right {
+    width: 100% !important;
+    border-radius: 10px !important;
+  }
+
+  .prontuario-split-divider {
+    display: none !important;
   }
 
   /* Document forms: single column */
@@ -187,9 +168,10 @@ body {
     grid-template-columns: 1fr;
   }
 
-  /* Medication fields: 2 columns */
-  .form-grid-meds {
-    grid-template-columns: 1fr 1fr;
+  /* Campos de medicamento (receituário): 1 coluna */
+  .med-campos-principais,
+  .med-campos-secundarios {
+    grid-template-columns: 1fr !important;
   }
 
   /* Document preview: compact padding */
@@ -205,10 +187,6 @@ body {
   }
 
   .atalhos-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .form-grid-meds {
     grid-template-columns: 1fr;
   }
 }

@@ -848,10 +848,10 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         </div>
       </div>
 
-      <div ref={splitContainerRef} style={{ marginTop: '16px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
+      <div ref={splitContainerRef} className="prontuario-split" style={{ marginTop: '16px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
 
         {/* Painel esquerdo — atendimento atual */}
-        <div style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
+        <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>Atendimento Atual</h2>
           <textarea
             placeholder="História clínica, exame físico, hipótese diagnóstica, conduta..."
@@ -873,8 +873,9 @@ function ProntuarioPage({ pacientes, setPacientes }) {
           </div>
         </div>
 
-        {/* Divisor arrastável */}
+        {/* Divisor arrastável — escondido no celular, onde os painéis ficam empilhados */}
         <div
+          className="prontuario-split-divider"
           onMouseDown={(e) => { isDragging.current = true; e.preventDefault(); }}
           onTouchStart={() => { isDragging.current = true; }}
           style={{ width: '10px', cursor: 'col-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', transition: 'background-color 0.15s' }}
@@ -886,7 +887,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         </div>
 
         {/* Painel direito — histórico */}
-        <div style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
+        <div className="prontuario-split-right" style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>Histórico ({registros.length})</h2>
           {registros.length === 0 ? (
             <p style={{ color: '#999', fontSize: '14px' }}>Nenhum registro ainda.</p>
@@ -1188,12 +1189,12 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                   <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Remover</button>
                 )}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+              <div className="med-campos-principais" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
                 <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Apresentação (ex: 50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Quantidade (ex: 2 caixas)" value={med.quantidade} onChange={(e) => atualizarMed(med.id, 'quantidade', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
+              <div className="med-campos-secundarios" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
                 <input placeholder="Administração (ex: via oral)" value={med.via} onChange={(e) => atualizarMed(med.id, 'via', e.target.value)} list="lista-vias" style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Frequência (ex: 1x ao dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
                 <input placeholder="Duração (ex: 30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
