@@ -328,7 +328,24 @@ function PacientesPage({ pacientes, setPacientes }) {
       }
       limparFormulario();
     } catch (err) {
-      alert('Erro ao salvar paciente: ' + err.message);
+      if (err.code === '23505') {
+        alert('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
+      } else {
+        alert('Erro ao salvar paciente: ' + err.message);
+      }
+    }
+  };
+
+  const desativarPaciente = async (paciente) => {
+    const confirmado = window.confirm(
+      `Desativar o cadastro de "${paciente.nome}"?\n\nO paciente sai da lista e das buscas, mas o histórico dele no prontuário é mantido. Isso não é uma exclusão definitiva, mas hoje só é revertida diretamente no banco de dados.`
+    );
+    if (!confirmado) return;
+    try {
+      await pacientesService.deletar(paciente.id);
+      setPacientes(pacientes.filter((p) => p.id !== paciente.id));
+    } catch (err) {
+      alert('Erro ao desativar paciente: ' + err.message);
     }
   };
 
@@ -572,10 +589,25 @@ function PacientesPage({ pacientes, setPacientes }) {
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      marginRight: '8px'
                     }}
                   >
                     Editar Cadastro
+                  </button>
+
+                  <button
+                    onClick={() => desativarPaciente(paciente)}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: '#fee2e2',
+                      color: '#dc2626',
+                      border: '1px solid #fecaca',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Desativar
                   </button>
                 </div>
               </div>

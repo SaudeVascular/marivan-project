@@ -102,4 +102,16 @@ export const pacientesService = {
       .eq('id', id);
     if (error) throw error;
   },
+
+  // Reverte a exclusão lógica. Sem tela própria ainda — reative rodando
+  // `update pacientes set ativo = true where id = '...'` no SQL Editor,
+  // ou chame este método diretamente se/quando houver uma tela de
+  // "pacientes desativados".
+  async reativar(id) {
+    const { error } = await supabase
+      .from('pacientes')
+      .update({ ativo: true })
+      .eq('id', id);
+    if (error) throw error;
+  },
 };
