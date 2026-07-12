@@ -15,6 +15,7 @@ import { registrosService, salvarRegistroComFallback } from './services/registro
 import { usuariosService } from './services/usuarios.service';
 import { modelosService } from './services/modelos.service';
 import { authService } from './services/authService';
+import { auditoriaService } from './services/auditoria.service';
 import { formatDate, calcularIdade } from './utils/formatters';
 import { useMedicoPerfil } from './hooks/useMedicoPerfil';
 import { usePacienteAtual } from './hooks/usePacienteAtual';
@@ -159,9 +160,14 @@ function Header() {
       <div className="pep-header-right">
         <span className="pep-header-email" style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
         {funcao === 'Administrador' && (
-          <Link to="/usuarios" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-            👥 Usuários
-          </Link>
+          <>
+            <Link to="/usuarios" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+              👥 Usuários
+            </Link>
+            <Link to="/auditoria" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+              🕵️ Auditoria
+            </Link>
+          </>
         )}
         <button
           onClick={handleLogout}
@@ -2338,6 +2344,113 @@ function UsuariosPage() {
   );
 }
 
+const ROTULOS_TABELA = {
+  pacientes: 'Paciente',
+  consultas: 'Registro clínico',
+  medicamentos_receita: 'Item de receituário',
+  perfis: 'Usuário',
+};
+
+const ROTULOS_OPERACAO = {
+  INSERT: 'Criação',
+  UPDATE: 'Alteração',
+  DELETE: 'Exclusão',
+};
+
+function AuditoriaPage() {
+  const [eventos, setEventos] = React.useState([]);
+  const [usuarios, setUsuarios] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(true);
+  const [erro, setErro] = React.useState('');
+  const [filtroTabela, setFiltroTabela] = React.useState('');
+  const [expandido, setExpandido] = React.useState(null);
+
+  React.useEffect(() => {
+    Promise.all([auditoriaService.listar(), usuariosService.listar()])
+      .then(([listaEventos, listaUsuarios]) => {
+        setEventos(listaEventos);
+        setUsuarios(listaUsuarios);
+      })
+      .catch(err => setErro(err.message || 'Erro ao carregar auditoria.'))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const nomeUsuario = (id) => {
+    const u = usuarios.find(u => u.id === id);
+    return u ? `${u.nome} (${u.email})` : (id || '—');
+  };
+
+  const eventosFiltrados = filtroTabela
+    ? eventos.filter(e => e.tabela === filtroTabela)
+    : eventos;
+
+  return (
+    <div>
+      <Header />
+      <Link to="/pacientes">← Voltar</Link>
+
+      <h2 style={{ marginTop: '20px' }}>Auditoria</h2>
+      <p style={{ color: '#666', fontSize: '14px', marginTop: '-8px' }}>
+        Últimos {eventos.length} eventos de criação, alteração e exclusão registrados no banco.
+      </p>
+
+      <div style={{ marginBottom: '16px' }}>
+        <select value={filtroTabela} onChange={e => setFiltroTabela(e.target.value)} style={{ padding: '8px' }}>
+          <option value="">Todas as tabelas</option>
+          {Object.entries(ROTULOS_TABELA).map(([valor, rotulo]) => (
+            <option key={valor} value={valor}>{rotulo}</option>
+          ))}
+        </select>
+      </div>
+
+      {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
+
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {carregando ? (
+          <p style={{ padding: '20px', color: '#666' }}>Carregando...</p>
+        ) : eventosFiltrados.length === 0 ? (
+          <p style={{ padding: '20px', color: '#666' }}>Nenhum evento encontrado.</p>
+        ) : (
+          eventosFiltrados.map(ev => (
+            <div key={ev.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px' }}>
+              <div
+                onClick={() => setExpandido(expandido === ev.id ? null : ev.id)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', cursor: 'pointer' }}
+              >
+                <div style={{ fontSize: '14px' }}>
+                  <strong>{ROTULOS_OPERACAO[ev.operacao] || ev.operacao}</strong>
+                  {' — '}{ROTULOS_TABELA[ev.tabela] || ev.tabela}
+                  <span style={{ color: '#888' }}> · {nomeUsuario(ev.alterado_por)}</span>
+                </div>
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  {new Date(ev.alterado_em).toLocaleString('pt-BR')}
+                </div>
+              </div>
+
+              {expandido === ev.id && (
+                <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <strong style={{ fontSize: '12px', color: '#888' }}>ANTES</strong>
+                    <pre style={{ fontSize: '11px', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '4px', overflow: 'auto', maxHeight: '260px' }}>
+                      {ev.dados_antigos ? JSON.stringify(ev.dados_antigos, null, 2) : '—'}
+                    </pre>
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: '12px', color: '#888' }}>DEPOIS</strong>
+                    <pre style={{ fontSize: '11px', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '4px', overflow: 'auto', maxHeight: '260px' }}>
+                      {ev.dados_novos ? JSON.stringify(ev.dados_novos, null, 2) : '—'}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DocumentoPage({ titulo, pacientes }) {
   const { paciente } = usePacienteAtual(pacientes);
 
@@ -2542,6 +2655,16 @@ function AppContent() {
           <ProtectedLayout>
             <SomenteAdmin>
               <UsuariosPage />
+            </SomenteAdmin>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/auditoria"
+        element={
+          <ProtectedLayout>
+            <SomenteAdmin>
+              <AuditoriaPage />
             </SomenteAdmin>
           </ProtectedLayout>
         }
