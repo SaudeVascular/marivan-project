@@ -74,7 +74,7 @@ const SaveStatus = ({ status, lastSaved, isMobile }) => {
 
   return (
     <>
-      <style jsx>{`
+      <style>{`
         @keyframes slideIn {
           from {
             transform: translateY(100%);

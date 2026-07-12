@@ -19,6 +19,12 @@ import { auditoriaService } from './services/auditoria.service';
 import { formatDate, calcularIdade } from './utils/formatters';
 import { useMedicoPerfil } from './hooks/useMedicoPerfil';
 import { usePacienteAtual } from './hooks/usePacienteAtual';
+import { useAutoSave } from './hooks/useAutoSave';
+
+// Rascunho local do atendimento em digitação — protege contra perda de
+// texto se a aba fechar/travar antes do médico clicar em "Salvar
+// Atendimento". Guardado só no navegador (não é o registro oficial).
+const RASCUNHO_ATENDIMENTO_PREFIX = 'pep_rascunho_atendimento_';
 
 const formatarData = (dataISO) => (dataISO ? formatDate(dataISO) : '-');
 
@@ -631,6 +637,28 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   const [splitPct, setSplitPct] = React.useState(55);
   const isDragging = React.useRef(false);
   const splitContainerRef = React.useRef(null);
+  const [rascunhoRestaurado, setRascunhoRestaurado] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!paciente?.id) return;
+    const salvo = localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+    if (salvo) {
+      setAtendimentoAtual(salvo);
+      setRascunhoRestaurado(true);
+    }
+  }, [paciente?.id]);
+
+  const salvarRascunho = React.useCallback((texto) => {
+    if (!paciente?.id) return false;
+    if (texto && texto.trim()) {
+      localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id, texto);
+      return true;
+    }
+    localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+    return false;
+  }, [paciente?.id]);
+
+  const { isSaving: salvandoRascunho, lastSaved: rascunhoSalvoEm } = useAutoSave(atendimentoAtual, salvarRascunho, 1500);
 
   React.useEffect(() => {
     const onMove = (clientX) => {
@@ -708,6 +736,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         p.id === paciente.id ? { ...p, registros: [{ id: Date.now(), ...registroLocal, data: agora.toLocaleDateString('pt-BR') }, ...(p.registros || [])] } : p
       ));
     }
+    localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+    setRascunhoRestaurado(false);
     setAtendimentoAtual('');
   };
 
@@ -891,6 +921,21 @@ function ProntuarioPage({ pacientes, setPacientes }) {
         {/* Painel esquerdo — atendimento atual */}
         <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>Atendimento Atual</h2>
+          {rascunhoRestaurado && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '13px', color: '#92400e' }}>
+              <span>📝 Rascunho recuperado automaticamente (não salvo no prontuário ainda).</span>
+              <button
+                onClick={() => {
+                  localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+                  setAtendimentoAtual('');
+                  setRascunhoRestaurado(false);
+                }}
+                style={{ padding: '4px 8px', backgroundColor: 'transparent', border: '1px solid #92400e', color: '#92400e', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}
+              >
+                Descartar
+              </button>
+            </div>
+          )}
           <textarea
             placeholder="História clínica, exame físico, hipótese diagnóstica, conduta..."
             value={atendimentoAtual}
@@ -901,6 +946,13 @@ function ProntuarioPage({ pacientes, setPacientes }) {
           <button onClick={salvarAtendimento} style={{ marginTop: '10px', padding: '12px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             ✓ Salvar Atendimento
           </button>
+          {atendimentoAtual.trim() && (salvandoRascunho || rascunhoSalvoEm) && (
+            <p style={{ marginTop: '6px', fontSize: '12px', color: '#888' }}>
+              {salvandoRascunho
+                ? 'Salvando rascunho...'
+                : `Rascunho salvo automaticamente às ${rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — só vira registro oficial ao clicar em "Salvar Atendimento".`}
+            </p>
+          )}
           <div className="atalhos-grid">
             <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
             <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>

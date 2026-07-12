@@ -202,4 +202,5 @@ class StorageService {
 }
 
 // Exporta uma instância única do serviço
-export default new StorageService();
+const storageService = new StorageService();
+export default storageService;
