@@ -1091,6 +1091,12 @@ function AtestadoPage({ pacientes, setPacientes }) {
   });
 
   const salvarNoProntuario = async () => {
+    const diasNum = Number(dias);
+    if (!dias || !Number.isInteger(diasNum) || diasNum < 1) {
+      alert('Informe um número de dias de afastamento válido (1 ou mais).');
+      return;
+    }
+
     const conteudo = [
       `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
       `Afastamento: ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} a partir de ${dataFormatada}`,
@@ -1236,6 +1242,12 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   });
 
   const salvarNoProntuario = async () => {
+    const temMedicamento = medicamentos.some(m => m.nome.trim());
+    if (!temMedicamento && !textoLivre.trim()) {
+      alert('Adicione pelo menos um medicamento ou preencha o texto livre da prescrição.');
+      return;
+    }
+
     const medsTexto = medicamentos
       .filter(m => m.nome)
       .map((m, idx) => {
@@ -1460,6 +1472,12 @@ function RelatorioPage({ pacientes, setPacientes }) {
   });
 
   const salvarNoProntuario = async () => {
+    const temConteudo = [finalidade, diagnostico, historico, exames, conduta, conclusao].some(c => c && c.trim());
+    if (!temConteudo) {
+      alert('Preencha pelo menos um campo do relatório antes de salvar.');
+      return;
+    }
+
     const conteudo = [
       `Médico: ${medico || 'Não informado'} | ${crm || 'CRM não informado'}`,
       finalidade ? `Finalidade: ${finalidade}` : null,
@@ -1890,6 +1908,11 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const salvarNoProntuario = async () => {
+    if (todosExamesSel.length === 0) {
+      alert('Selecione pelo menos um exame antes de salvar.');
+      return;
+    }
+
     const conteudo = examsPorCategoria.map(cat =>
       `${cat.categoria}:\n` + cat.exames.map(e => `  • ${e.nome}`).join('\n')
     ).join('\n\n') + (indicacao ? `\n\nIndicação: ${indicacao}` : '') + (cid ? `  CID: ${cid}` : '');
