@@ -2,6 +2,10 @@ import { supabase } from './supabase';
 import { authService } from './authService';
 import { capitalizarTexto } from '../utils/formatters';
 
+// Campos + join com convenios (nome), pra não precisar carregar a lista de
+// convênios só pra exibir o nome em toda tela que mostra um paciente.
+const CAMPOS = '*, convenios(nome)';
+
 // DB (snake_case) → React (camelCase)
 const fromDb = (p) => ({
   id: p.id,
@@ -10,7 +14,8 @@ const fromDb = (p) => ({
   nascimento: p.nascimento || '',
   nomeMae: capitalizarTexto(p.nome_mae),
   telefone: p.telefone || '',
-  convenio: p.convenio || '',
+  convenioId: p.convenio_id || '',
+  convenio: p.convenios?.nome || '',
   cep: p.cep || '',
   endereco: capitalizarTexto(p.endereco),
   alergias: p.alergias || '',
@@ -33,7 +38,7 @@ const toDb = (p) => ({
   nascimento: p.nascimento || null,
   nome_mae: p.nomeMae ? capitalizarTexto(p.nomeMae) : null,
   telefone: p.telefone || null,
-  convenio: p.convenio || null,
+  convenio_id: p.convenioId || null,
   cep: p.cep || null,
   endereco: p.endereco ? capitalizarTexto(p.endereco) : null,
   alergias: p.alergias || null,
@@ -51,7 +56,7 @@ export const pacientesService = {
   async listar(filtro = '') {
     let query = supabase
       .from('pacientes')
-      .select('*')
+      .select(CAMPOS)
       .eq('ativo', true)
       .order('nome');
 
@@ -67,7 +72,7 @@ export const pacientesService = {
   async buscarPorId(id) {
     const { data, error } = await supabase
       .from('pacientes')
-      .select('*')
+      .select(CAMPOS)
       .eq('id', id)
       .single();
     if (error) throw error;
@@ -79,7 +84,7 @@ export const pacientesService = {
     const { data, error } = await supabase
       .from('pacientes')
       .insert([{ ...toDb(pacienteData), created_by: user?.id }])
-      .select()
+      .select(CAMPOS)
       .single();
     if (error) throw error;
     return fromDb(data);
@@ -90,7 +95,7 @@ export const pacientesService = {
       .from('pacientes')
       .update(toDb(pacienteData))
       .eq('id', id)
-      .select()
+      .select(CAMPOS)
       .single();
     if (error) throw error;
     return fromDb(data);

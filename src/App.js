@@ -276,6 +276,11 @@ function PacientesPage({ pacientes, setPacientes }) {
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
   const [salvandoPaciente, setSalvandoPaciente] = React.useState(false);
   const [processandoId, setProcessandoId] = React.useState(null);
+  const [convenios, setConvenios] = React.useState([]);
+
+  React.useEffect(() => {
+    conveniosService.listar().then(setConvenios).catch(() => {});
+  }, []);
 
   const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
 
@@ -314,7 +319,7 @@ function PacientesPage({ pacientes, setPacientes }) {
     nascimento: '',
     nomeMae: '',
     telefone: '',
-    convenio: '',
+    convenioId: '',
     cep: '',
     endereco: '',
     alergias: ''
@@ -336,7 +341,7 @@ function PacientesPage({ pacientes, setPacientes }) {
       nascimento: '',
       nomeMae: '',
       telefone: '',
-      convenio: '',
+      convenioId: '',
       cep: '',
       endereco: '',
       alergias: ''
@@ -412,7 +417,7 @@ function PacientesPage({ pacientes, setPacientes }) {
       nascimento: paciente.nascimento || '',
       nomeMae: paciente.nomeMae || '',
       telefone: paciente.telefone || '',
-      convenio: paciente.convenio || '',
+      convenioId: paciente.convenioId || '',
       cep: paciente.cep || '',
       endereco: paciente.endereco || '',
       alergias: paciente.alergias || ''
@@ -491,19 +496,16 @@ function PacientesPage({ pacientes, setPacientes }) {
             onChange={(e) => setNovoPaciente({ ...novoPaciente, endereco: e.target.value })}
             style={{ padding: '10px', gridColumn: 'span 6' }}
           />
-          <input
-            placeholder="Convênio"
-            value={novoPaciente.convenio}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, convenio: e.target.value })}
-            list="lista-convenios"
+          <select
+            value={novoPaciente.convenioId}
+            onChange={(e) => setNovoPaciente({ ...novoPaciente, convenioId: e.target.value })}
             style={{ padding: '10px', gridColumn: 'span 2' }}
-          />
-          <datalist id="lista-convenios">
-            <option value="Bradesco Saúde" />
-            <option value="CASSI" />
-            <option value="Unimed" />
-            <option value="Particular" />
-          </datalist>
+          >
+            <option value="">Convênio...</option>
+            {convenios.filter(c => c.ativo).map(c => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
           <input
             placeholder="Alergias"
             value={novoPaciente.alergias}
