@@ -14,7 +14,7 @@ export function useMedicoPerfil() {
       if (perfil) {
         const titulo = perfil.sexo === 'Feminino' ? 'Dra.' : 'Dr.';
         setMedico(`${titulo} ${perfil.nome || ''}`.trim());
-        setCrm(perfil.crm || '');
+        setCrm(perfil.crm ? `${perfil.crm}${perfil.uf ? '/' + perfil.uf : ''}` : '');
         setEspecialidade([perfil.especialidade, perfil.area_atuacao].filter(Boolean).join(' — '));
       }
     });

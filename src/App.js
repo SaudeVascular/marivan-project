@@ -235,6 +235,8 @@ function SomenteAdmin({ children }) {
   return children;
 }
 
+const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
 // Mesmo conjunto de funções liberado para consultas/medicamentos_receita
 // em supabase_rls_rbac.sql — mantenha os dois em sincronia.
 const FUNCOES_CLINICAS = ['Médico', 'Enfermeiro(a)', 'Administrador'];
@@ -2264,7 +2266,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
 function UsuariosPage() {
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
+  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
   const [mostraSenha, setMostraSenha] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
@@ -2292,10 +2294,10 @@ function UsuariosPage() {
     }
     setSalvando(true);
     try {
-      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
+      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, uf: form.uf, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
       const lista = await comTimeout(usuariosService.listar());
       setUsuarios(lista);
-      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
+      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
       setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
@@ -2364,7 +2366,13 @@ function UsuariosPage() {
             </div>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
-              <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '8px' }} />
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '8px' }} />
+                <select value={form.uf} onChange={e => setForm({ ...form, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '8px', fontSize: '14px' }}>
+                  <option value="">UF</option>
+                  {UFS.map(uf => <option key={uf}>{uf}</option>)}
+                </select>
+              </div>
             </div>
             <div>
               <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sexo</label>
@@ -2445,14 +2453,14 @@ function UsuariosPage() {
                       <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
                       <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
                       <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
-                        {u.funcao}{u.crm ? ` · ${u.crm}` : ''}
+                        {u.funcao}{u.crm ? ` · CRM ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button
@@ -2486,7 +2494,13 @@ function UsuariosPage() {
                       </div>
                       <div>
                         <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
-                        <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value })} placeholder="CRM 12345/SP" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '7px', fontSize: '13px' }} />
+                          <select value={editando.uf || ''} onChange={e => setEditando({ ...editando, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '7px', fontSize: '13px' }}>
+                            <option value="">UF</option>
+                            {UFS.map(uf => <option key={uf}>{uf}</option>)}
+                          </select>
+                        </div>
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>

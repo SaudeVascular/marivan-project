@@ -13,14 +13,14 @@ export const usuariosService = {
   async buscarPerfil(userId) {
     const { data, error } = await supabase
       .from('perfis')
-      .select('nome, crm, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo')
+      .select('nome, crm, uf, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo')
       .eq('id', userId)
       .single();
     if (error) return null;
     return data;
   },
 
-  async criar({ nome, email, senha, funcao, crm }) {
+  async criar({ nome, email, senha, funcao, crm, uf }) {
     const { data: sessaoAtual } = await supabase.auth.getSession();
     const sessaoAdmin = sessaoAtual?.session;
 
@@ -39,20 +39,21 @@ export const usuariosService = {
       });
     }
 
-    // Salva o CRM no perfil após criação
-    if (data.user && crm) {
-      await supabase.from('perfis').update({ crm }).eq('id', data.user.id);
+    // Salva CRM/UF no perfil após criação
+    if (data.user && (crm || uf)) {
+      await supabase.from('perfis').update({ crm: crm || '', uf: uf || '' }).eq('id', data.user.id);
     }
 
     return data.user;
   },
 
-  async atualizar(id, { nome, funcao, crm, sexo, nascimento, cpf, especialidade, area_atuacao }) {
+  async atualizar(id, { nome, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao }) {
     const { error } = await supabase
       .from('perfis')
       .update({
         nome, funcao,
         crm: crm || '',
+        uf: uf || '',
         sexo: sexo || '',
         nascimento: nascimento || null,
         cpf: cpf || '',
