@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { comTimeout } from '../utils/comTimeout';
 
 const CAMPOS = 'id, tipo, titulo, conteudo, data, hora, created_by, created_at';
 
@@ -73,7 +74,7 @@ export const registrosService = {
 // com id temporário para não perder o que o médico digitou.
 export async function salvarRegistroComFallback({ registro, paciente, userId, pacientes, setPacientes, contexto }) {
   try {
-    const salvoDb = await registrosService.criar(registro, paciente.id, userId);
+    const salvoDb = await comTimeout(registrosService.criar(registro, paciente.id, userId));
     setPacientes(pacientes.map((p) =>
       p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
     ));

@@ -21,19 +21,12 @@ import { formatDate, calcularIdade } from './utils/formatters';
 import { useMedicoPerfil } from './hooks/useMedicoPerfil';
 import { usePacienteAtual } from './hooks/usePacienteAtual';
 import { useAutoSave } from './hooks/useAutoSave';
+import { comTimeout } from './utils/comTimeout';
 
 // Rascunho local do atendimento em digitação — protege contra perda de
 // texto se a aba fechar/travar antes do médico clicar em "Salvar
 // Atendimento". Guardado só no navegador (não é o registro oficial).
 const RASCUNHO_ATENDIMENTO_PREFIX = 'pep_rascunho_atendimento_';
-
-// Evita que uma ação trave a tela pra sempre se a rede cair no meio do
-// caminho (ex: clicar em "Sair" e nada acontecer até recarregar a página).
-const comTimeout = (promise, ms = 8000) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('A operação demorou demais. Tente novamente.')), ms)),
-  ]);
 
 const formatarData = (dataISO) => (dataISO ? formatDate(dataISO) : '-');
 
@@ -251,6 +244,8 @@ function PacientesPage({ pacientes, setPacientes }) {
 
   const [busca, setBusca] = React.useState('');
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
+  const [salvandoPaciente, setSalvandoPaciente] = React.useState(false);
+  const [processandoId, setProcessandoId] = React.useState(null);
 
   const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
 
@@ -339,14 +334,15 @@ function PacientesPage({ pacientes, setPacientes }) {
       }
     }
 
+    setSalvandoPaciente(true);
     try {
       if (pacienteEditando) {
-        const atualizado = await pacientesService.atualizar(pacienteEditando.id, novoPaciente);
+        const atualizado = await comTimeout(pacientesService.atualizar(pacienteEditando.id, novoPaciente));
         setPacientes(pacientes.map((p) =>
           p.id === pacienteEditando.id ? { ...p, ...atualizado, registros: p.registros } : p
         ));
       } else {
-        const criado = await pacientesService.criar(novoPaciente);
+        const criado = await comTimeout(pacientesService.criar(novoPaciente));
         setPacientes([...pacientes, { ...criado, registros: [] }]);
       }
       limparFormulario();
@@ -356,6 +352,8 @@ function PacientesPage({ pacientes, setPacientes }) {
       } else {
         alert('Erro ao salvar paciente: ' + err.message);
       }
+    } finally {
+      setSalvandoPaciente(false);
     }
   };
 
@@ -364,11 +362,14 @@ function PacientesPage({ pacientes, setPacientes }) {
       `Desativar o cadastro de "${paciente.nome}"?\n\nO paciente sai da lista e das buscas, mas o histórico dele no prontuário é mantido. Isso não é uma exclusão definitiva, mas hoje só é revertida diretamente no banco de dados.`
     );
     if (!confirmado) return;
+    setProcessandoId(paciente.id);
     try {
-      await pacientesService.deletar(paciente.id);
+      await comTimeout(pacientesService.deletar(paciente.id));
       setPacientes(pacientes.filter((p) => p.id !== paciente.id));
     } catch (err) {
       alert('Erro ao desativar paciente: ' + err.message);
+    } finally {
+      setProcessandoId(null);
     }
   };
 
@@ -481,9 +482,10 @@ function PacientesPage({ pacientes, setPacientes }) {
           />
           <button
             onClick={salvarPaciente}
-            style={{ padding: '12px', backgroundColor: pacienteEditando ? '#f59e0b' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', gridColumn: 'span 3' }}
+            disabled={salvandoPaciente}
+            style={{ padding: '12px', backgroundColor: salvandoPaciente ? '#9ca3af' : (pacienteEditando ? '#f59e0b' : '#28a745'), color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoPaciente ? 'not-allowed' : 'pointer', gridColumn: 'span 3' }}
           >
-            {pacienteEditando ? 'Salvar Alterações' : 'Salvar Paciente'}
+            {salvandoPaciente ? 'Salvando...' : (pacienteEditando ? 'Salvar Alterações' : 'Salvar Paciente')}
           </button>
           {pacienteEditando && (
             <button
@@ -621,16 +623,18 @@ function PacientesPage({ pacientes, setPacientes }) {
 
                   <button
                     onClick={() => desativarPaciente(paciente)}
+                    disabled={processandoId === paciente.id}
                     style={{
                       padding: '8px 12px',
                       backgroundColor: '#fee2e2',
                       color: '#dc2626',
                       border: '1px solid #fecaca',
                       borderRadius: '4px',
-                      cursor: 'pointer'
+                      cursor: processandoId === paciente.id ? 'not-allowed' : 'pointer',
+                      opacity: processandoId === paciente.id ? 0.6 : 1
                     }}
                   >
-                    Desativar
+                    {processandoId === paciente.id ? 'Desativando...' : 'Desativar'}
                   </button>
                 </div>
               </div>
@@ -651,6 +655,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   const [registroEditando, setRegistroEditando] = React.useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
   const [editandoClinicos, setEditandoClinicos] = React.useState(false);
+  const [salvandoAtendimento, setSalvandoAtendimento] = React.useState(false);
+  const [salvandoClinicos, setSalvandoClinicos] = React.useState(false);
   const [splitPct, setSplitPct] = React.useState(55);
   const isDragging = React.useRef(false);
   const splitContainerRef = React.useRef(null);
@@ -734,6 +740,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
 
   const salvarAtendimento = async () => {
     if (!atendimentoAtual.trim()) return;
+    setSalvandoAtendimento(true);
     const agora = new Date();
     const registroLocal = {
       tipo: 'Consulta',
@@ -742,7 +749,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
       hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
     try {
-      const salvo = await registrosService.criar(registroLocal, paciente.id, user?.id);
+      const salvo = await comTimeout(registrosService.criar(registroLocal, paciente.id, user?.id));
       setPacientes(pacientes.map((p) =>
         p.id === paciente.id ? { ...p, registros: [salvo, ...(p.registros || [])] } : p
       ));
@@ -756,13 +763,14 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
     setRascunhoRestaurado(false);
     setAtendimentoAtual('');
+    setSalvandoAtendimento(false);
   };
 
   const salvarEdicaoRegistro = async () => {
     if (!registroEditando) return;
     setSalvandoEdicao(true);
     try {
-      const atualizado = await registrosService.atualizar(registroEditando.id, registroEditando);
+      const atualizado = await comTimeout(registrosService.atualizar(registroEditando.id, registroEditando));
       setPacientes(pacientes.map(p =>
         p.id === paciente.id
           ? { ...p, registros: p.registros.map(r => r.id === atualizado.id ? atualizado : r) }
@@ -777,13 +785,15 @@ function ProntuarioPage({ pacientes, setPacientes }) {
   };
 
   const salvarClinicos = async (novoClinicos = clinicos) => {
+    setSalvandoClinicos(true);
     try {
-      await pacientesService.atualizar(paciente.id, { ...paciente, ...novoClinicos });
+      await comTimeout(pacientesService.atualizar(paciente.id, { ...paciente, ...novoClinicos }));
       setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
     } catch (err) {
       console.error('Erro ao salvar dados clínicos:', err);
     }
     setEditandoClinicos(false);
+    setSalvandoClinicos(false);
   };
 
   const toggleComorbidade = (key, ciclo) => {
@@ -857,9 +867,10 @@ function ProntuarioPage({ pacientes, setPacientes }) {
               )}
               <button
                 onClick={() => editandoClinicos ? salvarClinicos() : setEditandoClinicos(true)}
-                style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: editandoClinicos ? '#28a745' : '#6c757d', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                disabled={salvandoClinicos}
+                style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: salvandoClinicos ? '#9ca3af' : (editandoClinicos ? '#28a745' : '#6c757d'), color: 'white', border: 'none', borderRadius: '3px', cursor: salvandoClinicos ? 'not-allowed' : 'pointer' }}
               >
-                {editandoClinicos ? '✓ Salvar' : 'Editar'}
+                {salvandoClinicos ? 'Salvando...' : (editandoClinicos ? '✓ Salvar' : 'Editar')}
               </button>
             </div>
           </div>
@@ -960,8 +971,12 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             rows={18}
             style={{ width: '100%', padding: '12px', fontSize: '15px', borderRadius: '6px', border: '1px solid #ccc', resize: 'vertical' }}
           />
-          <button onClick={salvarAtendimento} style={{ marginTop: '10px', padding: '12px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-            ✓ Salvar Atendimento
+          <button
+            onClick={salvarAtendimento}
+            disabled={salvandoAtendimento}
+            style={{ marginTop: '10px', padding: '12px 20px', backgroundColor: salvandoAtendimento ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoAtendimento ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+          >
+            {salvandoAtendimento ? 'Salvando...' : '✓ Salvar Atendimento'}
           </button>
           {atendimentoAtual.trim() && (salvandoRascunho || rascunhoSalvoEm) && (
             <p style={{ marginTop: '6px', fontSize: '12px', color: '#888' }}>
@@ -1100,6 +1115,7 @@ function AtestadoPage({ pacientes, setPacientes }) {
   const [cid, setCid] = React.useState('');
   const [observacoes, setObservacoes] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1126,7 +1142,9 @@ function AtestadoPage({ pacientes, setPacientes }) {
       titulo: `Atestado — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
       conteudo,
     };
+    setSalvando(true);
     await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'atestado' });
+    setSalvando(false);
     setSalvo(true);
   };
 
@@ -1158,8 +1176,8 @@ function AtestadoPage({ pacientes, setPacientes }) {
             <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} rows={2} />
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button onClick={salvarNoProntuario} style={{ padding: '10px 18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-              ✓ Salvar no Prontuário
+            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
             <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
@@ -1207,6 +1225,8 @@ function ReceituarioPage({ pacientes, setPacientes }) {
   const [textoLivre, setTextoLivre]     = React.useState('');
   const [modelos, setModelos]           = React.useState([]);
   const [salvandoModelo, setSalvandoModelo] = React.useState(false);
+  const [gravandoModelo, setGravandoModelo] = React.useState(false);
+  const [salvandoReceituario, setSalvandoReceituario] = React.useState(false);
   const [nomeModelo, setNomeModelo]     = React.useState('');
   const [medicamentos, setMedicamentos] = React.useState([
     { id: 1, nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: '' }
@@ -1221,13 +1241,16 @@ function ReceituarioPage({ pacientes, setPacientes }) {
 
   const salvarModelo = async () => {
     if (!nomeModelo.trim() || !textoLivre.trim()) return;
+    setGravandoModelo(true);
     try {
-      const novo = await modelosService.criar(user.id, nomeModelo.trim(), textoLivre);
+      const novo = await comTimeout(modelosService.criar(user.id, nomeModelo.trim(), textoLivre));
       setModelos(prev => [...prev, novo]);
       setNomeModelo('');
       setSalvandoModelo(false);
     } catch (err) {
       alert('Erro ao salvar modelo: ' + err.message);
+    } finally {
+      setGravandoModelo(false);
     }
   };
 
@@ -1286,7 +1309,9 @@ function ReceituarioPage({ pacientes, setPacientes }) {
       titulo: `Receituário — ${qtd} medicamento${qtd !== 1 ? 's' : ''}`,
       conteudo,
     };
+    setSalvandoReceituario(true);
     await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'receituário' });
+    setSalvandoReceituario(false);
     setSalvo(true);
   };
 
@@ -1335,7 +1360,7 @@ function ReceituarioPage({ pacientes, setPacientes }) {
           ))}
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
-            <button onClick={salvarNoProntuario} style={{ padding: '9px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>✓ Salvar no Prontuário</button>
+            <button onClick={salvarNoProntuario} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{salvandoReceituario ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
             <button onClick={() => window.print()} style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
             {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
@@ -1386,12 +1411,13 @@ function ReceituarioPage({ pacientes, setPacientes }) {
                   onChange={e => setNomeModelo(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') salvarModelo(); if (e.key === 'Escape') setSalvandoModelo(false); }}
                   placeholder="Nome do modelo (ex: HAS básico)"
+                  disabled={gravandoModelo}
                   style={{ flex: 1, minWidth: '180px', padding: '6px 10px', fontSize: '13px', border: '1px solid #86efac', borderRadius: '4px', outline: 'none' }}
                 />
-                <button onClick={salvarModelo} style={{ padding: '6px 12px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                  Salvar
+                <button onClick={salvarModelo} disabled={gravandoModelo} style={{ padding: '6px 12px', backgroundColor: gravandoModelo ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: gravandoModelo ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  {gravandoModelo ? 'Salvando...' : 'Salvar'}
                 </button>
-                <button onClick={() => { setSalvandoModelo(false); setNomeModelo(''); }} style={{ padding: '6px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                <button onClick={() => { setSalvandoModelo(false); setNomeModelo(''); }} disabled={gravandoModelo} style={{ padding: '6px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
                   Cancelar
                 </button>
               </div>
@@ -1481,6 +1507,7 @@ function RelatorioPage({ pacientes, setPacientes }) {
   const [conduta, setConduta] = React.useState('');
   const [conclusao, setConclusao] = React.useState('');
   const [salvo, setSalvo] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1510,7 +1537,9 @@ function RelatorioPage({ pacientes, setPacientes }) {
       titulo: `Relatório Médico${finalidade ? ' — ' + finalidade : ''}`,
       conteudo,
     };
+    setSalvando(true);
     await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'relatório' });
+    setSalvando(false);
     setSalvo(true);
   };
 
@@ -1563,8 +1592,8 @@ function RelatorioPage({ pacientes, setPacientes }) {
           {campo('Conclusão e parecer médico', conclusao, setConclusao, 3, 'Parecer final do médico sobre o caso...')}
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={salvarNoProntuario} style={{ padding: '10px 18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-              ✓ Salvar no Prontuário
+            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
             <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
@@ -1788,7 +1817,7 @@ function LaudoPage({ pacientes, setPacientes }) {
       conteudo,
     };
     try {
-      const salvoDb = await registrosService.criar(registro, paciente.id, user?.id);
+      const salvoDb = await comTimeout(registrosService.criar(registro, paciente.id, user?.id));
       setPacientes(pacientes.map(p =>
         p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
       ));
@@ -1907,6 +1936,7 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
   const [examesSel, setExamesSel]         = React.useState(new Set());
   const [modo, setModo]                   = React.useState('receituario');
   const [salvo, setSalvo]                 = React.useState(false);
+  const [salvando, setSalvando]           = React.useState(false);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -1935,7 +1965,9 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
     ).join('\n\n') + (indicacao ? `\n\nIndicação: ${indicacao}` : '') + (cid ? `  CID: ${cid}` : '');
 
     const registro = { tipo: 'Pedido de Exames', titulo: `Pedido de Exames — ${todosExamesSel.length} exame(s)`, conteudo };
+    setSalvando(true);
     await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'pedido de exames' });
+    setSalvando(false);
     setSalvo(true);
   };
 
@@ -2019,8 +2051,8 @@ function PedidoExamesPage({ pacientes, setPacientes }) {
 
         {/* Ações */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={examesSel.size === 0} style={{ padding: '9px 16px', backgroundColor: examesSel.size === 0 ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: examesSel.size === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-            ✓ Salvar no Prontuário
+          <button onClick={salvarNoProntuario} disabled={examesSel.size === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (examesSel.size === 0 || salvando) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (examesSel.size === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+            {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <span style={{ fontSize: '13px', color: '#6b7280' }}>Visualizar como:</span>
@@ -2212,6 +2244,8 @@ function UsuariosPage() {
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
   const [editando, setEditando] = React.useState(null); // { id, nome, funcao, crm }
+  const [salvandoEdicaoUsuario, setSalvandoEdicaoUsuario] = React.useState(false);
+  const [processandoStatusId, setProcessandoStatusId] = React.useState(null);
 
   React.useEffect(() => {
     usuariosService.listar()
@@ -2233,8 +2267,8 @@ function UsuariosPage() {
     }
     setSalvando(true);
     try {
-      await usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao });
-      const lista = await usuariosService.listar();
+      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
+      const lista = await comTimeout(usuariosService.listar());
       setUsuarios(lista);
       setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
       setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Um e-mail de confirmação será enviado para ${form.email}.` });
@@ -2247,21 +2281,27 @@ function UsuariosPage() {
 
   const salvarEdicao = async () => {
     if (!editando?.nome.trim()) return;
+    setSalvandoEdicaoUsuario(true);
     try {
-      await usuariosService.atualizar(editando.id, editando);
+      await comTimeout(usuariosService.atualizar(editando.id, editando));
       setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...editando } : u));
       setEditando(null);
     } catch (err) {
       alert('Erro ao salvar: ' + err.message);
+    } finally {
+      setSalvandoEdicaoUsuario(false);
     }
   };
 
   const alterarStatus = async (id, ativoAtual) => {
+    setProcessandoStatusId(id);
     try {
-      await usuariosService.alterarStatus(id, !ativoAtual);
+      await comTimeout(usuariosService.alterarStatus(id, !ativoAtual));
       setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ativo: !ativoAtual } : u));
     } catch (err) {
       alert('Erro ao alterar status: ' + err.message);
+    } finally {
+      setProcessandoStatusId(null);
     }
   };
 
@@ -2389,8 +2429,12 @@ function UsuariosPage() {
                       <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
-                      <button onClick={() => alterarStatus(u.id, u.ativo)} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
-                        {u.ativo ? 'Desativar' : 'Reativar'}
+                      <button
+                        onClick={() => alterarStatus(u.id, u.ativo)}
+                        disabled={processandoStatusId === u.id}
+                        style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoStatusId === u.id ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: processandoStatusId === u.id ? 0.6 : 1 }}
+                      >
+                        {processandoStatusId === u.id ? '...' : (u.ativo ? 'Desativar' : 'Reativar')}
                       </button>
                     </div>
                   </div>
@@ -2450,8 +2494,8 @@ function UsuariosPage() {
                       E-mail: <strong>{u.email}</strong> <span style={{ color: '#9ca3af' }}>(não editável)</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={salvarEdicao} style={{ padding: '7px 16px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                        ✓ Salvar
+                      <button onClick={salvarEdicao} disabled={salvandoEdicaoUsuario} style={{ padding: '7px 16px', backgroundColor: salvandoEdicaoUsuario ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicaoUsuario ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                        {salvandoEdicaoUsuario ? 'Salvando...' : '✓ Salvar'}
                       </button>
                       <button onClick={() => setEditando(null)} style={{ padding: '7px 12px', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
                         Cancelar
@@ -2622,10 +2666,10 @@ function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, userId, onC
     if (!data || !hora) { setErro('Preencha data e horário.'); return; }
     setSalvando(true);
     try {
-      const novo = await agendamentosService.criar(
+      const novo = await comTimeout(agendamentosService.criar(
         { pacienteId, medicoId: medicoId || null, data, hora, duracaoMin: Number(duracaoMin), observacoes },
         userId
-      );
+      ));
       onCriado(novo);
     } catch (err) {
       setErro(err.message);
@@ -2731,6 +2775,7 @@ function AgendaPage({ pacientes }) {
   const [carregando, setCarregando] = React.useState(true);
   const [erro, setErro] = React.useState('');
   const [mostrarForm, setMostrarForm] = React.useState(false);
+  const [processandoId, setProcessandoId] = React.useState(null);
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -2752,11 +2797,14 @@ function AgendaPage({ pacientes }) {
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
   const mudarStatus = async (ag, novoStatus) => {
+    setProcessandoId(ag.id);
     try {
-      const atualizado = await agendamentosService.atualizarStatus(ag.id, novoStatus);
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
       alert('Erro ao atualizar status: ' + err.message);
+    } finally {
+      setProcessandoId(null);
     }
   };
 
@@ -2826,7 +2874,8 @@ function AgendaPage({ pacientes }) {
                   <button
                     key={s}
                     onClick={() => mudarStatus(ag, s)}
-                    style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
+                    disabled={processandoId === ag.id}
+                    style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
                   >
                     {s}
                   </button>
@@ -2936,7 +2985,7 @@ function RedefinirSenhaPage() {
     }
     setSalvando(true);
     try {
-      await authService.updatePassword(novaSenha);
+      await comTimeout(authService.updatePassword(novaSenha));
       setSucesso(true);
     } catch (err) {
       setErro(err.message || 'Erro ao redefinir a senha.');

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Activity, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/authService';
+import { comTimeout } from '../utils/comTimeout';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await comTimeout(login(email, password));
       navigate('/');
     } catch (err) {
       setError(err.message || 'Erro desconhecido');
@@ -36,7 +37,7 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      await authService.resetPassword(email);
+      await comTimeout(authService.resetPassword(email));
       setRecuperarEnviado(true);
     } catch (err) {
       setError(err.message || 'Erro desconhecido');

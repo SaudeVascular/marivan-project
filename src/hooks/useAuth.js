@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
+import { comTimeout } from '../utils/comTimeout';
 
 const AuthContext = createContext();
 
@@ -17,8 +18,8 @@ export const AuthProvider = ({ children }) => {
       setPerfil(null);
       return;
     }
-    await usuariosService.garantirPerfil(authUser).catch(() => {});
-    const p = await usuariosService.buscarPerfil(authUser.id).catch(() => null);
+    await comTimeout(usuariosService.garantirPerfil(authUser)).catch(() => {});
+    const p = await comTimeout(usuariosService.buscarPerfil(authUser.id)).catch(() => null);
     if (p && p.ativo === false) {
       await supabase.auth.signOut();
       setUser(null);
