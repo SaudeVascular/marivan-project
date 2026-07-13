@@ -100,7 +100,7 @@ CREATE POLICY "editar convenios" ON convenios
 
 CREATE POLICY "excluir convenios" ON convenios
   FOR DELETE
-  USING (current_user_funcao() = 'Administrador');
+  USING (current_user_funcao() IN ('Financeiro', 'Administrador'));
 
 DROP POLICY IF EXISTS "ver procedimentos" ON procedimentos;
 DROP POLICY IF EXISTS "criar procedimentos" ON procedimentos;
@@ -122,7 +122,7 @@ CREATE POLICY "editar procedimentos" ON procedimentos
 
 CREATE POLICY "excluir procedimentos" ON procedimentos
   FOR DELETE
-  USING (current_user_funcao() = 'Administrador');
+  USING (current_user_funcao() IN ('Financeiro', 'Administrador'));
 
 DROP POLICY IF EXISTS "ver convenio_valores" ON convenio_valores;
 DROP POLICY IF EXISTS "criar convenio_valores" ON convenio_valores;

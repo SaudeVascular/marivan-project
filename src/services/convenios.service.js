@@ -53,4 +53,20 @@ export const conveniosService = {
     const { error } = await supabase.from('convenio_valores').delete().eq('id', id);
     if (error) throw error;
   },
+
+  // Só apaga de verdade se o convênio nunca foi usado em nenhuma cobrança
+  // — senão perderíamos a referência em registros históricos. Os valores
+  // por procedimento (convenio_valores) somem junto (ON DELETE CASCADE).
+  async excluir(id) {
+    const { count, error: countError } = await supabase
+      .from('cobrancas')
+      .select('id', { count: 'exact', head: true })
+      .eq('convenio_id', id);
+    if (countError) throw countError;
+    if (count > 0) {
+      throw new Error('Este convênio já foi usado em cobranças e não pode ser excluído — desative-o em vez disso.');
+    }
+    const { error } = await supabase.from('convenios').delete().eq('id', id);
+    if (error) throw error;
+  },
 };

@@ -2998,6 +2998,16 @@ function CatalogoFinanceiroPage() {
     }
   };
 
+  const excluirProcedimento = async (p) => {
+    if (!window.confirm(`Excluir definitivamente o procedimento "${p.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
+    try {
+      await comTimeout(procedimentosService.excluir(p.id));
+      setProcedimentos(prev => prev.filter(x => x.id !== p.id));
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   const criarConvenio = async (e) => {
     e.preventDefault();
     if (!novoConvenio.trim()) return;
@@ -3019,6 +3029,16 @@ function CatalogoFinanceiroPage() {
       setConvenios(prev => prev.map(x => x.id === c.id ? atualizado : x));
     } catch (err) {
       alert('Erro ao atualizar: ' + err.message);
+    }
+  };
+
+  const excluirConvenio = async (c) => {
+    if (!window.confirm(`Excluir definitivamente o convênio "${c.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
+    try {
+      await comTimeout(conveniosService.excluir(c.id));
+      setConvenios(prev => prev.filter(x => x.id !== c.id));
+    } catch (err) {
+      alert(err.message);
     }
   };
 
@@ -3098,6 +3118,9 @@ function CatalogoFinanceiroPage() {
                     <button onClick={() => alternarAtivoProcedimento(p)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: p.ativo ? '#fee2e2' : '#d1fae5', color: p.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                       {p.ativo ? 'Desativar' : 'Reativar'}
                     </button>
+                    <button onClick={() => excluirProcedimento(p)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
+                      Excluir
+                    </button>
                   </div>
                 </div>
               )}
@@ -3130,6 +3153,9 @@ function CatalogoFinanceiroPage() {
                     </button>
                     <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                       {c.ativo ? 'Desativar' : 'Reativar'}
+                    </button>
+                    <button onClick={() => excluirConvenio(c)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
+                      Excluir
                     </button>
                   </div>
                 </div>

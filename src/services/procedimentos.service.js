@@ -38,4 +38,19 @@ export const procedimentosService = {
     if (error) throw error;
     return fromDb(data);
   },
+
+  // Só apaga de verdade se o procedimento nunca foi usado em nenhuma
+  // cobrança — senão perderíamos a referência em registros históricos.
+  async excluir(id) {
+    const { count, error: countError } = await supabase
+      .from('cobrancas')
+      .select('id', { count: 'exact', head: true })
+      .eq('procedimento_id', id);
+    if (countError) throw countError;
+    if (count > 0) {
+      throw new Error('Este procedimento já foi usado em cobranças e não pode ser excluído — desative-o em vez disso.');
+    }
+    const { error } = await supabase.from('procedimentos').delete().eq('id', id);
+    if (error) throw error;
+  },
 };
