@@ -1,18 +1,18 @@
 import { supabase } from './supabase';
 import { authService } from './authService';
-import { capitalizarNome } from '../utils/formatters';
+import { capitalizarTexto } from '../utils/formatters';
 
 // DB (snake_case) → React (camelCase)
 const fromDb = (p) => ({
   id: p.id,
-  nome: capitalizarNome(p.nome),
+  nome: capitalizarTexto(p.nome),
   cpf: p.cpf || '',
   nascimento: p.nascimento || '',
-  nomeMae: capitalizarNome(p.nome_mae),
+  nomeMae: capitalizarTexto(p.nome_mae),
   telefone: p.telefone || '',
   convenio: p.convenio || '',
   cep: p.cep || '',
-  endereco: p.endereco || '',
+  endereco: capitalizarTexto(p.endereco),
   alergias: p.alergias || '',
   has: p.has || '',
   dm: p.dm || '',
@@ -28,14 +28,14 @@ const fromDb = (p) => ({
 
 // React (camelCase) → DB (snake_case)
 const toDb = (p) => ({
-  nome: capitalizarNome(p.nome),
+  nome: capitalizarTexto(p.nome),
   cpf: p.cpf || null,
   nascimento: p.nascimento || null,
-  nome_mae: p.nomeMae ? capitalizarNome(p.nomeMae) : null,
+  nome_mae: p.nomeMae ? capitalizarTexto(p.nomeMae) : null,
   telefone: p.telefone || null,
   convenio: p.convenio || null,
   cep: p.cep || null,
-  endereco: p.endereco || null,
+  endereco: p.endereco ? capitalizarTexto(p.endereco) : null,
   alergias: p.alergias || null,
   has: p.has || '',
   dm: p.dm || '',

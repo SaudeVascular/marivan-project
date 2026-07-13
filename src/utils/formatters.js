@@ -97,16 +97,17 @@ export const capitalizeFirstLetter = (string) => {
   return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 };
 
-// Preposições/conectivos de nome que ficam em minúsculo (exceto se forem a
-// primeira palavra do nome).
+// Preposições/conectivos que ficam em minúsculo (exceto se forem a
+// primeira palavra do texto) — usado em nomes e endereços.
 const PREPOSICOES_NOME = ['de', 'da', 'do', 'das', 'dos', 'e'];
 
-// Padroniza nome próprio (várias palavras): cada palavra com inicial
-// maiúscula e o resto minúsculo, independente de como foi digitado —
-// exceto preposições ("de", "da", "dos"...), que ficam em minúsculo.
-export const capitalizarNome = (nome) => {
-  if (!nome) return '';
-  return nome
+// Padroniza texto com várias palavras (nome, nome da mãe, endereço...):
+// cada palavra com inicial maiúscula e o resto minúsculo, independente
+// de como foi digitado — exceto preposições ("de", "da", "dos"...), que
+// ficam em minúsculo.
+export const capitalizarTexto = (texto) => {
+  if (!texto) return '';
+  return texto
     .trim()
     .replace(/\s+/g, ' ')
     .toLowerCase()
