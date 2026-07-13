@@ -1,10 +1,11 @@
 import { supabase } from './supabase';
 import { authService } from './authService';
+import { capitalizarNome } from '../utils/formatters';
 
 // DB (snake_case) → React (camelCase)
 const fromDb = (p) => ({
   id: p.id,
-  nome: p.nome || '',
+  nome: capitalizarNome(p.nome),
   cpf: p.cpf || '',
   nascimento: p.nascimento || '',
   nomeMae: p.nome_mae || '',
@@ -27,7 +28,7 @@ const fromDb = (p) => ({
 
 // React (camelCase) → DB (snake_case)
 const toDb = (p) => ({
-  nome: p.nome,
+  nome: capitalizarNome(p.nome),
   cpf: p.cpf || null,
   nascimento: p.nascimento || null,
   nome_mae: p.nomeMae || null,

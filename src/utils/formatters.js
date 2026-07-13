@@ -97,6 +97,19 @@ export const capitalizeFirstLetter = (string) => {
   return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
 };
 
+// Padroniza nome próprio (várias palavras): cada palavra com inicial
+// maiúscula e o resto minúsculo, independente de como foi digitado.
+export const capitalizarNome = (nome) => {
+  if (!nome) return '';
+  return nome
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map((palavra) => (palavra ? palavra.charAt(0).toUpperCase() + palavra.slice(1) : palavra))
+    .join(' ');
+};
+
 export const truncateText = (text, maxLength) => {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
