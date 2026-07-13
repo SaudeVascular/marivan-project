@@ -27,6 +27,14 @@ import { useAutoSave } from './hooks/useAutoSave';
 // Atendimento". Guardado só no navegador (não é o registro oficial).
 const RASCUNHO_ATENDIMENTO_PREFIX = 'pep_rascunho_atendimento_';
 
+// Evita que uma ação trave a tela pra sempre se a rede cair no meio do
+// caminho (ex: clicar em "Sair" e nada acontecer até recarregar a página).
+const comTimeout = (promise, ms = 8000) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('A operação demorou demais. Tente novamente.')), ms)),
+  ]);
+
 const formatarData = (dataISO) => (dataISO ? formatDate(dataISO) : '-');
 
 const formatarCPF = (valor) => {
@@ -147,13 +155,16 @@ const EXAMES_DISPONIVEIS = [
 function Header() {
   const { logout, user, funcao } = useAuth();
   const navigate = useNavigate();
+  const [saindo, setSaindo] = React.useState(false);
 
   const handleLogout = async () => {
+    setSaindo(true);
     try {
-      await logout();
+      await comTimeout(logout(), 6000);
     } catch (err) {
       console.error('Erro ao sair:', err);
     } finally {
+      setSaindo(false);
       navigate('/login', { replace: true });
     }
   };
@@ -181,17 +192,19 @@ function Header() {
         )}
         <button
           onClick={handleLogout}
+          disabled={saindo}
           style={{
             padding: '6px 14px',
             backgroundColor: 'rgba(255,255,255,0.2)',
             color: 'white',
             border: '1px solid rgba(255,255,255,0.4)',
             borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '13px'
+            cursor: saindo ? 'not-allowed' : 'pointer',
+            fontSize: '13px',
+            opacity: saindo ? 0.7 : 1
           }}
         >
-          Sair
+          {saindo ? 'Saindo...' : 'Sair'}
         </button>
       </div>
     </div>
@@ -2993,7 +3006,7 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/pacientes" replace /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route
         path="/redefinir-senha"
         element={
