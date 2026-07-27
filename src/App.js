@@ -179,6 +179,16 @@ function Header() {
         <Link to="/agenda" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
           📅 Agenda
         </Link>
+        {FUNCOES_RECEPCAO.includes(funcao) && (
+          <Link to="/recepcao" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+            🛎️ Recepção
+          </Link>
+        )}
+        {FUNCOES_ENFERMAGEM.includes(funcao) && (
+          <Link to="/enfermagem" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+            🩺 Enfermagem
+          </Link>
+        )}
         {(FUNCOES_FINANCEIRO.includes(funcao) || funcao === 'Médico') && (
           <Link to="/financeiro" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
             💰 Financeiro
@@ -250,6 +260,18 @@ function SomenteClinico({ children }) {
   return children;
 }
 
+// Atos exclusivos de quem tem CRM (seção 2.1 do Documento Mestre: receitas
+// e prescrições, atestados — não listados no acesso do Enfermeiro em 2.2).
+// Mesmo conjunto liberado para criar esses tipos em supabase_enfermagem.sql
+// — mantenha os dois em sincronia.
+const FUNCOES_MEDICO = ['Médico', 'Administrador'];
+
+function SomenteMedico({ children }) {
+  const { funcao } = useAuth();
+  if (!FUNCOES_MEDICO.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
 // Mesmo conjunto liberado para gerenciar procedimentos/convênios/cobranças
 // em supabase_financeiro.sql — mantenha os dois em sincronia. Médico entra
 // à parte (só leitura das próprias cobranças), por isso não está aqui.
@@ -264,6 +286,26 @@ function SomenteFinanceiro({ children }) {
 function SomenteFinanceiroOuMedico({ children }) {
   const { funcao } = useAuth();
   if (!FUNCOES_FINANCEIRO.includes(funcao) && funcao !== 'Médico') return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
+// Quem faz check-in de paciente (Recepcionista) e Administrador, que
+// precisa conseguir acessar qualquer tela para dar suporte/testar.
+const FUNCOES_RECEPCAO = ['Recepcionista', 'Administrador'];
+
+function SomenteRecepcao({ children }) {
+  const { funcao } = useAuth();
+  if (!FUNCOES_RECEPCAO.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
+// Aba própria da enfermagem (seção 2.2 do Documento Mestre), separada do
+// Cadastro de Pacientes genérico. Administrador entra pra dar suporte/testar.
+const FUNCOES_ENFERMAGEM = ['Enfermeiro(a)', 'Administrador'];
+
+function SomenteEnfermagem({ children }) {
+  const { funcao } = useAuth();
+  if (!FUNCOES_ENFERMAGEM.includes(funcao)) return <Navigate to="/pacientes" replace />;
   return children;
 }
 
@@ -506,12 +548,14 @@ function PacientesPage({ pacientes, setPacientes }) {
               <option key={c.id} value={c.id}>{c.nome}</option>
             ))}
           </select>
-          <input
-            placeholder="Alergias"
-            value={novoPaciente.alergias}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, alergias: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 9' }}
-          />
+          {podeVerProntuario && (
+            <input
+              placeholder="Alergias"
+              value={novoPaciente.alergias}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, alergias: e.target.value })}
+              style={{ padding: '10px', gridColumn: 'span 9' }}
+            />
+          )}
           <button
             onClick={salvarPaciente}
             disabled={salvandoPaciente}
@@ -615,9 +659,11 @@ function PacientesPage({ pacientes, setPacientes }) {
                     <strong>Endereço:</strong> {paciente.endereco || '-'}
                   </div>
 
-                  <div>
-                    <strong>Alergias:</strong> {paciente.alergias || '-'}
-                  </div>
+                  {podeVerProntuario && (
+                    <div>
+                      <strong>Alergias:</strong> {paciente.alergias || '-'}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ marginTop: '8px' }}>
@@ -679,7 +725,8 @@ function PacientesPage({ pacientes, setPacientes }) {
 }
 
 function ProntuarioPage({ pacientes, setPacientes }) {
-  const { user } = useAuth();
+  const { user, funcao } = useAuth();
+  const enfermeiro = funcao === 'Enfermeiro(a)';
   const navigate = useNavigate();
   const { paciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
@@ -775,8 +822,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     setSalvandoAtendimento(true);
     const agora = new Date();
     const registroLocal = {
-      tipo: 'Consulta',
-      titulo: 'Atendimento médico',
+      tipo: enfermeiro ? 'Evolução de Enfermagem' : 'Consulta',
+      titulo: enfermeiro ? 'Evolução de enfermagem' : 'Atendimento médico',
       conteudo: atendimentoAtual,
       hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -863,6 +910,8 @@ function ProntuarioPage({ pacientes, setPacientes }) {
     'Receituário': '#f59e0b', 'Prescrição': '#8b5cf6', 'Relatório': '#6c757d',
     'Pedido de Exames': '#0891b2',
     'Laudo': '#7c3aed',
+    'Sinais Vitais': '#16a34a',
+    'Evolução de Enfermagem': '#0d9488',
   };
 
   return (
@@ -980,7 +1029,7 @@ function ProntuarioPage({ pacientes, setPacientes }) {
 
         {/* Painel esquerdo — atendimento atual */}
         <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
-          <h2 style={{ marginTop: 0 }}>Atendimento Atual</h2>
+          <h2 style={{ marginTop: 0 }}>{enfermeiro ? 'Evolução de Enfermagem' : 'Atendimento Atual'}</h2>
           {rascunhoRestaurado && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '13px', color: '#92400e' }}>
               <span>📝 Rascunho recuperado automaticamente (não salvo no prontuário ainda).</span>
@@ -997,7 +1046,9 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             </div>
           )}
           <textarea
-            placeholder="História clínica, exame físico, hipótese diagnóstica, conduta..."
+            placeholder={enfermeiro
+              ? 'Evolução de enfermagem: cuidados realizados, resposta do paciente, intercorrências...'
+              : 'História clínica, exame físico, hipótese diagnóstica, conduta...'}
             value={atendimentoAtual}
             onChange={(e) => setAtendimentoAtual(e.target.value)}
             rows={18}
@@ -1018,9 +1069,14 @@ function ProntuarioPage({ pacientes, setPacientes }) {
             </p>
           )}
           <div className="atalhos-grid">
-            <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
-            <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
-            <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
+            <Link to={`/sinais-vitais/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#16a34a' }}>🩺 Sinais Vitais</Link>
+            {!enfermeiro && (
+              <>
+                <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
+                <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
+                <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
+              </>
+            )}
             <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>🩺 Relatório</Link>
             <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
             <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudos</Link>
@@ -1130,6 +1186,121 @@ function ProntuarioPage({ pacientes, setPacientes }) {
               );
             })
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Aferição rápida (seção 2.2 do Documento Mestre: triagem, sinais vitais),
+// aberta a qualquer perfil clínico — não é um documento formal como
+// atestado/receituário, por isso não tem preview de impressão.
+function SinaisVitaisPage({ pacientes, setPacientes }) {
+  const { user } = useAuth();
+  const { paciente } = usePacienteAtual(pacientes);
+  const [pressaoArterial, setPressaoArterial] = React.useState('');
+  const [frequenciaCardiaca, setFrequenciaCardiaca] = React.useState('');
+  const [temperatura, setTemperatura] = React.useState('');
+  const [peso, setPeso] = React.useState('');
+  const [altura, setAltura] = React.useState('');
+  const [saturacao, setSaturacao] = React.useState('');
+  const [glicemia, setGlicemia] = React.useState('');
+  const [observacoes, setObservacoes] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [salvo, setSalvo] = React.useState(false);
+
+  if (!paciente) return <p>Paciente não encontrado.</p>;
+
+  const pesoNum = Number(peso.replace(',', '.'));
+  const alturaNum = Number(altura.replace(',', '.'));
+  const imc = pesoNum > 0 && alturaNum > 0 ? pesoNum / (alturaNum / 100) ** 2 : null;
+
+  const salvarNoProntuario = async () => {
+    const preenchido = [pressaoArterial, frequenciaCardiaca, temperatura, peso, altura, saturacao, glicemia].some(v => v.trim());
+    if (!preenchido) {
+      alert('Preencha pelo menos um sinal vital.');
+      return;
+    }
+
+    const conteudo = [
+      pressaoArterial ? `PA: ${pressaoArterial} mmHg` : null,
+      frequenciaCardiaca ? `FC: ${frequenciaCardiaca} bpm` : null,
+      temperatura ? `Temperatura: ${temperatura} °C` : null,
+      peso ? `Peso: ${peso} kg` : null,
+      altura ? `Altura: ${altura} cm` : null,
+      imc ? `IMC: ${imc.toFixed(1)} kg/m²` : null,
+      saturacao ? `SatO2: ${saturacao}%` : null,
+      glicemia ? `Glicemia: ${glicemia} mg/dL` : null,
+      observacoes ? `Observações: ${observacoes}` : null,
+    ].filter(Boolean).join('\n');
+
+    const registro = { tipo: 'Sinais Vitais', titulo: 'Sinais Vitais / Triagem', conteudo };
+    setSalvando(true);
+    await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'sinais vitais' });
+    setSalvando(false);
+    setSalvo(true);
+    setPressaoArterial(''); setFrequenciaCardiaca(''); setTemperatura('');
+    setPeso(''); setAltura(''); setSaturacao(''); setGlicemia(''); setObservacoes('');
+  };
+
+  const campoStyle = { width: '100%', padding: '8px' };
+  const labelStyle = { fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
+
+  return (
+    <div>
+      <Header />
+      <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
+      <div style={{ maxWidth: '620px', margin: '20px auto' }}>
+        <div style={{ ...painelStyle, marginBottom: '16px' }}>
+          <h3 style={{ marginTop: 0 }}>Sinais Vitais / Triagem — {paciente.nome}</h3>
+
+          <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
+            <div>
+              <label style={labelStyle}>Pressão arterial</label>
+              <input placeholder="Ex: 120/80" value={pressaoArterial} onChange={(e) => setPressaoArterial(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Freq. cardíaca (bpm)</label>
+              <input type="number" min="0" value={frequenciaCardiaca} onChange={(e) => setFrequenciaCardiaca(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Saturação O2 (%)</label>
+              <input type="number" min="0" max="100" value={saturacao} onChange={(e) => setSaturacao(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Temperatura (°C)</label>
+              <input type="number" step="0.1" min="30" max="43" value={temperatura} onChange={(e) => setTemperatura(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Glicemia (mg/dL)</label>
+              <input type="number" min="0" value={glicemia} onChange={(e) => setGlicemia(e.target.value)} style={campoStyle} />
+            </div>
+            <div />
+            <div>
+              <label style={labelStyle}>Peso (kg)</label>
+              <input type="number" step="0.1" min="0" value={peso} onChange={(e) => setPeso(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Altura (cm)</label>
+              <input type="number" step="1" min="0" value={altura} onChange={(e) => setAltura(e.target.value)} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>IMC (calculado)</label>
+              <input value={imc ? `${imc.toFixed(1)} kg/m²` : '—'} disabled style={{ ...campoStyle, backgroundColor: '#f3f4f6', color: '#555' }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <label style={labelStyle}>Observações da triagem (opcional)</label>
+            <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} rows={3} style={campoStyle} />
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
+            </button>
+            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          </div>
         </div>
       </div>
     </div>
@@ -2943,6 +3114,198 @@ function AgendaPage({ pacientes }) {
   );
 }
 
+// Mesma agenda que AgendaPage, mas recortada para o fluxo de check-in da
+// recepção: telefone/convênio à mão para ligar, sem o botão "Atender"
+// (que não é tarefa dela) e sem exigir passar pela Agenda genérica.
+function RecepcaoPage({ pacientes }) {
+  const { user } = useAuth();
+
+  const hojeISO = new Date().toISOString().split('T')[0];
+  const [dataSelecionada, setDataSelecionada] = React.useState(hojeISO);
+  const [agendamentos, setAgendamentos] = React.useState([]);
+  const [usuarios, setUsuarios] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(true);
+  const [erro, setErro] = React.useState('');
+  const [mostrarForm, setMostrarForm] = React.useState(false);
+  const [processandoId, setProcessandoId] = React.useState(null);
+
+  const carregar = React.useCallback(() => {
+    setCarregando(true);
+    agendamentosService.listarPorData(dataSelecionada)
+      .then(setAgendamentos)
+      .catch(err => setErro(err.message || 'Erro ao carregar agenda.'))
+      .finally(() => setCarregando(false));
+  }, [dataSelecionada]);
+
+  React.useEffect(() => { carregar(); }, [carregar]);
+
+  React.useEffect(() => {
+    usuariosService.listar().then(setUsuarios).catch(() => {});
+  }, []);
+
+  const profissionais = usuarios.filter(u => u.ativo && ['Médico', 'Enfermeiro(a)'].includes(u.funcao));
+
+  const pacientePor = (id) => pacientes.find(p => p.id === id);
+  const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
+
+  const mudarStatus = async (ag, novoStatus) => {
+    setProcessandoId(ag.id);
+    try {
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
+      setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
+    } catch (err) {
+      alert('Erro ao atualizar status: ' + err.message);
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
+  const mudarDia = (delta) => {
+    const d = new Date(dataSelecionada + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    setDataSelecionada(d.toISOString().split('T')[0]);
+  };
+
+  return (
+    <div>
+      <Header />
+
+      <h2 style={{ marginTop: '20px' }}>Recepção — Check-in do dia</h2>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <button onClick={() => mudarDia(-1)} style={{ padding: '8px 12px', cursor: 'pointer' }}>← Dia anterior</button>
+        <input type="date" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} style={{ padding: '8px' }} />
+        <button onClick={() => mudarDia(1)} style={{ padding: '8px 12px', cursor: 'pointer' }}>Dia seguinte →</button>
+        <button onClick={() => setDataSelecionada(hojeISO)} style={{ padding: '8px 12px', cursor: 'pointer' }}>Hoje</button>
+        {!mostrarForm && (
+          <button onClick={() => setMostrarForm(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            + Novo agendamento
+          </button>
+        )}
+      </div>
+
+      {mostrarForm && (
+        <NovoAgendamentoForm
+          pacientes={pacientes}
+          profissionais={profissionais}
+          dataPadrao={dataSelecionada}
+          userId={user?.id}
+          onCancelar={() => setMostrarForm(false)}
+          onCriado={(novo) => {
+            setMostrarForm(false);
+            if (novo.data === dataSelecionada) {
+              setAgendamentos(prev => [...prev, novo].sort((a, b) => a.hora.localeCompare(b.hora)));
+            }
+          }}
+        />
+      )}
+
+      {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
+
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {carregando ? (
+          <p style={{ padding: '20px', color: '#666' }}>Carregando...</p>
+        ) : agendamentos.length === 0 ? (
+          <p style={{ padding: '20px', color: '#666' }}>Nenhum agendamento para este dia.</p>
+        ) : (
+          agendamentos.map(ag => {
+            const paciente = pacientePor(ag.pacienteId);
+            return (
+              <div key={ag.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <strong>{ag.hora}</strong> — {paciente?.nome || '(paciente não encontrado)'}
+                  <div style={{ fontSize: '12px', color: '#666' }}>
+                    {nomeProfissional(ag.medicoId)} · {ag.duracaoMin} min
+                    {ag.observacoes && <> · {ag.observacoes}</>}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#444', marginTop: '2px' }}>
+                    {paciente?.telefone
+                      ? <a href={`tel:${paciente.telefone.replace(/\D/g, '')}`} style={{ color: '#0369a1', textDecoration: 'none' }}>📞 {paciente.telefone}</a>
+                      : <span>📞 sem telefone cadastrado</span>}
+                    {paciente?.convenio && <> · {paciente.convenio}</>}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                    {ag.status}
+                  </span>
+                  {(PROXIMOS_STATUS[ag.status] || []).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => mudarStatus(ag, s)}
+                      disabled={processandoId === ag.id}
+                      style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Aba própria da enfermagem (seção 2.2 do Documento Mestre) — busca de
+// paciente com atalho direto pra Sinais Vitais e Prontuário, sem passar
+// pelo Cadastro de Pacientes genérico (que é o fluxo administrativo).
+function EnfermagemPage({ pacientes }) {
+  const [busca, setBusca] = React.useState('');
+
+  const pacientesFiltrados = pacientes
+    .filter((paciente) =>
+      (paciente.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
+      (paciente.cpf || '').includes(busca)
+    )
+    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+
+  return (
+    <div>
+      <Header />
+      <h2>Enfermagem</h2>
+
+      <div style={{ ...painelStyle, marginBottom: '16px' }}>
+        <input
+          placeholder="Buscar paciente por nome ou CPF..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
+        />
+      </div>
+
+      <div style={{ ...painelStyle, display: 'grid', gap: '8px' }}>
+        {pacientesFiltrados.length === 0 ? (
+          <p style={{ color: '#666' }}>Nenhum paciente encontrado.</p>
+        ) : (
+          pacientesFiltrados.map((paciente) => (
+            <div key={paciente.id} style={{ border: '1px solid #ddd', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <strong>{paciente.nome}</strong>
+                <div style={{ fontSize: '13px', color: '#666' }}>
+                  {paciente.cpf ? `CPF: ${paciente.cpf}` : 'CPF não informado'}
+                  {paciente.nascimento && <> · {calcularIdade(paciente.nascimento)} anos</>}
+                  {paciente.telefone && <> · {paciente.telefone}</>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Link to={`/sinais-vitais/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#16a34a', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold' }}>
+                  🩺 Sinais Vitais
+                </Link>
+                <Link to={`/prontuario/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold' }}>
+                  📋 Prontuário
+                </Link>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function formatarMoeda(valor) {
   return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -3799,6 +4162,26 @@ function AppContent() {
         }
       />
       <Route
+        path="/recepcao"
+        element={
+          <ProtectedLayout>
+            <SomenteRecepcao>
+              <RecepcaoPage pacientes={pacientes} />
+            </SomenteRecepcao>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/enfermagem"
+        element={
+          <ProtectedLayout>
+            <SomenteEnfermagem>
+              <EnfermagemPage pacientes={pacientes} />
+            </SomenteEnfermagem>
+          </ProtectedLayout>
+        }
+      />
+      <Route
         path="/financeiro"
         element={
           <ProtectedLayout>
@@ -3842,9 +4225,9 @@ function AppContent() {
         path="/receituario/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteMedico>
               <ReceituarioPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteClinico>
+            </SomenteMedico>
           </ProtectedLayout>
         }
       />
@@ -3852,9 +4235,9 @@ function AppContent() {
         path="/prescricao/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteMedico>
               <DocumentoPage titulo="Prescrição Médica" pacientes={pacientes} />
-            </SomenteClinico>
+            </SomenteMedico>
           </ProtectedLayout>
         }
       />
@@ -3862,8 +4245,18 @@ function AppContent() {
         path="/atestados/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteMedico>
               <AtestadoPage pacientes={pacientes} setPacientes={setPacientes} />
+            </SomenteMedico>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/sinais-vitais/:id"
+        element={
+          <ProtectedLayout>
+            <SomenteClinico>
+              <SinaisVitaisPage pacientes={pacientes} setPacientes={setPacientes} />
             </SomenteClinico>
           </ProtectedLayout>
         }
