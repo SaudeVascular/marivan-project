@@ -451,6 +451,9 @@ Antes de considerar uma função concluída:
 | 10/07/2026 | Criar Documento Mestre | Evitar perda de contexto e organizar a evolução |
 | 10/07/2026 | Não usar dados reais antes da revisão de segurança | As permissões atuais ainda são amplas |
 | 10/07/2026 | Priorizar organização, recuperação de senha e RLS | São pontos críticos antes da expansão |
+| 27/07/2026 | Mascarar alergias/antecedentes clínicos por view (`pacientes_view`), não só na tela | RLS de `pacientes` não filtra coluna, só linha; Recepcionista precisa do cadastro administrativo mas não do dado clínico |
+| 27/07/2026 | Ampliar leitura de `perfis` pra qualquer usuário ativo ver colegas ativos, mascarando cpf/nascimento/sexo por view (`perfis_view`) | RLS anterior só deixava ver o próprio perfil ou Administrador ver todos — Recepcionista não conseguia listar Médico/Enfermeiro(a) pra agendar, e Financeiro não conseguia listar médico pra lançar cobrança nem mostrar nome no recibo |
+| 27/07/2026 | Módulo de Enfermagem: tela de Sinais Vitais/Triagem, evolução de enfermagem com tipo próprio no histórico, e Receituário/Prescrição/Atestado restritos a Médico/Administrador (tela e RLS) | Seção 2.2 do Documento Mestre não lista atos exclusivos de CRM no acesso do Enfermeiro; sinais vitais tinham colunas na tabela desde o schema original mas nenhuma tela usava |
 
 ---
 

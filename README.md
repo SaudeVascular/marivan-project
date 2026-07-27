@@ -78,6 +78,13 @@ do painel do Supabase. Em um projeto novo, rode nesta ordem:
 7. `supabase_pedido_exames.sql` — adiciona os tipos "Pedido de Exames" e "Laudo" em `consultas`
 8. `supabase_rls_rbac.sql` — substitui as políticas de RLS por controle de acesso por função (perfis.funcao)
 9. `supabase_auditoria.sql` — tabela de auditoria + triggers de registro automático
+10. `supabase_perfis_uf.sql` — coluna `uf` em `perfis` (estado do conselho que emitiu o CRM)
+11. `supabase_agenda.sql` — tabela `agendamentos` (Fase 3: agenda, confirmação, status de chegada)
+12. `supabase_financeiro.sql` — tabelas de procedimentos, convênios e cobranças (Fase 3: módulo Financeiro)
+13. `supabase_pacientes_convenio.sql` — liga `pacientes.convenio_id` ao catálogo de convênios do Financeiro
+14. `supabase_pacientes_mascara_clinica.sql` — view `pacientes_view` que mascara alergias/antecedentes clínicos para quem não é perfil clínico (o app passa a ler pacientes por essa view)
+15. `supabase_perfis_equipe.sql` — permite que a equipe ativa se veja (roster) e cria a view `perfis_view`, mascarando cpf/nascimento/sexo de quem não é o dono do perfil nem Administrador (o app passa a ler perfis por essa view)
+16. `supabase_enfermagem.sql` — adiciona os tipos "Sinais Vitais" e "Evolução de Enfermagem" em `consultas`, e restringe por RLS que só Médico/Administrador criem Receituário/Prescrição/Atestado
 
 Os arquivos são idempotentes (podem ser rodados mais de uma vez sem quebrar nada).
 
