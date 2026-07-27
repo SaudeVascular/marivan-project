@@ -1,9 +1,14 @@
 import { supabase } from './supabase';
 
 export const usuariosService = {
+  // Lê por `perfis_view` (supabase_perfis_equipe.sql), não pela tabela
+  // direto: a view mascara cpf/nascimento/sexo de quem não é o dono do
+  // perfil nem Administrador, mas mantém nome/função/CRM/especialidade
+  // visíveis — é o que Agenda, Recepção e Financeiro precisam pra
+  // listar/identificar profissionais que não são o usuário logado.
   async listar() {
     const { data, error } = await supabase
-      .from('perfis')
+      .from('perfis_view')
       .select('*')
       .order('nome');
     if (error) throw error;
@@ -12,7 +17,7 @@ export const usuariosService = {
 
   async buscarPerfil(userId) {
     const { data, error } = await supabase
-      .from('perfis')
+      .from('perfis_view')
       .select('nome, crm, uf, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo')
       .eq('id', userId)
       .single();
