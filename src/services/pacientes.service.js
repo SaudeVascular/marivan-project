@@ -2,9 +2,12 @@ import { supabase } from './supabase';
 import { authService } from './authService';
 import { capitalizarTexto } from '../utils/formatters';
 
-// Campos + join com convenios (nome), pra não precisar carregar a lista de
-// convênios só pra exibir o nome em toda tela que mostra um paciente.
-const CAMPOS = '*, convenios(nome)';
+// Leitura vem de `pacientes_view` (supabase_pacientes_mascara_clinica.sql),
+// não da tabela `pacientes` direto: a view mascara alergias/antecedentes
+// para quem não é perfil clínico, então o join com convênio já vem pronto
+// como `convenio_nome` (não dá pra usar o embed `convenios(nome)` do
+// PostgREST porque a view não carrega a FK real da tabela).
+const CAMPOS_LEITURA = '*';
 
 // DB (snake_case) → React (camelCase)
 const fromDb = (p) => ({
@@ -15,7 +18,7 @@ const fromDb = (p) => ({
   nomeMae: capitalizarTexto(p.nome_mae),
   telefone: p.telefone || '',
   convenioId: p.convenio_id || '',
-  convenio: p.convenios?.nome || '',
+  convenio: p.convenio_nome || '',
   cep: p.cep || '',
   endereco: capitalizarTexto(p.endereco),
   alergias: p.alergias || '',
@@ -55,8 +58,8 @@ const toDb = (p) => ({
 export const pacientesService = {
   async listar(filtro = '') {
     let query = supabase
-      .from('pacientes')
-      .select(CAMPOS)
+      .from('pacientes_view')
+      .select(CAMPOS_LEITURA)
       .eq('ativo', true)
       .order('nome');
 
@@ -71,34 +74,35 @@ export const pacientesService = {
 
   async buscarPorId(id) {
     const { data, error } = await supabase
-      .from('pacientes')
-      .select(CAMPOS)
+      .from('pacientes_view')
+      .select(CAMPOS_LEITURA)
       .eq('id', id)
       .single();
     if (error) throw error;
     return fromDb(data);
   },
 
+  // Escreve na tabela (a view mascarada não é atualizável por causa do
+  // CASE) e relê pela view, pra devolver ao chamador o mesmo formato
+  // mascarado que listar()/buscarPorId() usam.
   async criar(pacienteData) {
     const user = await authService.getCurrentUser();
     const { data, error } = await supabase
       .from('pacientes')
       .insert([{ ...toDb(pacienteData), created_by: user?.id }])
-      .select(CAMPOS)
+      .select('id')
       .single();
     if (error) throw error;
-    return fromDb(data);
+    return pacientesService.buscarPorId(data.id);
   },
 
   async atualizar(id, pacienteData) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('pacientes')
       .update(toDb(pacienteData))
-      .eq('id', id)
-      .select(CAMPOS)
-      .single();
+      .eq('id', id);
     if (error) throw error;
-    return fromDb(data);
+    return pacientesService.buscarPorId(id);
   },
 
   async deletar(id) {
