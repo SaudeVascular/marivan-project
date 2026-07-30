@@ -31,14 +31,21 @@ anonimizados até a revisão de segurança ser concluída.
    npm install
    ```
 
-2. Crie um arquivo `.env.local` na raiz com as credenciais do projeto Supabase:
+2. Copie `.env.example` para `.env.local` e preencha com as credenciais do projeto Supabase:
+
+   ```bash
+   cp .env.example .env.local
+   ```
 
    ```
    REACT_APP_SUPABASE_URL=
    REACT_APP_SUPABASE_ANON_KEY=
    ```
 
-   Use sempre a chave `anon`, **nunca** a `service_role`, no front-end.
+   Use sempre a chave `anon`, **nunca** a `service_role`, no front-end. `.env.local` nunca
+   é commitado (está no `.gitignore`) — se for empacotar o projeto pra enviar a alguém
+   (zip, IA de revisão etc.), confira que `.env.local`, `node_modules`, `build` e `.git`
+   não foram incluídos manualmente por fora do Git.
 
 3. Suba o servidor de desenvolvimento:
 
@@ -63,6 +70,13 @@ npm run build   # build de produção em build/
 npm test        # roda os testes
 ```
 
+O `moduleNameMapper` no `jest` de `package.json` não é sobra de configuração — o Jest
+do `react-scripts` 5 não resolve os pacotes `react-router-dom`/`react-router` (que só
+publicam ESM/`exports` map, sem `main` funcional) sem esse contorno. `src/setupTests.js`
+também poliflena `TextEncoder`/`TextDecoder`, que o `react-router` espera encontrar no
+ambiente e o `jsdom` do Jest não expõe. Se atualizar essas dependências e os testes
+voltarem a quebrar com "Cannot find module", comece por aí.
+
 ## Banco de dados (Supabase)
 
 O schema e as políticas de acesso não são aplicados automaticamente — cada arquivo
@@ -85,6 +99,10 @@ do painel do Supabase. Em um projeto novo, rode nesta ordem:
 14. `supabase_pacientes_mascara_clinica.sql` — view `pacientes_view` que mascara alergias/antecedentes clínicos para quem não é perfil clínico (o app passa a ler pacientes por essa view)
 15. `supabase_perfis_equipe.sql` — permite que a equipe ativa se veja (roster) e cria a view `perfis_view`, mascarando cpf/nascimento/sexo de quem não é o dono do perfil nem Administrador (o app passa a ler perfis por essa view)
 16. `supabase_enfermagem.sql` — adiciona os tipos "Sinais Vitais" e "Evolução de Enfermagem" em `consultas`, e restringe por RLS que só Médico/Administrador criem Receituário/Prescrição/Atestado
+17. `supabase_configuracoes_clinica.sql` — cria a tabela `configuracoes_clinica` (nome, endereço, telefone da clínica usados nos documentos impressos), antes fixos no código
+18. `supabase_configuracoes_clinica_extra.sql` — Nome Fantasia (renomeia de "subtitulo"), CNPJ, CEP separado do endereço, e bucket de Storage público para a logomarca
+19. `supabase_configuracoes_clinica_endereco.sql` — número e complemento do endereço, e auditoria de alterações em `configuracoes_clinica`
+20. `supabase_filiais.sql` — tabela `filiais` (cadastro de outras unidades, mesmo formato de dados da clínica principal, cada uma com sua própria logomarca)
 
 Os arquivos são idempotentes (podem ser rodados mais de uma vez sem quebrar nada).
 
@@ -106,18 +124,36 @@ que realmente importa para segurança, a primeira é só experiência de uso.
 
 ```
 src/
-├── App.js                    # rotas e a maior parte das telas
+├── App.js                    # só providers (Auth/Clinica) e rotas — ~300 linhas
+├── constants/roles.js        # UFS e FUNCOES_* (quem pode acessar o quê)
 ├── components/
 │   ├── Login.js
-│   └── common/SaveStatus.js
+│   ├── guards.js             # SomenteAdmin/SomenteClinico/SomenteMedico/...
+│   └── common/
+│       ├── Layout.js         # Header, LogoClinica, Cabecalho/RodapeImpresso
+│       └── SaveStatus.js
+├── pages/                    # uma pasta por domínio, uma tela (ou telas afins) por arquivo
+│   ├── pacientes/            # PacientesPage, ProntuarioPage
+│   ├── enfermagem/           # SinaisVitaisPage, EnfermagemPage
+│   ├── documentos/           # Atestado, Receituário, Relatório, Laudo, Pedido de Exames...
+│   ├── agenda/                # AgendaPage, NovoAgendamentoForm
+│   ├── recepcao/              # RecepcaoPage (check-in do dia)
+│   ├── financeiro/            # Financeiro, Catálogo, Recibo
+│   ├── administracao/         # Painel, Usuários, Auditoria, Configurações da Clínica, Filiais
+│   └── auth/                  # RedefinirSenhaPage
 ├── hooks/
 │   ├── useAuth.js            # sessão + perfil/função do usuário logado
+│   ├── useClinica.js         # dados da clínica (nome, logo, endereço) via Context
 │   ├── useMedicoPerfil.js    # autofill de médico/CRM/especialidade nos documentos
 │   ├── usePacienteAtual.js   # paciente atual a partir da URL
 │   ├── useAnexos.js          # upload de anexos (não usado no app ainda)
-│   └── useAutoSave.js        # debounce de autosave (não usado no app ainda)
+│   └── useAutoSave.js        # debounce de autosave
 ├── services/                 # um arquivo por entidade, todos falando com o Supabase
-└── utils/formatters.js       # formatação de data, CPF, telefone etc.
+└── utils/
+    ├── formatters.js         # formatação de data, CPF, telefone etc.
+    ├── mascaras.js           # formatarData/CPF/CNPJ usados nas telas
+    ├── comTimeout.js
+    └── rascunhoAtendimento.js # chave de rascunho local + limpeza no logout
 ```
 
 ## Convenções
