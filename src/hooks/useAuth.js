@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, createContext, useContext } from 'rea
 import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
 import { comTimeout } from '../utils/comTimeout';
+import { limparRascunhosAtendimento } from '../utils/rascunhoAtendimento';
 
 const AuthContext = createContext();
 
@@ -22,6 +23,7 @@ export const AuthProvider = ({ children }) => {
     const p = await comTimeout(usuariosService.buscarPerfil(authUser.id)).catch(() => null);
     if (p && p.ativo === false) {
       await supabase.auth.signOut();
+      limparRascunhosAtendimento();
       setUser(null);
       setPerfil(null);
       return;
@@ -64,6 +66,9 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await supabase.auth.signOut();
+    // Rascunho de atendimento é dado clínico não persistido — não pode
+    // sobreviver ao logout no mesmo navegador (ver utils/rascunhoAtendimento).
+    limparRascunhosAtendimento();
   };
 
   return (
