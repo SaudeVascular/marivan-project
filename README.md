@@ -77,6 +77,21 @@ também poliflena `TextEncoder`/`TextDecoder`, que o `react-router` espera encon
 ambiente e o `jsdom` do Jest não expõe. Se atualizar essas dependências e os testes
 voltarem a quebrar com "Cannot find module", comece por aí.
 
+Testes que renderizam qualquer coisa sob `<App>` precisam de
+`jest.mock('.../services/supabase')` — sem isso, o `useAuth` real tenta abrir sessão
+pela rede de verdade no mount. O mock mora em `src/services/__mocks__/supabase.js` e
+exporta `resetSupabaseMockPadrao()` (chame num `beforeEach`) e `criarQueryBuilder()`
+(pra simular um `.from(...).select(...).single()` específico). Duas pegadinhas desse
+mock, já resolvidas mas fáceis de reintroduzir sem querer:
+- o `react-scripts` liga `resetMocks: true` por padrão, que apaga a implementação de
+  qualquer `jest.fn()` — inclusive as do mock — antes de cada teste. Por isso a
+  implementação-padrão não fica presa no `jest.fn()` na criação do mock; ela só existe
+  dentro de `resetSupabaseMockPadrao()`, chamada de novo a cada teste.
+- importar direto de `services/__mocks__/supabase.js` num teste cria uma **segunda
+  cópia** do objeto mockado, diferente da que o resto do app enxerga — sempre importe
+  de `services/supabase` (o caminho real); o `jest.mock()` troca isso pelo mock por
+  baixo dos panos pra qualquer importador, este arquivo de teste incluído.
+
 ## Banco de dados (Supabase)
 
 O schema e as políticas de acesso não são aplicados automaticamente — cada arquivo
@@ -103,6 +118,7 @@ do painel do Supabase. Em um projeto novo, rode nesta ordem:
 18. `supabase_configuracoes_clinica_extra.sql` — Nome Fantasia (renomeia de "subtitulo"), CNPJ, CEP separado do endereço, e bucket de Storage público para a logomarca
 19. `supabase_configuracoes_clinica_endereco.sql` — número e complemento do endereço, e auditoria de alterações em `configuracoes_clinica`
 20. `supabase_filiais.sql` — tabela `filiais` (cadastro de outras unidades, mesmo formato de dados da clínica principal, cada uma com sua própria logomarca)
+21. `supabase_prontuario_assinatura.sql` — status (Rascunho/Assinado/Cancelado), retificação e trigger que bloqueia edição de registro assinado em `consultas`; restringe a policy de UPDATE ao autor (ou Administrador)
 
 Os arquivos são idempotentes (podem ser rodados mais de uma vez sem quebrar nada).
 
@@ -131,7 +147,8 @@ src/
 │   ├── guards.js             # SomenteAdmin/SomenteClinico/SomenteMedico/...
 │   └── common/
 │       ├── Layout.js         # Header, LogoClinica, Cabecalho/RodapeImpresso
-│       └── SaveStatus.js
+│       ├── SaveStatus.js
+│       └── Toast.js          # ToastProvider/useToast — notificação não-bloqueante (substitui alert())
 ├── pages/                    # uma pasta por domínio, uma tela (ou telas afins) por arquivo
 │   ├── pacientes/            # PacientesPage, ProntuarioPage
 │   ├── enfermagem/           # SinaisVitaisPage, EnfermagemPage
