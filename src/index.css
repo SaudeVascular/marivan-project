@@ -178,6 +178,28 @@ body {
   .doc-preview {
     padding: 24px 18px;
   }
+
+  /* Prontuário: faixa do topo mais enxuta, pra sobrar mais tela pro
+     atendimento/histórico embaixo (o separador vertical entre paciente
+     e dados clínicos não faz sentido quando os dois empilham). */
+  .prontuario-topo {
+    padding: 12px !important;
+  }
+
+  .prontuario-separador-vertical {
+    display: none;
+  }
+
+  /* Botões de Salvar rascunho / Finalizar e Assinar acompanham o
+     scroll — em celular, com o teclado virtual aberto, senão ficam
+     fora da vista abaixo do textarea. */
+  .prontuario-atendimento-acoes {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 8px 0 4px;
+    z-index: 5;
+  }
 }
 
 /* ===== SMALL MOBILE (≤ 480px) ===== */

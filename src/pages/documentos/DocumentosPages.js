@@ -5,6 +5,7 @@ import { useClinica } from '../../hooks/useClinica';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
 import { useMedicoPerfil } from '../../hooks/useMedicoPerfil';
 import { Header, LogoClinica, CabecalhoImpresso, RodapeImpresso } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
 import { registrosService, salvarRegistroComFallback } from '../../services/registros.service';
 import { modelosService } from '../../services/modelos.service';
@@ -70,6 +71,7 @@ const EXAMES_DISPONIVEIS = [
 ];
 
 export function AtestadoPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
@@ -91,7 +93,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const salvarNoProntuario = async () => {
     const diasNum = Number(dias);
     if (!dias || !Number.isInteger(diasNum) || diasNum < 1) {
-      alert('Informe um número de dias de afastamento válido (1 ou mais).');
+      toast.warning('Informe um número de dias de afastamento válido (1 ou mais).');
       return;
     }
 
@@ -111,7 +113,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
     const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'atestado' });
     setSalvando(false);
     if (!resultado.ok) {
-      alert('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
+      toast.error('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
       return;
     }
     setSalvo(true);
@@ -184,6 +186,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
 }
 
 export function ReceituarioPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
@@ -217,7 +220,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
       setNomeModelo('');
       setSalvandoModelo(false);
     } catch (err) {
-      alert('Erro ao salvar modelo: ' + err.message);
+      toast.error('Erro ao salvar modelo: ' + err.message);
     } finally {
       setGravandoModelo(false);
     }
@@ -228,7 +231,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
       await modelosService.excluir(id);
       setModelos(prev => prev.filter(m => m.id !== id));
     } catch (err) {
-      alert('Erro ao excluir modelo: ' + err.message);
+      toast.error('Erro ao excluir modelo: ' + err.message);
     }
   };
 
@@ -253,7 +256,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   const salvarNoProntuario = async () => {
     const temMedicamento = medicamentos.some(m => m.nome.trim());
     if (!temMedicamento && !textoLivre.trim()) {
-      alert('Adicione pelo menos um medicamento ou preencha o texto livre da prescrição.');
+      toast.warning('Adicione pelo menos um medicamento ou preencha o texto livre da prescrição.');
       return;
     }
 
@@ -282,7 +285,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
     const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'receituário' });
     setSalvandoReceituario(false);
     if (!resultado.ok) {
-      alert('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
+      toast.error('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
       return;
     }
     setSalvo(true);
@@ -467,6 +470,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
 }
 
 export function RelatorioPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
@@ -491,7 +495,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const salvarNoProntuario = async () => {
     const temConteudo = [finalidade, diagnostico, historico, exames, conduta, conclusao].some(c => c && c.trim());
     if (!temConteudo) {
-      alert('Preencha pelo menos um campo do relatório antes de salvar.');
+      toast.warning('Preencha pelo menos um campo do relatório antes de salvar.');
       return;
     }
 
@@ -514,7 +518,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
     const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'relatório' });
     setSalvando(false);
     if (!resultado.ok) {
-      alert('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
+      toast.error('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
       return;
     }
     setSalvo(true);
@@ -695,10 +699,20 @@ export function ImprimirAtendimentoPage() {
         <CabecalhoImpresso paciente={paciente} />
 
         {/* Título e data */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', letterSpacing: '2px', textTransform: 'uppercase' }}>Registro de Atendimento</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+          <h2 style={{ margin: 0, fontSize: '16px', letterSpacing: '2px', textTransform: 'uppercase' }}>
+            {registro.retificacaoDe ? 'Retificação de Registro' : 'Registro de Atendimento'}
+          </h2>
           <span style={{ fontSize: '13px', color: '#555' }}>{registro.data} às {registro.hora}</span>
         </div>
+        <p style={{ margin: '0 0 20px', fontSize: '12px', color: registro.status === 'Rascunho' ? '#b45309' : '#555' }}>
+          {registro.status === 'Rascunho' ? '⚠ Rascunho — ainda não assinado' : '🔒 Assinado'}
+        </p>
+        {registro.retificacaoDe && registro.motivoRetificacao && (
+          <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 10px' }}>
+            <strong>Motivo da retificação:</strong> {registro.motivoRetificacao}
+          </p>
+        )}
 
         {/* Antecedentes médicos */}
         <div style={{ marginBottom: '24px' }}>
@@ -733,7 +747,19 @@ export function ImprimirAtendimentoPage() {
           <p style={{ marginBottom: '50px', fontSize: '13px' }}>{registro.data}</p>
           <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
             <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
-              <p style={{ margin: 0, fontSize: '13px' }}>Assinatura e carimbo do médico</p>
+              {registro.assinadoPorNome ? (
+                <>
+                  <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px' }}>{registro.assinadoPorNome}</p>
+                  {registro.assinadoPorRegistro && <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{registro.assinadoPorRegistro}</p>}
+                  {registro.assinadoEm && (
+                    <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#888' }}>
+                      Assinado em {new Date(registro.assinadoEm).toLocaleString('pt-BR')}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={{ margin: 0, fontSize: '13px' }}>Assinatura e carimbo do profissional</p>
+              )}
             </div>
           </div>
         </div>
@@ -762,6 +788,7 @@ const TIPOS_EXAME = [
 ];
 
 export function LaudoPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
   const hojeISO = new Date().toISOString().split('T')[0];
@@ -800,7 +827,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
       ));
       setSalvo(true);
     } catch (err) {
-      alert('Erro ao salvar: ' + err.message);
+      toast.error('Erro ao salvar: ' + err.message);
     } finally {
       setSalvando(false);
     }
@@ -900,6 +927,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
 }
 
 export function PedidoExamesPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
   const { paciente } = usePacienteAtual(pacientes);
@@ -934,7 +962,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
   const salvarNoProntuario = async () => {
     if (todosExamesSel.length === 0) {
-      alert('Selecione pelo menos um exame antes de salvar.');
+      toast.warning('Selecione pelo menos um exame antes de salvar.');
       return;
     }
 
@@ -947,7 +975,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
     const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'pedido de exames' });
     setSalvando(false);
     if (!resultado.ok) {
-      alert('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
+      toast.error('Não foi possível gravar no servidor: ' + resultado.error.message + '. Tente salvar de novo.');
       return;
     }
     setSalvo(true);
