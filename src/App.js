@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClinicaProvider } from './hooks/useClinica';
+import { ToastProvider } from './components/common/Toast';
 import Login from './components/Login';
 import { pacientesService } from './services/pacientes.service';
 import {
@@ -293,11 +294,13 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <ClinicaProvider>
-          <AppContent />
-        </ClinicaProvider>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <ClinicaProvider>
+            <AppContent />
+          </ClinicaProvider>
+        </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

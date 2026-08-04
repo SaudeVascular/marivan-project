@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { Header, CabecalhoImpresso, RodapeImpresso } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { procedimentosService } from '../../services/procedimentos.service';
@@ -16,6 +17,7 @@ export function formatarMoeda(valor) {
 }
 
 export function CatalogoFinanceiroPage() {
+  const toast = useToast();
   const [procedimentos, setProcedimentos] = React.useState([]);
   const [convenios, setConvenios] = React.useState([]);
   const [valores, setValores] = React.useState([]);
@@ -31,9 +33,9 @@ export function CatalogoFinanceiroPage() {
     setCarregando(true);
     Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores()])
       .then(([p, c, v]) => { setProcedimentos(p); setConvenios(c); setValores(v); })
-      .catch(err => alert('Erro ao carregar: ' + err.message))
+      .catch(err => toast.error('Erro ao carregar: ' + err.message))
       .finally(() => setCarregando(false));
-  }, []);
+  }, [toast]);
 
   React.useEffect(() => { carregar(); }, [carregar]);
 
@@ -50,7 +52,7 @@ export function CatalogoFinanceiroPage() {
       setProcedimentos(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
       setNovoProc({ nome: '', valorParticular: '', percentualRepasse: '' });
     } catch (err) {
-      alert('Erro ao criar procedimento: ' + err.message);
+      toast.error('Erro ao criar procedimento: ' + err.message);
     } finally {
       setSalvando(false);
     }
@@ -61,7 +63,7 @@ export function CatalogoFinanceiroPage() {
       const atualizado = await comTimeout(procedimentosService.atualizar(p.id, { nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse, ativo: !p.ativo }));
       setProcedimentos(prev => prev.map(x => x.id === p.id ? atualizado : x));
     } catch (err) {
-      alert('Erro ao atualizar: ' + err.message);
+      toast.error('Erro ao atualizar: ' + err.message);
     }
   };
 
@@ -79,7 +81,7 @@ export function CatalogoFinanceiroPage() {
       setProcedimentos(prev => prev.map(p => p.id === atualizado.id ? atualizado : p).sort((a, b) => a.nome.localeCompare(b.nome)));
       setEditandoProc(null);
     } catch (err) {
-      alert('Erro ao salvar procedimento: ' + err.message);
+      toast.error('Erro ao salvar procedimento: ' + err.message);
     } finally {
       setSalvando(false);
     }
@@ -91,7 +93,7 @@ export function CatalogoFinanceiroPage() {
       await comTimeout(procedimentosService.excluir(p.id));
       setProcedimentos(prev => prev.filter(x => x.id !== p.id));
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -104,7 +106,7 @@ export function CatalogoFinanceiroPage() {
       setConvenios(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
       setNovoConvenio('');
     } catch (err) {
-      alert('Erro ao criar convênio: ' + err.message);
+      toast.error('Erro ao criar convênio: ' + err.message);
     } finally {
       setSalvando(false);
     }
@@ -115,7 +117,7 @@ export function CatalogoFinanceiroPage() {
       const atualizado = await comTimeout(conveniosService.atualizar(c.id, { nome: c.nome, ativo: !c.ativo }));
       setConvenios(prev => prev.map(x => x.id === c.id ? atualizado : x));
     } catch (err) {
-      alert('Erro ao atualizar: ' + err.message);
+      toast.error('Erro ao atualizar: ' + err.message);
     }
   };
 
@@ -125,7 +127,7 @@ export function CatalogoFinanceiroPage() {
       await comTimeout(conveniosService.excluir(c.id));
       setConvenios(prev => prev.filter(x => x.id !== c.id));
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
@@ -141,7 +143,7 @@ export function CatalogoFinanceiroPage() {
       setConvenios(prev => prev.map(c => c.id === atualizado.id ? atualizado : c).sort((a, b) => a.nome.localeCompare(b.nome)));
       setEditandoConvenio(null);
     } catch (err) {
-      alert('Erro ao salvar convênio: ' + err.message);
+      toast.error('Erro ao salvar convênio: ' + err.message);
     } finally {
       setSalvando(false);
     }
@@ -160,7 +162,7 @@ export function CatalogoFinanceiroPage() {
       }));
       setValores(prev => [...prev.filter(v => !(v.convenioId === convenioSelecionado && v.procedimentoId === procedimentoId)), salvo]);
     } catch (err) {
-      alert('Erro ao salvar valor: ' + err.message);
+      toast.error('Erro ao salvar valor: ' + err.message);
     }
   };
 
@@ -425,6 +427,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
 }
 
 export function FinanceiroPage({ pacientes }) {
+  const toast = useToast();
   const { user, funcao } = useAuth();
   const podeGerenciar = FUNCOES_FINANCEIRO.includes(funcao);
 
@@ -471,7 +474,7 @@ export function FinanceiroPage({ pacientes }) {
       const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus));
       setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
     } catch (err) {
-      alert('Erro ao atualizar status: ' + err.message);
+      toast.error('Erro ao atualizar status: ' + err.message);
     } finally {
       setProcessandoId(null);
     }

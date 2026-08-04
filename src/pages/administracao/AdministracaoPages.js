@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useClinica } from '../../hooks/useClinica';
 import { Header } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { usuariosService } from '../../services/usuarios.service';
 import { auditoriaService } from '../../services/auditoria.service';
 import { configuracoesService } from '../../services/configuracoes.service';
@@ -58,6 +59,7 @@ export function PainelAdministrativoPage() {
 }
 
 export function UsuariosPage() {
+  const toast = useToast();
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
   const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
@@ -108,7 +110,7 @@ export function UsuariosPage() {
       setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...editando } : u));
       setEditando(null);
     } catch (err) {
-      alert('Erro ao salvar: ' + err.message);
+      toast.error('Erro ao salvar: ' + err.message);
     } finally {
       setSalvandoEdicaoUsuario(false);
     }
@@ -120,7 +122,7 @@ export function UsuariosPage() {
       await comTimeout(usuariosService.alterarStatus(id, !ativoAtual));
       setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ativo: !ativoAtual } : u));
     } catch (err) {
-      alert('Erro ao alterar status: ' + err.message);
+      toast.error('Erro ao alterar status: ' + err.message);
     } finally {
       setProcessandoStatusId(null);
     }
@@ -468,6 +470,7 @@ function CampoVisualizacao({ label, valor }) {
 }
 
 export function ConfiguracoesClinicaPage() {
+  const toast = useToast();
   const { clinica, recarregar } = useClinica();
   const [editando, setEditando] = React.useState(false);
   const [form, setForm] = React.useState(clinica);
@@ -505,7 +508,7 @@ export function ConfiguracoesClinicaPage() {
       const url = await comTimeout(configuracoesService.uploadLogo(file));
       setForm(prev => ({ ...prev, logoUrl: url }));
     } catch (err) {
-      alert('Erro ao enviar logomarca: ' + err.message);
+      toast.error('Erro ao enviar logomarca: ' + err.message);
     } finally {
       setEnviandoLogo(false);
     }
@@ -701,6 +704,7 @@ const FILIAL_VAZIA = {
 // Mesma estrutura de Configurações da Clínica, mas em lista — várias
 // unidades, cada uma com sua própria logomarca.
 export function FiliaisPage() {
+  const toast = useToast();
   const [filiais, setFiliais] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
   const [mostrarForm, setMostrarForm] = React.useState(false);
@@ -748,7 +752,7 @@ export function FiliaisPage() {
       const url = await comTimeout(filiaisService.uploadLogo(file));
       setForm(prev => ({ ...prev, logoUrl: url }));
     } catch (err) {
-      alert('Erro ao enviar logomarca: ' + err.message);
+      toast.error('Erro ao enviar logomarca: ' + err.message);
     } finally {
       setEnviandoLogo(false);
     }
@@ -804,7 +808,7 @@ export function FiliaisPage() {
       await comTimeout(filiaisService.alterarStatus(filial.id, !filial.ativo));
       setFiliais(prev => prev.map(f => f.id === filial.id ? { ...f, ativo: !filial.ativo } : f));
     } catch (err) {
-      alert('Erro ao alterar status: ' + err.message);
+      toast.error('Erro ao alterar status: ' + err.message);
     } finally {
       setProcessandoId(null);
     }

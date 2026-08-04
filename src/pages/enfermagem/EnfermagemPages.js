@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
 import { Header, painelStyle } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { salvarRegistroComFallback } from '../../services/registros.service';
 import { calcularIdade } from '../../utils/formatters';
 
@@ -10,6 +11,7 @@ import { calcularIdade } from '../../utils/formatters';
 // aberta a qualquer perfil clínico — não é um documento formal como
 // atestado/receituário, por isso não tem preview de impressão.
 export function SinaisVitaisPage({ pacientes, setPacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
   const [pressaoArterial, setPressaoArterial] = React.useState('');
@@ -32,7 +34,7 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
   const salvarNoProntuario = async () => {
     const preenchido = [pressaoArterial, frequenciaCardiaca, temperatura, peso, altura, saturacao, glicemia].some(v => v.trim());
     if (!preenchido) {
-      alert('Preencha pelo menos um sinal vital.');
+      toast.warning('Preencha pelo menos um sinal vital.');
       return;
     }
 
@@ -53,7 +55,7 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
     const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, pacientes, setPacientes, contexto: 'sinais vitais' });
     setSalvando(false);
     if (!resultado.ok) {
-      alert('Não foi possível gravar no servidor: ' + resultado.error.message + '. Os dados digitados continuam no formulário — tente salvar de novo.');
+      toast.error('Não foi possível gravar no servidor: ' + resultado.error.message + '. Os dados digitados continuam no formulário — tente salvar de novo.');
       return;
     }
     setSalvo(true);

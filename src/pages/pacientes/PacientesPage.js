@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Header } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
 import { conveniosService } from '../../services/convenios.service';
 import { comTimeout } from '../../utils/comTimeout';
@@ -10,6 +11,7 @@ import { FUNCOES_CLINICAS } from '../../constants/roles';
 
 export function PacientesPage({ pacientes, setPacientes }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const { funcao } = useAuth();
   const podeVerProntuario = FUNCOES_CLINICAS.includes(funcao);
 
@@ -95,7 +97,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
       novoPaciente.cpf || novoPaciente.nascimento || novoPaciente.nomeMae;
 
     if (!novoPaciente.nome || !temIdentificador || !novoPaciente.telefone) {
-      alert('Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.');
+      toast.warning('Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.');
       return;
     }
 
@@ -105,7 +107,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
         limparCPF(p.cpf) === cpfAtual && p.id !== pacienteEditando?.id
       );
       if (cpfDuplicado) {
-        alert('Já existe um paciente cadastrado com este CPF.');
+        toast.warning('Já existe um paciente cadastrado com este CPF.');
         return;
       }
     }
@@ -124,9 +126,9 @@ export function PacientesPage({ pacientes, setPacientes }) {
       limparFormulario();
     } catch (err) {
       if (err.code === '23505') {
-        alert('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
+        toast.warning('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
       } else {
-        alert('Erro ao salvar paciente: ' + err.message);
+        toast.error('Erro ao salvar paciente: ' + err.message);
       }
     } finally {
       setSalvandoPaciente(false);
@@ -143,7 +145,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
       await comTimeout(pacientesService.deletar(paciente.id));
       setPacientes(pacientes.filter((p) => p.id !== paciente.id));
     } catch (err) {
-      alert('Erro ao desativar paciente: ' + err.message);
+      toast.error('Erro ao desativar paciente: ' + err.message);
     } finally {
       setProcessandoId(null);
     }

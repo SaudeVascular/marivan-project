@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Header } from '../../components/common/Layout';
+import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
@@ -10,6 +11,7 @@ import { STATUS_CORES, PROXIMOS_STATUS, NovoAgendamentoForm } from '../agenda/Ag
 // recepção: telefone/convênio à mão para ligar, sem o botão "Atender"
 // (que não é tarefa dela) e sem exigir passar pela Agenda genérica.
 export function RecepcaoPage({ pacientes }) {
+  const toast = useToast();
   const { user } = useAuth();
 
   const hojeISO = new Date().toISOString().split('T')[0];
@@ -46,7 +48,7 @@ export function RecepcaoPage({ pacientes }) {
       const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
-      alert('Erro ao atualizar status: ' + err.message);
+      toast.error('Erro ao atualizar status: ' + err.message);
     } finally {
       setProcessandoId(null);
     }
