@@ -1,5 +1,5 @@
 import { supabase, criarQueryBuilder, resetSupabaseMockPadrao } from './supabase';
-import { salvarRegistroComFallback } from './registros.service';
+import { registrosService, salvarRegistroComFallback } from './registros.service';
 
 jest.mock('./supabase');
 
@@ -51,4 +51,40 @@ test('preserva o texto quando o servidor falha: não inventa um registro local, 
   // Nenhum registro otimista/falso é inserido no estado local — o texto
   // digitado continua só na tela (rascunho), não em pacientes.registros.
   expect(setPacientes).not.toHaveBeenCalled();
+});
+
+test('cliente não envia identidade nem horário de assinatura ao criar registro', async () => {
+  const resposta = {
+    id: 'novo-id', tipo: 'Consulta', titulo: 'Consulta', conteudo: 'Texto',
+    status: 'Assinado', created_by: 'user-1',
+  };
+  const builder = criarQueryBuilder({ single: { data: resposta, error: null } });
+  const insert = jest.fn(() => builder);
+  builder.insert = insert;
+  supabase.from.mockReturnValue(builder);
+
+  await registrosService.criar({
+    tipo: 'Consulta', titulo: 'Consulta', conteudo: 'Texto', status: 'Assinado',
+    assinadoPorNome: 'Nome falsificado', assinadoPorRegistro: 'CRM falso',
+  }, 'paciente-1', 'user-1');
+
+  const payload = insert.mock.calls[0][0][0];
+  expect(payload).not.toHaveProperty('assinado_em');
+  expect(payload).not.toHaveProperty('assinado_por_nome');
+  expect(payload).not.toHaveProperty('assinado_por_registro');
+});
+
+test('assinar envia somente a transição de status', async () => {
+  const resposta = {
+    id: 'registro-1', tipo: 'Consulta', titulo: 'Consulta', conteudo: 'Texto',
+    status: 'Assinado', created_by: 'user-1',
+  };
+  const builder = criarQueryBuilder({ single: { data: resposta, error: null } });
+  const update = jest.fn(() => builder);
+  builder.update = update;
+  supabase.from.mockReturnValue(builder);
+
+  await registrosService.assinar('registro-1');
+
+  expect(update).toHaveBeenCalledWith({ status: 'Assinado' });
 });

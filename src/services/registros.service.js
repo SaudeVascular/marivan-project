@@ -79,9 +79,8 @@ export const registrosService = {
         hora: registro.hora || agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         created_by: userId,
         status: registro.status || 'Assinado',
-        assinado_em: (registro.status || 'Assinado') === 'Assinado' ? agora.toISOString() : null,
-        assinado_por_nome: registro.assinadoPorNome || null,
-        assinado_por_registro: registro.assinadoPorRegistro || null,
+        // Data, nome e registro profissional são preenchidos pelo banco
+        // a partir da sessão autenticada, nunca pelo navegador.
       }])
       .select(CAMPOS)
       .single();
@@ -89,17 +88,13 @@ export const registrosService = {
     return fromDb(data);
   },
 
-  // Rascunho → Assinado: fecha o registro (fica imutável) e grava quem
-  // assinou, com quê registro profissional, na hora da assinatura —
-  // não depende do perfil atual do usuário, que pode mudar depois.
-  async assinar(id, { nome, registroProfissional }) {
+  // Rascunho → Assinado: o cliente pede apenas a transição. O banco
+  // preenche a identidade profissional e o horário usando auth.uid().
+  async assinar(id) {
     const { data, error } = await supabase
       .from('consultas')
       .update({
         status: 'Assinado',
-        assinado_em: new Date().toISOString(),
-        assinado_por_nome: nome || null,
-        assinado_por_registro: registroProfissional || null,
       })
       .eq('id', id)
       .select(CAMPOS)
@@ -111,7 +106,7 @@ export const registrosService = {
   // Correção de um registro já assinado: nunca sobrescreve a linha
   // original — cria uma nova, vinculada por retificacao_de, já
   // assinada (uma retificação é, ela mesma, um registro definitivo).
-  async retificar({ original, conteudo, motivo }, pacienteId, userId, { nome, registroProfissional }) {
+  async retificar({ original, conteudo, motivo }, pacienteId, userId) {
     const agora = new Date();
     const { data, error } = await supabase
       .from('consultas')
@@ -124,9 +119,6 @@ export const registrosService = {
         hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         created_by: userId,
         status: 'Assinado',
-        assinado_em: agora.toISOString(),
-        assinado_por_nome: nome || null,
-        assinado_por_registro: registroProfissional || null,
         retificacao_de: original.id,
         motivo_retificacao: motivo,
       }])

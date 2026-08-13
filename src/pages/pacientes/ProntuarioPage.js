@@ -11,7 +11,7 @@ import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarData } from '../../utils/mascaras';
 import { calcularIdade } from '../../utils/formatters';
-import { RASCUNHO_ATENDIMENTO_PREFIX } from '../../utils/rascunhoAtendimento';
+import { lerRascunhoAtendimento, salvarRascunhoAtendimento } from '../../utils/rascunhoAtendimento';
 
 // Preferência puramente visual (tamanho dos painéis) — sem dado clínico,
 // por isso é seguro guardar direto no localStorage.
@@ -24,7 +24,7 @@ const TIPOS_HISTORICO = [
 
 export function ProntuarioPage({ pacientes, setPacientes }) {
   const toast = useToast();
-  const { user, funcao, perfil } = useAuth();
+  const { user, funcao } = useAuth();
   const enfermeiro = funcao === 'Enfermeiro(a)';
   const { paciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
@@ -63,10 +63,10 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   // paciente anterior vazaria para a tela do paciente novo.
   React.useEffect(() => {
     if (!paciente?.id) return;
-    const salvo = localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
-    setAtendimentoAtual(salvo || '');
-    setRascunhoRestaurado(!!salvo);
-    setRascunhoRegistroId(null);
+    const { texto, registroId } = lerRascunhoAtendimento(paciente.id);
+    setAtendimentoAtual(texto);
+    setRascunhoRestaurado(!!texto);
+    setRascunhoRegistroId(registroId);
     setErroAtendimento('');
     setErroClinicos('');
     setEditandoClinicos(false);
@@ -74,13 +74,8 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
 
   const salvarRascunhoLocal = React.useCallback((texto) => {
     if (!paciente?.id) return false;
-    if (texto && texto.trim()) {
-      localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id, texto);
-      return true;
-    }
-    localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
-    return false;
-  }, [paciente?.id]);
+    return salvarRascunhoAtendimento(paciente.id, texto, rascunhoRegistroId);
+  }, [paciente?.id, rascunhoRegistroId]);
 
   const { isSaving: salvandoRascunhoLocal, lastSaved: rascunhoSalvoEm } = useAutoSave(atendimentoAtual, salvarRascunhoLocal, 1500);
 
@@ -149,17 +144,6 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
 
   const registros = paciente.registros || [];
 
-  // Identidade gravada no momento da assinatura — não depende do perfil
-  // atual do usuário (que pode ser corrigido depois), por isso é uma
-  // "foto" tirada na hora, não uma referência viva ao cadastro.
-  const identidadeAssinatura = () => {
-    const rotulo = enfermeiro ? 'COREN' : 'CRM';
-    const titulo = enfermeiro ? 'Enf.' : (perfil?.sexo === 'Feminino' ? 'Dra.' : 'Dr.');
-    const nome = `${titulo} ${perfil?.nome || ''}`.trim();
-    const registroProfissional = perfil?.crm ? `${rotulo}${perfil?.uf ? '/' + perfil.uf : ''} ${perfil.crm}` : '';
-    return { nome, registroProfissional };
-  };
-
   const autoriaTexto = (registro) => {
     if (registro.assinadoPorNome) {
       return registro.assinadoPorRegistro ? `${registro.assinadoPorNome} — ${registro.assinadoPorRegistro}` : registro.assinadoPorNome;
@@ -206,6 +190,11 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
           status: 'Rascunho',
         }, paciente.id, user?.id));
         setRascunhoRegistroId(salvo.id);
+        // Grava o vínculo já aqui (não esperar o debounce do autosave) —
+        // se a aba fechar ou a página remontar nos próximos segundos,
+        // o próximo "Salvar rascunho" precisa achar este id e atualizar
+        // a mesma linha, não criar uma duplicata.
+        salvarRascunhoAtendimento(paciente.id, atendimentoAtual, salvo.id);
       }
       aplicarRegistroSalvo(salvo);
     } catch (err) {
@@ -219,7 +208,6 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
     if (!atendimentoAtual.trim()) return;
     setSalvandoAtendimento(true);
     setErroAtendimento('');
-    const { nome, registroProfissional } = identidadeAssinatura();
     try {
       let salvo;
       if (rascunhoRegistroId) {
@@ -227,21 +215,19 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
           titulo: tituloAtendimento,
           conteudo: atendimentoAtual,
         }));
-        salvo = await comTimeout(registrosService.assinar(rascunhoRegistroId, { nome, registroProfissional }));
+        salvo = await comTimeout(registrosService.assinar(rascunhoRegistroId));
       } else {
         salvo = await comTimeout(registrosService.criar({
           tipo: tipoAtendimento,
           titulo: tituloAtendimento,
           conteudo: atendimentoAtual,
           status: 'Assinado',
-          assinadoPorNome: nome,
-          assinadoPorRegistro: registroProfissional,
         }, paciente.id, user?.id));
       }
       aplicarRegistroSalvo(salvo);
       // Só limpa o rascunho e o texto quando o servidor confirma de verdade
       // — nunca antes, senão um erro de rede apaga o atendimento sem salvar.
-      localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+      salvarRascunhoAtendimento(paciente.id, '', null);
       setRascunhoRestaurado(false);
       setAtendimentoAtual('');
       setRascunhoRegistroId(null);
@@ -254,13 +240,13 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
 
   const assinarRegistroDoHistorico = async (registro) => {
     setProcessandoAssinaturaId(registro.id);
-    const { nome, registroProfissional } = identidadeAssinatura();
     try {
-      const atualizado = await comTimeout(registrosService.assinar(registro.id, { nome, registroProfissional }));
+      const atualizado = await comTimeout(registrosService.assinar(registro.id));
       aplicarRegistroSalvo(atualizado);
       if (registro.id === rascunhoRegistroId) {
         setRascunhoRegistroId(null);
         setAtendimentoAtual('');
+        salvarRascunhoAtendimento(paciente.id, '', null);
       }
     } catch (err) {
       toast.error('Erro ao assinar: ' + err.message);
@@ -293,13 +279,11 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
       return;
     }
     setSalvandoRetificacao(true);
-    const { nome, registroProfissional } = identidadeAssinatura();
     try {
       const nova = await comTimeout(registrosService.retificar(
         { original: retificando.original, conteudo: retificando.conteudo, motivo: retificando.motivo.trim() },
         paciente.id,
         user?.id,
-        { nome, registroProfissional }
       ));
       aplicarRegistroSalvo(nova);
       setRetificando(null);
@@ -314,7 +298,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
     setSalvandoClinicos(true);
     setErroClinicos('');
     try {
-      await comTimeout(pacientesService.atualizar(paciente.id, { ...paciente, ...novoClinicos }));
+      await comTimeout(pacientesService.atualizarClinicos(paciente.id, novoClinicos));
       setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
       setEditandoClinicos(false);
     } catch (err) {
@@ -498,14 +482,15 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
         {/* Painel esquerdo — atendimento atual */}
         <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>{enfermeiro ? 'Evolução de Enfermagem' : 'Atendimento Atual'}</h2>
-          {rascunhoRestaurado && (
+          {rascunhoRestaurado && !rascunhoRegistroId && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '13px', color: '#92400e' }}>
               <span>📝 Rascunho recuperado automaticamente (não salvo no prontuário ainda).</span>
               <button
                 onClick={() => {
-                  localStorage.removeItem(RASCUNHO_ATENDIMENTO_PREFIX + paciente.id);
+                  salvarRascunhoAtendimento(paciente.id, '', null);
                   setAtendimentoAtual('');
                   setRascunhoRestaurado(false);
+                  setRascunhoRegistroId(null);
                 }}
                 style={{ padding: '4px 8px', backgroundColor: 'transparent', border: '1px solid #92400e', color: '#92400e', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}
               >

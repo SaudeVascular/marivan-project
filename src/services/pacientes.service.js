@@ -34,8 +34,10 @@ const fromDb = (p) => ({
   registros: [],
 });
 
-// React (camelCase) → DB (snake_case)
-const toDb = (p) => ({
+// Escritas administrativas e clínicas ficam separadas de propósito. Uma
+// tela administrativa não pode reenviar campos clínicos mascarados como
+// string vazia e apagar, sem perceber, antecedentes já registrados.
+const cadastroToDb = (p) => ({
   nome: capitalizarTexto(p.nome),
   cpf: p.cpf || null,
   nascimento: p.nascimento || null,
@@ -44,6 +46,9 @@ const toDb = (p) => ({
   convenio_id: p.convenioId || null,
   cep: p.cep || null,
   endereco: p.endereco ? capitalizarTexto(p.endereco) : null,
+});
+
+const clinicosToDb = (p) => ({
   alergias: p.alergias || null,
   has: p.has || '',
   dm: p.dm || '',
@@ -89,17 +94,26 @@ export const pacientesService = {
     const user = await authService.getCurrentUser();
     const { data, error } = await supabase
       .from('pacientes')
-      .insert([{ ...toDb(pacienteData), created_by: user?.id }])
+      .insert([{ ...cadastroToDb(pacienteData), ...clinicosToDb(pacienteData), created_by: user?.id }])
       .select('id')
       .single();
     if (error) throw error;
     return pacientesService.buscarPorId(data.id);
   },
 
-  async atualizar(id, pacienteData) {
+  async atualizarCadastro(id, pacienteData) {
     const { error } = await supabase
       .from('pacientes')
-      .update(toDb(pacienteData))
+      .update(cadastroToDb(pacienteData))
+      .eq('id', id);
+    if (error) throw error;
+    return pacientesService.buscarPorId(id);
+  },
+
+  async atualizarClinicos(id, pacienteData) {
+    const { error } = await supabase
+      .from('pacientes')
+      .update(clinicosToDb(pacienteData))
       .eq('id', id);
     if (error) throw error;
     return pacientesService.buscarPorId(id);

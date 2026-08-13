@@ -115,7 +115,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
     setSalvandoPaciente(true);
     try {
       if (pacienteEditando) {
-        const atualizado = await comTimeout(pacientesService.atualizar(pacienteEditando.id, novoPaciente));
+        const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, novoPaciente));
         setPacientes(pacientes.map((p) =>
           p.id === pacienteEditando.id ? { ...p, ...atualizado, registros: p.registros } : p
         ));

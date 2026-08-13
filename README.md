@@ -1,5 +1,9 @@
 # PEP — Prontuário Eletrônico de Pacientes
 
+> **Aplicação oficial do workspace:** este diretório (`prontuario-eletronico`).
+> O diretório vizinho `EMRS` é um protótipo histórico inseguro, está bloqueado
+> contra execução acidental e nunca deve ser publicado.
+
 Sistema de prontuário eletrônico em nuvem para uso em clínica médica, com acesso por
 login, perfis de usuário (médico, enfermagem, recepção, administrador) e prontuário
 clínico completo (evoluções, receituários, atestados, relatórios, pedidos de exame,
@@ -70,6 +74,10 @@ npm run build   # build de produção em build/
 npm test        # roda os testes
 ```
 
+O banco agora usa migrações versionadas pelo Supabase CLI. O fluxo completo de
+desenvolvimento local, homologação e produção está em
+[`docs/AMBIENTES_E_MIGRACOES.md`](./docs/AMBIENTES_E_MIGRACOES.md).
+
 O `moduleNameMapper` no `jest` de `package.json` não é sobra de configuração — o Jest
 do `react-scripts` 5 não resolve os pacotes `react-router-dom`/`react-router` (que só
 publicam ESM/`exports` map, sem `main` funcional) sem esse contorno. `src/setupTests.js`
@@ -94,9 +102,10 @@ mock, já resolvidas mas fáceis de reintroduzir sem querer:
 
 ## Banco de dados (Supabase)
 
-O schema e as políticas de acesso não são aplicados automaticamente — cada arquivo
-`supabase_*.sql` na raiz do projeto precisa ser rodado manualmente no **SQL Editor**
-do painel do Supabase. Em um projeto novo, rode nesta ordem:
+O histórico canônico do banco está em `supabase/migrations/` e é aplicado em ordem
+pelo Supabase CLI. Os arquivos `supabase_*.sql` na raiz foram mantidos apenas como
+cópias históricas para conferência; não os execute manualmente em um projeto novo.
+A sequência versionada contém:
 
 1. `supabase_schema.sql` — tabelas base: `pacientes`, `consultas`, `medicamentos_receita`
 2. `supabase_usuarios.sql` — tabela `perfis` + trigger que cria o perfil no cadastro
@@ -119,8 +128,18 @@ do painel do Supabase. Em um projeto novo, rode nesta ordem:
 19. `supabase_configuracoes_clinica_endereco.sql` — número e complemento do endereço, e auditoria de alterações em `configuracoes_clinica`
 20. `supabase_filiais.sql` — tabela `filiais` (cadastro de outras unidades, mesmo formato de dados da clínica principal, cada uma com sua própria logomarca)
 21. `supabase_prontuario_assinatura.sql` — status (Rascunho/Assinado/Cancelado), retificação e trigger que bloqueia edição de registro assinado em `consultas`; restringe a policy de UPDATE ao autor (ou Administrador)
+22. `supabase_security_p0.sql` — fecha autoelevação de privilégio, impede bypass das views mascaradas, separa escrita clínica e torna autoria/assinatura fatos controlados pelo banco
+23. `supabase_security_p0_hotfix_recepcao.sql` — preserva dados clínicos quando a Recepção altera somente informações cadastrais, inclusive com clientes antigos em cache
 
-Os arquivos são idempotentes (podem ser rodados mais de uma vez sem quebrar nada).
+Para recriar um banco local, use `npm run db:reset`. Para configurar homologação e
+adotar esse histórico na produção já existente, siga
+[`docs/AMBIENTES_E_MIGRACOES.md`](./docs/AMBIENTES_E_MIGRACOES.md). Não reaplique as
+23 migrações iniciais na produção: nela, as versões devem ser registradas como já
+aplicadas pelo procedimento de adoção documentado.
+
+Depois de aplicar as migrações em local ou homologação, execute
+`supabase_verify_security_p0.sql`. Ele é somente-leitura e falha se detectar views,
+privilégios, policies, triggers ou funções P0 ausentes/inseguras.
 
 ## Perfis de usuário e permissões
 

@@ -53,6 +53,11 @@ export function PainelAdministrativoPage() {
           <h3 style={{ margin: '0 0 6px' }}>Filiais</h3>
           <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Cadastro de outras unidades, cada uma com sua própria logomarca.</p>
         </Link>
+        <Link to="/financeiro/config" style={cardStyle}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>💳</div>
+          <h3 style={{ margin: '0 0 6px' }}>Convênios e Procedimentos</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Cadastro de convênios, procedimentos e valores praticados por cada um.</p>
+        </Link>
       </div>
     </div>
   );

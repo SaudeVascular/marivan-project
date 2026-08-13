@@ -9,8 +9,16 @@ import {
 } from '../constants/roles';
 
 export function ProtectedLayout({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) {
+  const { user, loading, perfilPronto } = useAuth();
+  // `user && !perfilPronto`: sessão já confirmada, mas a função (Médico,
+  // Administrador etc.) ainda não tem resposta definitiva — sem esperar
+  // aqui, os guards de função (SomenteAdmin e companhia) leem `funcao`
+  // como null nesse intervalo e mandam pra /pacientes mesmo quando o
+  // usuário tem a permissão certa (reproduzido no reload de /usuarios
+  // logado como Administrador: os eventos de sessão do Supabase disparam
+  // fora de ordem e uma leitura de perfil intermediária pode chegar
+  // vazia antes da definitiva).
+  if (loading || (user && !perfilPronto)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: '#666', fontSize: '16px' }}>Carregando...</p>
