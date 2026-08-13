@@ -1,0 +1,81 @@
+name: Qualidade e segurança
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - refatoracao-arquitetura
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend e arquivos versionados
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências reproduzíveis
+        run: npm ci
+
+      - name: Procurar credenciais versionadas
+        run: npm run security:secrets
+
+      - name: Conferir o histórico inicial de migrações
+        run: npm run db:migrations:check
+
+      - name: Executar testes
+        run: npm test -- --runInBand
+        env:
+          CI: "true"
+
+      - name: Gerar build
+        run: npm run build
+        env:
+          CI: "true"
+          REACT_APP_SUPABASE_URL: http://127.0.0.1:54321
+          REACT_APP_SUPABASE_ANON_KEY: chave-ficticia-apenas-para-compilacao
+
+  database:
+    name: Banco descartável e verificação P0
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências reproduzíveis
+        run: npm ci
+
+      - name: Recriar banco descartável com todas as migrações
+        run: npx supabase db start
+
+      - name: Analisar o schema
+        run: npm run db:lint
+
+      - name: Verificar proteções P0
+        run: npm run db:verify:p0
+
+      - name: Encerrar banco descartável
+        if: always()
+        run: npx supabase stop --no-backup

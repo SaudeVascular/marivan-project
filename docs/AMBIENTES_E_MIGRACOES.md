@@ -116,6 +116,13 @@ Produção já recebeu os 23 scripts manualmente. Eles não podem ser executados
 novamente pelo CLI. Depois de confirmar `OK` em `supabase_verify_security_p0.sql`:
 
 ```bash
+npm run db:production:verify
+```
+
+Esse preflight conecta diretamente à produção, mantém o CLI vinculado à
+homologação e executa somente consultas de verificação.
+
+```bash
 export SUPABASE_PRODUCTION_PROJECT_REF="id-do-projeto-de-producao"
 npx supabase link --project-ref "$SUPABASE_PRODUCTION_PROJECT_REF"
 npm run db:production:adopt-history
@@ -143,3 +150,16 @@ mostrar as mesmas 23 versões.
 
 Nunca execute `supabase db reset --linked` em produção: ele apaga os dados do
 projeto vinculado.
+
+## Integração contínua
+
+O workflow `.github/workflows/quality.yml` não acessa nenhum projeto remoto nem
+usa credenciais de homologação ou produção. Em cada pull request ele:
+
+1. procura credenciais acidentalmente versionadas;
+2. confere as cópias do histórico inicial;
+3. executa os testes e o build do frontend;
+4. recria um PostgreSQL Supabase descartável com as 23 migrações;
+5. analisa o schema e executa a verificação P0.
+
+Falhas impedem que a alteração seja considerada pronta para homologação.

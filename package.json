@@ -2,6 +2,9 @@
   "name": "prontuario-eletronico",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.53.0",
     "@testing-library/dom": "^10.4.1",
@@ -26,11 +29,13 @@
     "db:lint": "supabase db lint --local --level warning",
     "db:verify:p0": "psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase_verify_security_p0.sql",
     "db:migrations:check": "node scripts/check-migration-mirror.mjs",
+    "security:secrets": "node scripts/check-tracked-secrets.mjs",
     "db:staging:link": "bash scripts/supabase-link-staging.sh",
     "db:staging:inspect": "bash scripts/supabase-inspect-staging.sh",
     "db:staging:users": "bash scripts/supabase-provision-staging-users.sh",
     "db:staging:reset": "bash scripts/supabase-reset-staging.sh",
     "db:staging:push": "bash scripts/supabase-push-staging.sh",
+    "db:production:verify": "bash scripts/supabase-verify-production.sh",
     "db:production:adopt-history": "bash scripts/supabase-adopt-production-history.sh"
   },
   "eslintConfig": {
