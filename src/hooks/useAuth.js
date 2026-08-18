@@ -3,6 +3,7 @@ import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
 import { comTimeout } from '../utils/comTimeout';
 import { limparRascunhosAtendimento } from '../utils/rascunhoAtendimento';
+import { iniciarMonitorInatividade, registrarLogoutPorInatividade } from '../utils/sessionSecurity';
 
 const AuthContext = createContext();
 
@@ -14,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [perfilPronto, setPerfilPronto] = useState(false);
   const [loading, setLoading] = useState(true);
   const ultimoUserIdRef = useRef(undefined);
+  const requisicaoPerfilRef = useRef(0);
 
   // Busca o perfil/função do usuário logado. A criação do perfil é
   // responsabilidade exclusiva do trigger do banco; o cliente não pode
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }) => {
   // rota (SomenteAdmin etc.) veem funcao=null nesse intervalo e mandam
   // pra /pacientes mesmo quando o usuário tem a permissão certa.
   const carregarPerfil = useCallback(async (authUser) => {
+    const requisicao = ++requisicaoPerfilRef.current;
     const authUserId = authUser?.id ?? null;
     if (authUserId !== ultimoUserIdRef.current) {
       ultimoUserIdRef.current = authUserId;
@@ -50,7 +53,11 @@ export const AuthProvider = ({ children }) => {
     } catch {
       return; // inconclusivo — deixa uma chamada seguinte decidir de verdade
     }
-    if (p && p.ativo === false) {
+    // Uma leitura iniciada por uma sessão anterior não pode sobrescrever a
+    // sessão atual se os eventos de Auth chegarem fora de ordem.
+    if (requisicao !== requisicaoPerfilRef.current || authUser.id !== ultimoUserIdRef.current) return;
+
+    if (!p || p.ativo === false) {
       await supabase.auth.signOut();
       limparRascunhosAtendimento();
       setUser(null);
@@ -88,15 +95,28 @@ export const AuthProvider = ({ children }) => {
 
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setUser(session?.user ?? null);
-        await carregarPerfil(session?.user ?? null);
         setLoading(false);
+        // Não consultar o banco dentro do callback de Auth: o cliente ainda
+        // pode estar segurando o lock de atualização da própria sessão.
+        setTimeout(() => carregarPerfil(session?.user ?? null), 0);
       }
     );
 
     return () => subscription.unsubscribe();
   }, [carregarPerfil]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    return iniciarMonitorInatividade({
+      aoExpirar: async () => {
+        registrarLogoutPorInatividade();
+        limparRascunhosAtendimento();
+        await supabase.auth.signOut();
+      },
+    });
+  }, [user]);
 
   const login = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({

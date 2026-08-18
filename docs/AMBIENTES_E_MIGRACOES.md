@@ -163,3 +163,18 @@ usa credenciais de homologação ou produção. Em cada pull request ele:
 5. analisa o schema e executa a verificação P0.
 
 Falhas impedem que a alteração seja considerada pronta para homologação.
+
+## Autenticação e sessões
+
+- tokens do frontend usam `sessionStorage`, portanto não sobrevivem ao fechamento
+  da aba;
+- sessões abertas encerram após 15 minutos sem atividade e limpam rascunhos
+  clínicos locais;
+- senhas novas exigem ao menos 12 caracteres, maiúscula, minúscula e número;
+- depois de uma recuperação de senha, todos os refresh tokens anteriores são
+  revogados e o usuário precisa autenticar novamente;
+- signup público está desabilitado;
+- novos usuários são criados pela Edge Function `admin-create-user`, que exige
+  JWT válido, confirma no banco que o solicitante é Administrador ativo e mantém
+  a `service_role` exclusivamente no backend;
+- alteração segura de senha está habilitada na configuração de Auth.

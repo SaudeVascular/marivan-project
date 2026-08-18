@@ -32,9 +32,14 @@ export const supabase = {
     getSession: jest.fn(),
     onAuthStateChange: jest.fn(),
     signInWithPassword: jest.fn(),
+    updateUser: jest.fn(),
+    resetPasswordForEmail: jest.fn(),
     signOut: jest.fn(),
   },
   from: jest.fn(),
+  functions: {
+    invoke: jest.fn(),
+  },
   storage: {
     from: jest.fn(),
   },
@@ -49,8 +54,11 @@ export function resetSupabaseMockPadrao() {
   supabase.auth.getSession.mockResolvedValue({ data: { session: null } });
   supabase.auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
   supabase.auth.signInWithPassword.mockResolvedValue({ data: null, error: null });
+  supabase.auth.updateUser.mockResolvedValue({ data: null, error: null });
+  supabase.auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: null });
   supabase.auth.signOut.mockResolvedValue({ error: null });
   supabase.from.mockImplementation(() => criarQueryBuilder());
+  supabase.functions.invoke.mockResolvedValue({ data: null, error: null });
   supabase.storage.from.mockReturnValue({
     upload: jest.fn(() => Promise.resolve({ data: null, error: null })),
     getPublicUrl: jest.fn(() => ({ data: { publicUrl: '' } })),

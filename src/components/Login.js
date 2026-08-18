@@ -5,12 +5,17 @@ import { Activity, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/authService';
 import { comTimeout } from '../utils/comTimeout';
+import { consumirMotivoLogout, MOTIVO_INATIVIDADE } from '../utils/sessionSecurity';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() =>
+    consumirMotivoLogout() === MOTIVO_INATIVIDADE
+      ? 'Sua sessão foi encerrada após 15 minutos de inatividade.'
+      : ''
+  );
   const [modo, setModo] = useState('login'); // 'login' | 'recuperar'
   const [recuperarEnviado, setRecuperarEnviado] = useState(false);
   const { login } = useAuth();
@@ -25,8 +30,7 @@ const Login = () => {
       await comTimeout(login(email, password));
       navigate('/');
     } catch (err) {
-      setError(err.message || 'Erro desconhecido');
-      console.error('Erro no login:', err);
+      setError('Não foi possível entrar. Verifique o e-mail e a senha.');
     } finally {
       setLoading(false);
     }
@@ -225,6 +229,7 @@ const Login = () => {
               }} />
               <input
                 type="email"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -271,6 +276,7 @@ const Login = () => {
               }} />
               <input
                 type="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -96,6 +96,18 @@ BEGIN
 END;
 $$;
 
+DO $$
+DECLARE
+  definicao TEXT;
+BEGIN
+  SELECT pg_get_functiondef('public.proteger_campos_seguranca_perfil()'::regprocedure)
+    INTO definicao;
+  IF definicao ILIKE '%service_role%' THEN
+    RAISE EXCEPTION 'Trigger de perfis ainda contém bypass de service_role';
+  END IF;
+END;
+$$;
+
 SELECT
   'OK' AS resultado,
   'Views, privilégios, policies, triggers, autoria, assinatura e hotfix da Recepção validados.' AS verificacao;

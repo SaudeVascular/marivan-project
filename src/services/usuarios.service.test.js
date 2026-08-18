@@ -1,38 +1,28 @@
-import { createClient } from '@supabase/supabase-js';
-import { supabase, criarQueryBuilder, resetSupabaseMockPadrao } from './supabase';
+import { supabase, resetSupabaseMockPadrao } from './supabase';
 import { usuariosService } from './usuarios.service';
 
-jest.mock('@supabase/supabase-js', () => ({ createClient: jest.fn() }));
 jest.mock('./supabase');
 
 beforeEach(() => {
   resetSupabaseMockPadrao();
-  createClient.mockReset();
 });
 
-test('novo usuário não envia função em metadata e só é ativado pela sessão Admin', async () => {
-  const signUp = jest.fn().mockResolvedValue({
-    data: { user: { id: 'novo-user' }, session: { access_token: 'isolado' } },
+test('novo usuário é criado somente pela função backend administrativa', async () => {
+  supabase.functions.invoke.mockResolvedValue({
+    data: { user: { id: 'novo-user', email: 'maria@example.com' } },
     error: null,
   });
-  createClient.mockReturnValue({ auth: { signUp } });
-
-  const builder = criarQueryBuilder({ data: null, error: null });
-  const update = jest.fn(() => builder);
-  supabase.from.mockReturnValue({ update });
 
   await usuariosService.criar({
-    nome: 'Dra. Maria', email: 'maria@example.com', senha: 'senha-segura',
+    nome: 'Dra. Maria', email: 'maria@example.com', senha: 'ClinicaSegura2026',
     funcao: 'Médico', crm: '1234', uf: 'BA', especialidade: 'Cardiologia',
   });
 
-  expect(signUp).toHaveBeenCalledWith({
-    email: 'maria@example.com',
-    password: 'senha-segura',
-    options: { data: { nome: 'Dra. Maria' } },
+  expect(supabase.functions.invoke).toHaveBeenCalledWith('admin-create-user', {
+    body: expect.objectContaining({
+      nome: 'Dra. Maria', email: 'maria@example.com', senha: 'ClinicaSegura2026',
+      funcao: 'Médico', crm: '1234', uf: 'BA',
+    }),
   });
-  expect(update).toHaveBeenCalledWith(expect.objectContaining({
-    nome: 'Dra. Maria', funcao: 'Médico', ativo: true, crm: '1234', uf: 'BA',
-  }));
-  expect(supabase.auth.setSession).toBeUndefined();
+  expect(supabase.from).not.toHaveBeenCalled();
 });

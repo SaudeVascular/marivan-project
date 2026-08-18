@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { comTimeout } from '../../utils/comTimeout';
+import { SENHA_MINIMO_CARACTERES, validarSenha } from '../../constants/security';
 
 export function RedefinirSenhaPage() {
   const navigate = useNavigate();
@@ -14,8 +15,9 @@ export function RedefinirSenhaPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErro('');
-    if (novaSenha.length < 6) {
-      setErro('A senha deve ter pelo menos 6 caracteres.');
+    const erroSenha = validarSenha(novaSenha);
+    if (erroSenha) {
+      setErro(erroSenha);
       return;
     }
     if (novaSenha !== confirmacao) {
@@ -39,12 +41,12 @@ export function RedefinirSenhaPage() {
 
       {sucesso ? (
         <>
-          <p style={{ color: '#059669' }}>Senha redefinida com sucesso.</p>
+          <p style={{ color: '#059669' }}>Senha redefinida. Todas as sessões anteriores foram encerradas.</p>
           <button
-            onClick={() => navigate('/pacientes')}
+            onClick={() => navigate('/login', { replace: true })}
             style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
           >
-            Ir para o sistema
+            Fazer login novamente
           </button>
         </>
       ) : (
@@ -52,11 +54,11 @@ export function RedefinirSenhaPage() {
           {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
           <div style={{ marginBottom: '14px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Nova senha</label>
-            <input type="password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
+            <input type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
           </div>
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Confirmar nova senha</label>
-            <input type="password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
+            <input type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
           </div>
           <button
             type="submit"

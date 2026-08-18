@@ -30,6 +30,10 @@ const authService = {
   async updatePassword(novaSenha) {
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
     if (error) throw error;
+    // Revoga os refresh tokens existentes depois da recuperação. Assim uma
+    // sessão que tenha sido copiada antes da troca não continua renovável.
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
+    if (signOutError) throw signOutError;
   },
 };
 
