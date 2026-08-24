@@ -72,13 +72,13 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* A sessão de recuperação é criada a partir do token presente no
+          link do e-mail. Esta rota não pode usar o guard das páginas comuns:
+          ele pode redirecionar antes de o Supabase terminar de consumir o
+          token. A chamada updateUser continua protegida pelo próprio Auth. */}
       <Route
         path="/redefinir-senha"
-        element={
-          <ProtectedLayout>
-            <RedefinirSenhaPage />
-          </ProtectedLayout>
-        }
+        element={<RedefinirSenhaPage />}
       />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
       <Route

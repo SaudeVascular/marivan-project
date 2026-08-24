@@ -15,6 +15,7 @@ jest.mock('./services/supabase');
 
 beforeEach(() => {
   resetSupabaseMockPadrao();
+  window.history.pushState({}, '', '/');
 });
 
 test('renderiza a tela de login quando não há sessão', async () => {
@@ -22,4 +23,15 @@ test('renderiza a tela de login quando não há sessão', async () => {
   await waitFor(() => {
     expect(screen.getByText('Prontuário Eletrônico')).toBeInTheDocument();
   });
+});
+
+test('mantém a página de nova senha acessível enquanto o token de recuperação é processado', async () => {
+  window.history.pushState({}, '', '/redefinir-senha');
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Definir nova senha' })).toBeInTheDocument();
+  });
+  expect(window.location.pathname).toBe('/redefinir-senha');
 });
