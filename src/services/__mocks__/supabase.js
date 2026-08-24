@@ -31,6 +31,7 @@ export const supabase = {
   auth: {
     initialize: jest.fn(),
     getSession: jest.fn(),
+    getUser: jest.fn(),
     onAuthStateChange: jest.fn(),
     signInWithPassword: jest.fn(),
     updateUser: jest.fn(),
@@ -46,14 +47,18 @@ export const supabase = {
   },
 };
 
+export const obterTipoRedirecionamentoAuth = jest.fn();
+
 // Sem sessão nenhuma, todo .from() devolve uma lista vazia — cobre o
 // caso mais comum (tela de login, sem nenhum dado clínico carregado).
 // Testes que precisam de um usuário logado ou de dados específicos
 // sobrescrevem com mockResolvedValueOnce/mockReturnValueOnce depois de
 // chamar isso.
 export function resetSupabaseMockPadrao() {
+  obterTipoRedirecionamentoAuth.mockReturnValue(null);
   supabase.auth.initialize.mockResolvedValue({ error: null });
   supabase.auth.getSession.mockResolvedValue({ data: { session: null } });
+  supabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
   supabase.auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
   supabase.auth.signInWithPassword.mockResolvedValue({ data: null, error: null });
   supabase.auth.updateUser.mockResolvedValue({ data: null, error: null });

@@ -92,6 +92,9 @@ export function Header() {
       </div>
       <div className="pep-header-right">
         <span className="pep-header-email" style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
+        <Link to="/minha-conta" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          👤 Minha conta
+        </Link>
         <Link to="/pacientes" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
           🧑‍🤝‍🧑 Pacientes
         </Link>

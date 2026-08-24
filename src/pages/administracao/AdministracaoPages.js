@@ -10,7 +10,6 @@ import { filiaisService } from '../../services/filiais.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarCPF, formatarCNPJ } from '../../utils/mascaras';
 import { UFS } from '../../constants/roles';
-import { SENHA_MINIMO_CARACTERES, validarSenha } from '../../constants/security';
 
 // Painel administrativo (seção 2.5 do Documento Mestre) — hub com acesso
 // a Usuários, Auditoria e Configurações da Clínica, no lugar de três
@@ -68,8 +67,7 @@ export function UsuariosPage() {
   const toast = useToast();
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
-  const [mostraSenha, setMostraSenha] = React.useState(false);
+  const [form, setForm] = React.useState({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
   const [editando, setEditando] = React.useState(null); // { id, nome, funcao, crm }
@@ -86,22 +84,13 @@ export function UsuariosPage() {
   const criarUsuario = async (e) => {
     e.preventDefault();
     setMsg(null);
-    if (form.senha !== form.confirmar) {
-      setMsg({ tipo: 'erro', texto: 'As senhas não conferem.' });
-      return;
-    }
-    const erroSenha = validarSenha(form.senha);
-    if (erroSenha) {
-      setMsg({ tipo: 'erro', texto: erroSenha });
-      return;
-    }
     setSalvando(true);
     try {
-      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, senha: form.senha, funcao: form.funcao, crm: form.crm, uf: form.uf, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
+      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, funcao: form.funcao, crm: form.crm, uf: form.uf, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
       const lista = await comTimeout(usuariosService.listar());
       setUsuarios(lista);
-      setForm({ nome: '', email: '', senha: '', confirmar: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
-      setMsg({ tipo: 'sucesso', texto: `Usuário "${form.nome}" criado com sucesso. Entregue a senha temporária por um canal seguro e peça a troca imediata.` });
+      setForm({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
+      setMsg({ tipo: 'sucesso', texto: `Convite enviado para ${form.email}. O usuário definirá a própria senha pelo link de uso único.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
     } finally {
@@ -206,17 +195,6 @@ export function UsuariosPage() {
                 'Ginecologia','Neurologia','Oftalmologia','Ortopedia','Pediatria',
                 'Pneumologia','Psiquiatria','Reumatologia','Urologia'].map(e => <option key={e} value={e} />)}
             </datalist>
-            <div style={{ position: 'relative' }}>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Senha temporária *</label>
-              <input required type={mostraSenha ? 'text' : 'password'} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} placeholder="mín. 12 caracteres" style={{ width: '100%', padding: '8px', paddingRight: '72px' }} />
-              <button type="button" onClick={() => setMostraSenha(!mostraSenha)} style={{ position: 'absolute', right: '4px', top: '29px', padding: '4px 8px', fontSize: '11px', background: '#f3f4f6', border: '1px solid #ddd', borderRadius: '3px', cursor: 'pointer' }}>
-                {mostraSenha ? 'Ocultar' : 'Mostrar'}
-              </button>
-            </div>
-            <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Confirmar senha *</label>
-              <input required type={mostraSenha ? 'text' : 'password'} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={form.confirmar} onChange={e => setForm({ ...form, confirmar: e.target.value })} placeholder="repita a senha" style={{ width: '100%', padding: '8px' }} />
-            </div>
           </div>
 
           {msg && (
@@ -226,10 +204,10 @@ export function UsuariosPage() {
           )}
 
           <button type="submit" disabled={salvando} style={{ padding: '10px 20px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
-            {salvando ? 'Criando...' : '+ Criar Usuário'}
+            {salvando ? 'Enviando convite...' : '+ Convidar Usuário'}
           </button>
           <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#6b7280' }}>
-            * Informe a senha temporária por um canal seguro. O usuário deve trocá-la imediatamente usando “Esqueci minha senha”.
+            O usuário receberá um link de uso único e criará a própria senha. O administrador nunca terá acesso a ela.
           </p>
         </form>
       </div>

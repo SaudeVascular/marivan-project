@@ -25,14 +25,23 @@ export const usuariosService = {
     return data;
   },
 
-  async criar({ nome, email, senha, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao }) {
+  async criar({ nome, email, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao }) {
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
-        nome, email, senha, funcao, crm, uf, sexo, nascimento, cpf,
+        nome, email, funcao, crm, uf, sexo, nascimento, cpf,
         especialidade, area_atuacao,
       },
     });
-    if (error) throw error;
+    if (error) {
+      let mensagem;
+      try {
+        const resposta = await error.context?.json();
+        mensagem = resposta?.error;
+      } catch {
+        // Respostas sem JSON recebem uma mensagem segura e estável abaixo.
+      }
+      throw new Error(mensagem || 'Não foi possível enviar o convite. Tente novamente mais tarde.');
+    }
     if (!data?.user?.id) throw new Error('O backend não devolveu o novo usuário.');
     return data.user;
   },

@@ -159,7 +159,7 @@ usa credenciais de homologação ou produção. Em cada pull request ele:
 1. procura credenciais acidentalmente versionadas;
 2. confere as cópias do histórico inicial;
 3. executa os testes e o build do frontend;
-4. recria um PostgreSQL Supabase descartável com as 23 migrações;
+4. recria um PostgreSQL Supabase descartável com todas as migrações versionadas;
 5. analisa o schema e executa a verificação P0.
 
 Falhas impedem que a alteração seja considerada pronta para homologação.
@@ -177,4 +177,8 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
 - novos usuários são criados pela Edge Function `admin-create-user`, que exige
   JWT válido, confirma no banco que o solicitante é Administrador ativo e mantém
   a `service_role` exclusivamente no backend;
+- o administrador não escolhe nem conhece a senha: a Edge Function envia um
+  convite de uso único para `/ativar-conta`, onde o usuário define a própria senha;
+- usuários autenticados podem trocar a senha em `/minha-conta`, após confirmar
+  a senha atual; todas as sessões são revogadas depois da alteração;
 - alteração segura de senha está habilitada na configuração de Auth.

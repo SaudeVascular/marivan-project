@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { obterTipoRedirecionamentoAuth, supabase } from './supabase';
 
 const authService = {
   async login(email, password) {
@@ -26,15 +26,31 @@ const authService = {
     if (error) throw error;
   },
 
-  async getRecoverySession() {
+  async getLinkSession(tipoEsperado) {
     // `initialize` aguarda o cliente consumir access_token/refresh_token da
-    // URL antes de consultarmos a sessão criada pelo link de recuperação.
+    // URL antes de consultarmos a sessão criada pelo link. Uma sessão comum
+    // não pode ser usada nas páginas de convite ou recuperação.
     const { error: initializeError } = await supabase.auth.initialize();
     if (initializeError) throw initializeError;
+
+    if (obterTipoRedirecionamentoAuth() !== tipoEsperado) return null;
 
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     return data.session;
+  },
+
+  async changePassword(senhaAtual, novaSenha) {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user?.email) throw new Error('Sessão inválida. Entre novamente.');
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: userData.user.email,
+      password: senhaAtual,
+    });
+    if (loginError) throw new Error('A senha atual está incorreta.');
+
+    await authService.updatePassword(novaSenha);
   },
 
   // Usado na tela /redefinir-senha, após o usuário clicar no link do e-mail.

@@ -15,7 +15,7 @@ export function RedefinirSenhaPage() {
 
   React.useEffect(() => {
     let montado = true;
-    authService.getRecoverySession()
+    authService.getLinkSession('recovery')
       .then((session) => {
         if (montado) setEstadoLink(session ? 'valido' : 'invalido');
       })

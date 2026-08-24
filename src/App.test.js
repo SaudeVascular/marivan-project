@@ -35,3 +35,14 @@ test('mantém a página de nova senha acessível enquanto o token de recuperaç�
   });
   expect(window.location.pathname).toBe('/redefinir-senha');
 });
+
+test('mantém a ativação de conta acessível sem passar pelo login comum', async () => {
+  window.history.pushState({}, '', '/ativar-conta');
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Ativar minha conta' })).toBeInTheDocument();
+  });
+  expect(window.location.pathname).toBe('/ativar-conta');
+});

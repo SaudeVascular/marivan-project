@@ -24,6 +24,10 @@ function responder(req: Request, status: number, corpo: Record<string, unknown>)
 }
 
 Deno.serve(async (req: Request) => {
+  const origem = req.headers.get('origin') || '';
+  if (!origensPermitidas.has(origem)) {
+    return responder(req, 403, { error: 'Origem não permitida.' });
+  }
   if (req.method === 'OPTIONS') return new Response('ok', { headers: headers(req) });
   if (req.method !== 'POST') return responder(req, 405, { error: 'Método não permitido.' });
 
@@ -63,22 +67,17 @@ Deno.serve(async (req: Request) => {
 
   const nome = String(entrada.nome || '').trim();
   const email = String(entrada.email || '').trim().toLowerCase();
-  const senha = String(entrada.senha || '');
   const funcao = String(entrada.funcao || '');
-  if (!nome || !/^\S+@\S+\.\S+$/.test(email) || senha.length < 12 ||
-      !/[a-z]/.test(senha) || !/[A-Z]/.test(senha) || !/[0-9]/.test(senha) ||
-      !funcoesPermitidas.has(funcao)) {
+  if (!nome || !/^\S+@\S+\.\S+$/.test(email) || !funcoesPermitidas.has(funcao)) {
     return responder(req, 400, { error: 'Dados de usuário inválidos.' });
   }
 
-  const { data: criado, error: criarError } = await admin.auth.admin.createUser({
-    email,
-    password: senha,
-    email_confirm: true,
-    user_metadata: { nome },
+  const { data: criado, error: criarError } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${origem}/ativar-conta`,
+    data: { nome },
   });
   if (criarError || !criado.user) {
-    return responder(req, 400, { error: 'Não foi possível criar o usuário.' });
+    return responder(req, 400, { error: 'Não foi possível enviar o convite. Verifique se o e-mail já está cadastrado ou tente mais tarde.' });
   }
 
   const perfilNovo = {
@@ -101,8 +100,8 @@ Deno.serve(async (req: Request) => {
     .eq('id', criado.user.id);
   if (atualizarError) {
     await admin.auth.admin.deleteUser(criado.user.id);
-    return responder(req, 500, { error: 'Não foi possível concluir a criação do usuário.' });
+    return responder(req, 500, { error: 'Não foi possível concluir o convite.' });
   }
 
-  return responder(req, 201, { user: { id: criado.user.id, email: criado.user.email } });
+  return responder(req, 201, { user: { id: criado.user.id, email: criado.user.email }, invited: true });
 });

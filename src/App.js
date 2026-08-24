@@ -47,6 +47,8 @@ import {
   FiliaisPage,
 } from './pages/administracao/AdministracaoPages';
 import { RedefinirSenhaPage } from './pages/auth/RedefinirSenhaPage';
+import { AtivarContaPage } from './pages/auth/AtivarContaPage';
+import { MinhaContaPage } from './pages/auth/MinhaContaPage';
 
 function AppContent() {
   const { user } = useAuth();
@@ -72,6 +74,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/ativar-conta" element={<AtivarContaPage />} />
       {/* A sessão de recuperação é criada a partir do token presente no
           link do e-mail. Esta rota não pode usar o guard das páginas comuns:
           ele pode redirecionar antes de o Supabase terminar de consumir o
@@ -81,6 +84,14 @@ function AppContent() {
         element={<RedefinirSenhaPage />}
       />
       <Route path="/" element={<Navigate to="/pacientes" replace />} />
+      <Route
+        path="/minha-conta"
+        element={
+          <ProtectedLayout>
+            <MinhaContaPage />
+          </ProtectedLayout>
+        }
+      />
       <Route
         path="/laudos/:id"
         element={
