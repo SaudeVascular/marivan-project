@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { comTimeout } from '../../utils/comTimeout';
 import { SENHA_MINIMO_CARACTERES, validarSenha } from '../../constants/security';
+import { PasswordInput } from '../../components/common/PasswordInput';
 
 export function RedefinirSenhaPage() {
   const navigate = useNavigate();
@@ -81,14 +82,8 @@ export function RedefinirSenhaPage() {
       ) : (
         <form onSubmit={handleSubmit}>
           {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Nova senha</label>
-            <input type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
-          </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Confirmar nova senha</label>
-            <input type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }} required />
-          </div>
+          <PasswordInput label="Nova senha" containerStyle={{ marginBottom: '14px' }} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} required />
+          <PasswordInput label="Confirmar nova senha" containerStyle={{ marginBottom: '20px' }} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} required />
           <button
             type="submit"
             disabled={salvando}

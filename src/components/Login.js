@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { authService } from '../services/authService';
 import { comTimeout } from '../utils/comTimeout';
 import { consumirMotivoLogout, MOTIVO_INATIVIDADE } from '../utils/sessionSecurity';
+import { PasswordInput } from './common/PasswordInput';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -254,18 +255,11 @@ const Login = () => {
           </div>
 
           {/* Campo Senha */}
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#374151',
-              marginBottom: '8px'
-            }}>
-              Senha
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Lock style={{
+          <PasswordInput
+            label="Senha"
+            containerStyle={{ marginBottom: '24px' }}
+            labelStyle={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}
+            icon={<Lock style={{
                 position: 'absolute',
                 left: '12px',
                 top: '50%',
@@ -273,32 +267,25 @@ const Login = () => {
                 color: '#9ca3af',
                 width: '20px',
                 height: '20px'
-              }} />
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{
-                  width: '100%',
-                  paddingLeft: '44px',
-                  paddingRight: '12px',
-                  paddingTop: '12px',
-                  paddingBottom: '12px',
-                  border: '2px solid #d1d5db',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
-              />
-            </div>
-          </div>
+              }} />}
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            inputStyle={{
+              paddingLeft: '44px',
+              paddingTop: '12px',
+              paddingBottom: '12px',
+              border: '2px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '16px',
+              outline: 'none',
+              transition: 'border-color 0.2s'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+            onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+          />
 
           {/* Botão de Login */}
           <button

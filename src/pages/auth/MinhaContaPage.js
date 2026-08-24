@@ -4,6 +4,7 @@ import { Header } from '../../components/common/Layout';
 import { SENHA_MINIMO_CARACTERES, validarSenha } from '../../constants/security';
 import { authService } from '../../services/authService';
 import { comTimeout } from '../../utils/comTimeout';
+import { PasswordInput } from '../../components/common/PasswordInput';
 
 export function MinhaContaPage() {
   const navigate = useNavigate();
@@ -40,12 +41,9 @@ export function MinhaContaPage() {
         <p style={{ color: '#6b7280', fontSize: '14px' }}>Após a alteração, todas as sessões serão encerradas e será necessário entrar novamente.</p>
         <form onSubmit={alterarSenha}>
           {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Senha atual</label>
-          <input required type="password" autoComplete="current-password" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box', marginBottom: '14px' }} />
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Nova senha</label>
-          <input required type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box', marginBottom: '14px' }} />
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Confirmar nova senha</label>
-          <input required type="password" minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={e => setConfirmacao(e.target.value)} style={{ width: '100%', padding: '10px', boxSizing: 'border-box', marginBottom: '20px' }} />
+          <PasswordInput label="Senha atual" containerStyle={{ marginBottom: '14px' }} required autoComplete="current-password" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} />
+          <PasswordInput label="Nova senha" containerStyle={{ marginBottom: '14px' }} required minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} />
+          <PasswordInput label="Confirmar nova senha" containerStyle={{ marginBottom: '20px' }} required minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={e => setConfirmacao(e.target.value)} />
           <button type="submit" disabled={salvando} style={{ width: '100%', padding: '12px', backgroundColor: salvando ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: salvando ? 'not-allowed' : 'pointer' }}>
             {salvando ? 'Alterando...' : 'Alterar senha'}
           </button>
