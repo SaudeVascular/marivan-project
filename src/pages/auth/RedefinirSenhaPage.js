@@ -11,6 +11,19 @@ export function RedefinirSenhaPage() {
   const [salvando, setSalvando] = React.useState(false);
   const [erro, setErro] = React.useState('');
   const [sucesso, setSucesso] = React.useState(false);
+  const [estadoLink, setEstadoLink] = React.useState('validando');
+
+  React.useEffect(() => {
+    let montado = true;
+    authService.getRecoverySession()
+      .then((session) => {
+        if (montado) setEstadoLink(session ? 'valido' : 'invalido');
+      })
+      .catch(() => {
+        if (montado) setEstadoLink('invalido');
+      });
+    return () => { montado = false; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +42,11 @@ export function RedefinirSenhaPage() {
       await comTimeout(authService.updatePassword(novaSenha));
       setSucesso(true);
     } catch (err) {
-      setErro(err.message || 'Erro ao redefinir a senha.');
+      if (/session missing|token|expired|expir/i.test(err.message || '')) {
+        setEstadoLink('invalido');
+      } else {
+        setErro(err.message || 'Erro ao redefinir a senha.');
+      }
     } finally {
       setSalvando(false);
     }
@@ -39,7 +56,19 @@ export function RedefinirSenhaPage() {
     <div style={{ maxWidth: '420px', margin: '80px auto', backgroundColor: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
       <h2 style={{ marginTop: 0 }}>Definir nova senha</h2>
 
-      {sucesso ? (
+      {estadoLink === 'validando' ? (
+        <p style={{ color: '#6b7280' }}>Validando o link de recuperação...</p>
+      ) : estadoLink === 'invalido' ? (
+        <>
+          <p style={{ color: '#dc2626' }}>Este link é inválido, já foi utilizado ou expirou.</p>
+          <button
+            onClick={() => navigate('/login', { replace: true })}
+            style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Solicitar um novo link
+          </button>
+        </>
+      ) : sucesso ? (
         <>
           <p style={{ color: '#059669' }}>Senha redefinida. Todas as sessões anteriores foram encerradas.</p>
           <button

@@ -26,6 +26,17 @@ const authService = {
     if (error) throw error;
   },
 
+  async getRecoverySession() {
+    // `initialize` aguarda o cliente consumir access_token/refresh_token da
+    // URL antes de consultarmos a sessão criada pelo link de recuperação.
+    const { error: initializeError } = await supabase.auth.initialize();
+    if (initializeError) throw initializeError;
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  },
+
   // Usado na tela /redefinir-senha, após o usuário clicar no link do e-mail.
   async updatePassword(novaSenha) {
     const { error } = await supabase.auth.updateUser({ password: novaSenha });

@@ -29,6 +29,7 @@ export function criarQueryBuilder(resultado = { data: [], error: null }) {
 
 export const supabase = {
   auth: {
+    initialize: jest.fn(),
     getSession: jest.fn(),
     onAuthStateChange: jest.fn(),
     signInWithPassword: jest.fn(),
@@ -51,6 +52,7 @@ export const supabase = {
 // sobrescrevem com mockResolvedValueOnce/mockReturnValueOnce depois de
 // chamar isso.
 export function resetSupabaseMockPadrao() {
+  supabase.auth.initialize.mockResolvedValue({ error: null });
   supabase.auth.getSession.mockResolvedValue({ data: { session: null } });
   supabase.auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
   supabase.auth.signInWithPassword.mockResolvedValue({ data: null, error: null });
