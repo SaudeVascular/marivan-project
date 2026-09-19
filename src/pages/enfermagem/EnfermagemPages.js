@@ -64,10 +64,10 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
   };
 
   const campoStyle = { width: '100%', padding: '8px' };
-  const labelStyle = { fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
+  const labelStyle = { fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
 
   return (
-    <div>
+    <fieldset disabled={salvando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <Header />
       <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
       <div style={{ maxWidth: '620px', margin: '20px auto' }}>
@@ -119,11 +119,11 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
             <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
-            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+            {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
         </div>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -150,7 +150,7 @@ export function EnfermagemPage({ pacientes }) {
           placeholder="Buscar paciente por nome ou CPF..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '18px', boxSizing: 'border-box' }}
         />
       </div>
 
@@ -162,17 +162,17 @@ export function EnfermagemPage({ pacientes }) {
             <div key={paciente.id} style={{ border: '1px solid #ddd', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <strong>{paciente.nome}</strong>
-                <div style={{ fontSize: '13px', color: '#666' }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>
                   {paciente.cpf ? `CPF: ${paciente.cpf}` : 'CPF não informado'}
                   {paciente.nascimento && <> · {calcularIdade(paciente.nascimento)} anos</>}
                   {paciente.telefone && <> · {paciente.telefone}</>}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <Link to={`/sinais-vitais/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#16a34a', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold' }}>
+                <Link to={`/sinais-vitais/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#16a34a', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '16px', fontWeight: 'bold' }}>
                   🩺 Sinais Vitais
                 </Link>
-                <Link to={`/prontuario/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold' }}>
+                <Link to={`/prontuario/${paciente.id}`} style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none', fontSize: '16px', fontWeight: 'bold' }}>
                   📋 Prontuário
                 </Link>
               </div>

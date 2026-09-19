@@ -6,6 +6,13 @@
 **Data:** 10/07/2026  
 **Status:** Protótipo funcional em desenvolvimento
 
+**Atualização de 19/09/2026:** iniciada a estabilização de integridade de receitas,
+datas, rascunhos e isolamento de sessões. A segunda etapa adiciona gravação
+idempotente, controle de versões e assinatura atômica (migração 28). O escopo implementado, cuidados antes
+de publicar e pendências estão em [docs/ESTABILIZACAO.md](./docs/ESTABILIZACAO.md).
+As listas históricas abaixo ainda contêm itens já resolvidos; não devem ser
+usadas isoladamente como diagnóstico da implementação atual.
+
 ---
 
 ## 1. Objetivo do sistema

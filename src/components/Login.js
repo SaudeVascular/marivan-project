@@ -75,46 +75,46 @@ const Login = () => {
 
           {recuperarEnviado ? (
             <>
-              <p style={{ fontSize: '14px', color: '#374151', margin: '16px 0' }}>
+              <p style={{ fontSize: '16px', color: '#374151', margin: '16px 0' }}>
                 Se houver uma conta cadastrada com o e-mail <strong>{email}</strong>, enviamos um link para redefinir a senha.
               </p>
               <button
                 type="button"
                 onClick={() => { setModo('login'); setRecuperarEnviado(false); }}
-                style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '500', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '500', cursor: 'pointer' }}
               >
                 Voltar para o login
               </button>
             </>
           ) : (
             <form onSubmit={handleRecuperar}>
-              <p style={{ fontSize: '14px', color: '#6b7280', margin: '8px 0 20px' }}>
+              <p style={{ fontSize: '16px', color: '#6b7280', margin: '8px 0 20px' }}>
                 Digite seu e-mail de acesso. Enviaremos um link para redefinir a senha.
               </p>
 
               {error && (
                 <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', padding: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626' }}>
                   <AlertCircle size={16} />
-                  <span style={{ fontSize: '14px' }}>{error}</span>
+                  <span style={{ fontSize: '16px' }}>{error}</span>
                 </div>
               )}
 
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Email</label>
+                <label style={{ display: 'block', fontSize: '16px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Email</label>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="seu@email.com"
-                  style={{ width: '100%', padding: '12px', border: '2px solid #d1d5db', borderRadius: '8px', fontSize: '16px', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', border: '2px solid #d1d5db', borderRadius: '8px', fontSize: '18px', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                style={{ width: '100%', padding: '12px', backgroundColor: loading ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: '500', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '12px' }}
+                style={{ width: '100%', padding: '12px', backgroundColor: loading ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: '500', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: '12px' }}
               >
                 {loading ? 'Enviando...' : 'Enviar link de recuperação'}
               </button>
@@ -122,7 +122,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setModo('login')}
-                style={{ width: '100%', padding: '10px', backgroundColor: 'transparent', color: '#6b7280', border: 'none', fontSize: '14px', cursor: 'pointer' }}
+                style={{ width: '100%', padding: '10px', backgroundColor: 'transparent', color: '#6b7280', border: 'none', fontSize: '16px', cursor: 'pointer' }}
               >
                 Voltar para o login
               </button>
@@ -180,7 +180,7 @@ const Login = () => {
             Prontuário Eletrônico
           </h1>
           <p style={{
-            fontSize: '14px',
+            fontSize: '16px',
             color: '#6b7280'
           }}>
             Faça login para continuar
@@ -203,7 +203,7 @@ const Login = () => {
               color: '#dc2626'
             }}>
               <AlertCircle size={16} />
-              <span style={{ fontSize: '14px' }}>{error}</span>
+              <span style={{ fontSize: '16px' }}>{error}</span>
             </div>
           )}
 
@@ -211,7 +211,7 @@ const Login = () => {
           <div style={{ marginBottom: '20px' }}>
             <label style={{
               display: 'block',
-              fontSize: '14px',
+              fontSize: '16px',
               fontWeight: '500',
               color: '#374151',
               marginBottom: '8px'
@@ -243,7 +243,7 @@ const Login = () => {
                   paddingBottom: '12px',
                   border: '2px solid #d1d5db',
                   borderRadius: '8px',
-                  fontSize: '16px',
+                  fontSize: '18px',
                   outline: 'none',
                   boxSizing: 'border-box',
                   transition: 'border-color 0.2s'
@@ -258,7 +258,7 @@ const Login = () => {
           <PasswordInput
             label="Senha"
             containerStyle={{ marginBottom: '24px' }}
-            labelStyle={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}
+            labelStyle={{ fontSize: '16px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}
             icon={<Lock style={{
                 position: 'absolute',
                 left: '12px',
@@ -279,7 +279,7 @@ const Login = () => {
               paddingBottom: '12px',
               border: '2px solid #d1d5db',
               borderRadius: '8px',
-              fontSize: '16px',
+              fontSize: '18px',
               outline: 'none',
               transition: 'border-color 0.2s'
             }}
@@ -298,7 +298,7 @@ const Login = () => {
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '16px',
+              fontSize: '18px',
               fontWeight: '500',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.2s'
@@ -319,7 +319,7 @@ const Login = () => {
               backgroundColor: 'transparent',
               color: '#3b82f6',
               border: 'none',
-              fontSize: '14px',
+              fontSize: '16px',
               cursor: 'pointer'
             }}
           >
@@ -335,7 +335,7 @@ const Login = () => {
           textAlign: 'center'
         }}>
           <p style={{
-            fontSize: '12px',
+            fontSize: '16px',
             color: '#6b7280'
           }}>
             Em caso de problemas, contate o administrador

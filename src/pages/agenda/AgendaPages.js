@@ -1,3 +1,4 @@
+import { dataLocalISO } from '../../utils/formatters';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -71,14 +72,14 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
       <h3 style={{ marginTop: 0 }}>Novo agendamento</h3>
       <form onSubmit={salvar}>
-        {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+        {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
 
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Paciente *</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Paciente *</label>
           {pacienteSelecionado ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>{pacienteSelecionado.nome}{pacienteSelecionado.cpf ? ` — ${pacienteSelecionado.cpf}` : ''}</span>
-              <button type="button" onClick={() => { setPacienteId(''); setBusca(''); }} style={{ padding: '2px 8px', fontSize: '12px', cursor: 'pointer' }}>trocar</button>
+              <button type="button" onClick={() => { setPacienteId(''); setBusca(''); }} style={{ padding: '2px 8px', fontSize: '16px', cursor: 'pointer' }}>trocar</button>
             </div>
           ) : (
             <>
@@ -94,7 +95,7 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
                     <div
                       key={p.id}
                       onClick={() => { setPacienteId(p.id); setBusca(''); }}
-                      style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: '14px' }}
+                      style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: '16px' }}
                     >
                       {p.nome} {p.cpf ? `— ${p.cpf}` : ''}
                     </div>
@@ -107,15 +108,15 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
 
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data *</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data *</label>
             <input type="date" required value={data} onChange={e => setData(e.target.value)} style={{ width: '100%', padding: '8px' }} />
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Horário *</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Horário *</label>
             <input type="time" required value={hora} onChange={e => setHora(e.target.value)} style={{ width: '100%', padding: '8px' }} />
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Duração</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Duração</label>
             <select value={duracaoMin} onChange={e => setDuracaoMin(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value={15}>15 min</option>
               <option value={30}>30 min</option>
@@ -126,7 +127,7 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
         </div>
 
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Profissional</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Profissional</label>
           <select value={medicoId} onChange={e => setMedicoId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
             <option value="">Não definido</option>
             {profissionais.map(p => (
@@ -136,7 +137,7 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
         </div>
 
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações</label>
           <input value={observacoes} onChange={e => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} />
         </div>
 
@@ -158,7 +159,7 @@ export function AgendaPage({ pacientes }) {
   const { user, funcao } = useAuth();
   const podeAtender = FUNCOES_CLINICAS.includes(funcao);
 
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
   const [dataSelecionada, setDataSelecionada] = React.useState(hojeISO);
   const [agendamentos, setAgendamentos] = React.useState([]);
   const [usuarios, setUsuarios] = React.useState([]);
@@ -201,7 +202,7 @@ export function AgendaPage({ pacientes }) {
   const mudarDia = (delta) => {
     const d = new Date(dataSelecionada + 'T12:00:00');
     d.setDate(d.getDate() + delta);
-    setDataSelecionada(d.toISOString().split('T')[0]);
+    setDataSelecionada(dataLocalISO(d));
   };
 
   return (
@@ -251,13 +252,13 @@ export function AgendaPage({ pacientes }) {
             <div key={ag.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <strong>{ag.hora}</strong> — {nomePaciente(ag.pacienteId)}
-                <div style={{ fontSize: '12px', color: '#666' }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>
                   {nomeProfissional(ag.medicoId)} · {ag.duracaoMin} min
                   {ag.observacoes && <> · {ag.observacoes}</>}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
                   {ag.status}
                 </span>
                 {(PROXIMOS_STATUS[ag.status] || []).map(s => (
@@ -265,7 +266,7 @@ export function AgendaPage({ pacientes }) {
                     key={s}
                     onClick={() => mudarStatus(ag, s)}
                     disabled={processandoId === ag.id}
-                    style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
+                    style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
                   >
                     {s}
                   </button>
@@ -273,7 +274,7 @@ export function AgendaPage({ pacientes }) {
                 {podeAtender && ['Agendado', 'Confirmado', 'Aguardando', 'Em atendimento'].includes(ag.status) && (
                   <Link
                     to={`/prontuario/${ag.pacienteId}`}
-                    style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}
+                    style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}
                   >
                     Atender
                   </Link>

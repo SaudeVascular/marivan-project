@@ -70,8 +70,8 @@ export function AtivarContaPage() {
         </>
       ) : (
         <form onSubmit={ativar}>
-          <p style={{ color: '#6b7280', fontSize: '14px' }}>Crie sua senha pessoal. Ela não será conhecida pelo administrador.</p>
-          {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+          <p style={{ color: '#6b7280', fontSize: '16px' }}>Crie sua senha pessoal. Ela não será conhecida pelo administrador.</p>
+          {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
           <PasswordInput label="Nova senha" containerStyle={{ marginBottom: '14px' }} required minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} />
           <PasswordInput label="Confirmar nova senha" containerStyle={{ marginBottom: '20px' }} required minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={e => setConfirmacao(e.target.value)} />
           <button type="submit" disabled={salvando} style={{ width: '100%', padding: '12px', backgroundColor: salvando ? '#9ca3af' : '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: salvando ? 'not-allowed' : 'pointer' }}>

@@ -14,7 +14,7 @@ export function PasswordInput({
 
   return (
     <div style={containerStyle}>
-      <label htmlFor={id} style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '4px', ...labelStyle }}>
+      <label htmlFor={id} style={{ display: 'block', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px', ...labelStyle }}>
         {label}
       </label>
       <div style={{ position: 'relative' }}>

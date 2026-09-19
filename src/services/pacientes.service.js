@@ -21,6 +21,8 @@ const fromDb = (p) => ({
   convenio: p.convenio_nome || '',
   cep: p.cep || '',
   endereco: capitalizarTexto(p.endereco),
+  numero: p.numero || '',
+  complemento: capitalizarTexto(p.complemento),
   alergias: p.alergias || '',
   has: p.has || '',
   dm: p.dm || '',
@@ -30,6 +32,7 @@ const fromDb = (p) => ({
   etilismo: p.etilismo || '',
   cirurgias: p.cirurgias || '',
   medicamentosUso: p.medicamentos_uso || '',
+  outrasComorbidades: p.outras_comorbidades || '',
   ativo: p.ativo,
   registros: [],
 });
@@ -46,6 +49,8 @@ const cadastroToDb = (p) => ({
   convenio_id: p.convenioId || null,
   cep: p.cep || null,
   endereco: p.endereco ? capitalizarTexto(p.endereco) : null,
+  numero: p.numero || null,
+  complemento: p.complemento ? capitalizarTexto(p.complemento) : null,
 });
 
 const clinicosToDb = (p) => ({
@@ -58,6 +63,7 @@ const clinicosToDb = (p) => ({
   etilismo: p.etilismo || '',
   cirurgias: p.cirurgias || '',
   medicamentos_uso: p.medicamentosUso || '',
+  outras_comorbidades: p.outrasComorbidades || '',
 });
 
 export const pacientesService = {
@@ -94,7 +100,7 @@ export const pacientesService = {
     const user = await authService.getCurrentUser();
     const { data, error } = await supabase
       .from('pacientes')
-      .insert([{ ...cadastroToDb(pacienteData), ...clinicosToDb(pacienteData), created_by: user?.id }])
+      .insert([{ ...cadastroToDb(pacienteData), created_by: user?.id }])
       .select('id')
       .single();
     if (error) throw error;

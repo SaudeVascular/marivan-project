@@ -27,6 +27,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset --local",
     "db:lint": "supabase db lint --local --level warning",
+    "db:test:clinical": "node scripts/test-clinical-writes.mjs",
     "db:verify:p0": "psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase_verify_security_p0.sql",
     "db:migrations:check": "node scripts/check-migration-mirror.mjs",
     "security:secrets": "node scripts/check-tracked-secrets.mjs",

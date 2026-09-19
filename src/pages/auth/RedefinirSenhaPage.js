@@ -81,7 +81,7 @@ export function RedefinirSenhaPage() {
         </>
       ) : (
         <form onSubmit={handleSubmit}>
-          {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+          {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
           <PasswordInput label="Nova senha" containerStyle={{ marginBottom: '14px' }} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} required />
           <PasswordInput label="Confirmar nova senha" containerStyle={{ marginBottom: '20px' }} minLength={SENHA_MINIMO_CARACTERES} autoComplete="new-password" value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} required />
           <button

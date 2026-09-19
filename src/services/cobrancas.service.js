@@ -1,3 +1,4 @@
+import { dataLocalISO } from '../utils/formatters';
 import { supabase } from './supabase';
 
 const CAMPOS = 'id, paciente_id, agendamento_id, procedimento_id, medico_id, convenio_id, descricao, valor, percentual_repasse, valor_repasse, forma_pagamento, status, data_cobranca, data_pagamento, observacoes, created_by, created_at';
@@ -62,7 +63,7 @@ export const cobrancasService = {
 
   async atualizarStatus(id, status) {
     const campos = { status };
-    if (status === 'Pago') campos.data_pagamento = new Date().toISOString().split('T')[0];
+    if (status === 'Pago') campos.data_pagamento = dataLocalISO();
     const { data, error } = await supabase.from('cobrancas').update(campos).eq('id', id).select(CAMPOS).single();
     if (error) throw error;
     return fromDb(data);

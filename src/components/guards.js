@@ -21,7 +21,7 @@ export function ProtectedLayout({ children }) {
   if (loading || (user && !perfilPronto)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666', fontSize: '16px' }}>Carregando...</p>
+        <p style={{ color: '#666', fontSize: '18px' }}>Carregando...</p>
       </div>
     );
   }

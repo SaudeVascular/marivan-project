@@ -39,11 +39,11 @@ export function CabecalhoImpresso({ paciente }) {
         <LogoClinica size={52} />
         <div>
           <h1 style={{ margin: 0, fontSize: '20px', color: '#1d4ed8', fontWeight: '800', letterSpacing: '0.5px' }}>{clinica.nome}</h1>
-          <p style={{ margin: 0, fontSize: '12px', color: '#555' }}>{clinica.nomeFantasia}</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#555' }}>{clinica.nomeFantasia}</p>
         </div>
       </div>
       {paciente && (
-        <div style={{ backgroundColor: '#eff6ff', borderRadius: '6px', padding: '7px 12px', fontSize: '13px', display: 'flex', flexWrap: 'wrap', gap: '6px 24px' }}>
+        <div style={{ backgroundColor: '#eff6ff', borderRadius: '6px', padding: '7px 12px', fontSize: '16px', display: 'flex', flexWrap: 'wrap', gap: '6px 24px' }}>
           <span><strong>Paciente:</strong> {paciente.nome}</span>
           {idade !== null && <span><strong>Idade:</strong> {idade} anos</span>}
           {paciente.cpf && <span><strong>CPF:</strong> {paciente.cpf}</span>}
@@ -88,36 +88,36 @@ export function Header() {
     <div className="pep-header">
       <div>
         <h1 style={{ margin: 0, fontSize: '20px' }}>PEP - Prontuário Eletrônico</h1>
-        <p style={{ margin: '4px 0 0', fontSize: '13px', opacity: 0.85 }}>Sistema médico</p>
+        <p style={{ margin: '4px 0 0', fontSize: '15px', opacity: 0.85 }}>Sistema médico</p>
       </div>
       <div className="pep-header-right">
-        <span className="pep-header-email" style={{ fontSize: '13px', opacity: 0.85 }}>{user?.email}</span>
-        <Link to="/minha-conta" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+        <span className="pep-header-email" style={{ fontSize: '15px', opacity: 0.85 }}>{user?.email}</span>
+        <Link to="/minha-conta" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
           👤 Minha conta
         </Link>
-        <Link to="/pacientes" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+        <Link to="/pacientes" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
           🧑‍🤝‍🧑 Pacientes
         </Link>
-        <Link to="/agenda" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+        <Link to="/agenda" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
           📅 Agenda
         </Link>
         {FUNCOES_RECEPCAO.includes(funcao) && (
-          <Link to="/recepcao" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          <Link to="/recepcao" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
             🛎️ Recepção
           </Link>
         )}
         {FUNCOES_ENFERMAGEM.includes(funcao) && (
-          <Link to="/enfermagem" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          <Link to="/enfermagem" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
             🩺 Enfermagem
           </Link>
         )}
         {(FUNCOES_FINANCEIRO.includes(funcao) || funcao === 'Médico') && (
-          <Link to="/financeiro" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          <Link to="/financeiro" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
             💰 Financeiro
           </Link>
         )}
         {funcao === 'Administrador' && (
-          <Link to="/painel" style={{ fontSize: '13px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
+          <Link to="/painel" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
             ⚙️ Administração
           </Link>
         )}
@@ -131,7 +131,7 @@ export function Header() {
             border: '1px solid rgba(255,255,255,0.4)',
             borderRadius: '4px',
             cursor: saindo ? 'not-allowed' : 'pointer',
-            fontSize: '13px',
+            fontSize: '15px',
             opacity: saindo ? 0.7 : 1
           }}
         >

@@ -3,7 +3,8 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Navigate
+  Navigate,
+  useLocation
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClinicaProvider } from './hooks/useClinica';
@@ -52,23 +53,38 @@ import { MinhaContaPage } from './pages/auth/MinhaContaPage';
 
 function AppContent() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
   const [pacientes, setPacientes] = React.useState([]);
   const [inicializando, setInicializando] = React.useState(true);
+  const [erroCarregamento, setErroCarregamento] = React.useState(false);
+  const [tentativa, setTentativa] = React.useState(0);
+  const rotaAuth = ['/login', '/ativar-conta', '/redefinir-senha', '/minha-conta'].includes(pathname);
 
   React.useEffect(() => {
     if (!user?.id) return;
+    let cancelado = false;
+    setInicializando(true);
+    setErroCarregamento(false);
     pacientesService.listar()
-      .then(data => setPacientes(data))
-      .catch(err => console.error('Erro ao carregar pacientes:', err))
-      .finally(() => setInicializando(false));
-  }, [user?.id]);
+      .then(data => { if (!cancelado) setPacientes(data); })
+      .catch(() => { if (!cancelado) setErroCarregamento(true); })
+      .finally(() => { if (!cancelado) setInicializando(false); });
+    return () => { cancelado = true; };
+  }, [user?.id, tentativa]);
 
-  if (inicializando && user) {
+  if (inicializando && user && !rotaAuth) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666', fontSize: '16px' }}>Carregando pacientes...</p>
+        <p style={{ color: '#666', fontSize: '18px' }}>Carregando pacientes...</p>
       </div>
     );
+  }
+
+  if (erroCarregamento && user && !rotaAuth) {
+    return <div role="alert">
+      <p>Não foi possível carregar os pacientes. Verifique sua conexão e tente novamente.</p>
+      <button onClick={() => setTentativa(valor => valor + 1)}>Tentar novamente</button>
+    </div>;
   }
 
   return (
@@ -302,13 +318,20 @@ function AppContent() {
   );
 }
 
+// Remontar também ao mudar de função elimina todo o cache da sessão
+// anterior, inclusive respostas tardias e conteúdo clínico já carregado.
+export function ConteudoDaSessao() {
+  const { user, funcao } = useAuth();
+  return <AppContent key={`${user?.id || 'anonimo'}:${funcao || ''}`} />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
           <ClinicaProvider>
-            <AppContent />
+            <ConteudoDaSessao />
           </ClinicaProvider>
         </AuthProvider>
       </ToastProvider>

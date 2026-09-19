@@ -1,8 +1,41 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-size: 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  font-size: 32px;
+}
+
+h2 {
+  font-size: 24px;
+}
+
+h3 {
+  font-size: 20px;
+}
+
+h4 {
+  font-size: 18px;
+}
+
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+}
+
+.field-note {
+  font-size: 13px !important;
+}
+
+.prontuario-historico,
+.prontuario-historico * {
+  font-size: 13px !important;
 }
 
 * {
@@ -28,6 +61,10 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
 .pep-header-right {
@@ -44,6 +81,25 @@ body {
   gap: 10px;
 }
 
+.campo-cadastro-paciente {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.campo-cadastro-paciente > span {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.campo-cadastro-paciente > input,
+.campo-cadastro-paciente > select {
+  min-width: 0;
+  padding: 10px;
+  width: 100%;
+}
+
 /* Patient list rows */
 .paciente-row-1 {
   display: grid;
@@ -54,10 +110,10 @@ body {
 
 .paciente-row-2 {
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: 1fr 2fr;
   gap: 8px;
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 16px;
   color: #444;
 }
 
@@ -67,6 +123,226 @@ body {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+}
+
+/* Cabeçalho do prontuário */
+.prontuario-topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-items: stretch;
+  max-width: 100%;
+}
+
+.prontuario-cabecalhos-fixos {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 70%);
+  left: 25px;
+  position: fixed;
+  right: 25px;
+  top: 0;
+  z-index: 200;
+}
+
+.prontuario-cabecalhos-espaco {
+  margin-top: -25px;
+}
+
+.prontuario-page .pep-header {
+  margin-bottom: 4px;
+  position: static;
+}
+
+.prontuario-identificacao {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.prontuario-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #dbeafe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.prontuario-identificacao-conteudo,
+.prontuario-clinicos {
+  min-width: 0;
+  width: 100%;
+}
+
+.prontuario-identificacao-conteudo {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(520px, 2.2fr);
+}
+
+.prontuario-secao-label {
+  color: #475569;
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.prontuario-paciente-nome {
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.prontuario-cadastro-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px 10px;
+  font-size: 15px;
+}
+
+.prontuario-dado-cadastro {
+  min-width: 0;
+}
+
+.prontuario-dado-cadastro span,
+.prontuario-dado-cadastro strong {
+  display: inline;
+  overflow-wrap: anywhere;
+}
+
+.prontuario-dado-cadastro span {
+  color: #64748b;
+  margin-right: 4px;
+}
+
+.prontuario-dado-cadastro span::after {
+  content: ':';
+}
+
+.prontuario-dado-cadastro strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.prontuario-clinicos-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.prontuario-toggle-clinicos {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.prontuario-toggle-icone {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.prontuario-clinicos-acoes {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.prontuario-clinicos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  font-size: 15px;
+  min-width: 0;
+}
+
+.prontuario-clinico-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  display: block;
+  min-width: 0;
+  padding: 4px 7px;
+  text-align: left;
+}
+
+.prontuario-clinico-card-alergias.tem-alergia {
+  background: #fff7f7;
+  border-color: #fecaca;
+}
+
+.prontuario-clinico-label,
+.prontuario-clinico-valor {
+  display: block;
+  text-align: left;
+}
+
+.prontuario-clinico-label {
+  color: #475569;
+  margin-bottom: 3px;
+}
+
+.prontuario-clinico-label::after {
+  content: ':';
+}
+
+.prontuario-clinico-valor {
+  line-height: 1.4;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.prontuario-alergias-valor {
+  max-height: 3em;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.prontuario-clinico-campo {
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  display: block;
+  font-size: 15px;
+  min-width: 0;
+  padding: 6px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.prontuario-alergias-campo {
+  line-height: 1.4;
+  max-width: 100%;
+  resize: vertical;
+}
+
+.prontuario-clinico-campo-multilinha {
+  line-height: 1.4;
+  max-width: 100%;
+  resize: vertical;
+}
+
+.prontuario-outras-comorbidades-valor {
+  max-height: 3em;
+  overflow-y: auto;
+}
+
+.prontuario-outras-comorbidades-campo {
+  line-height: 1.4;
+  max-width: 100%;
+  resize: vertical;
 }
 
 /* 3-column form grid (atestado / receituário / relatório) */
@@ -101,6 +377,35 @@ body {
   .med-campos-secundarios {
     grid-template-columns: 1fr 1fr !important;
   }
+
+  .prontuario-topo {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-identificacao-conteudo {
+    grid-template-columns: minmax(180px, 0.8fr) minmax(0, 2fr);
+  }
+
+  .prontuario-cadastro-grid,
+  .prontuario-clinicos-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .prontuario-cabecalhos-fixos {
+    left: 16px;
+    right: 16px;
+  }
+
+  .prontuario-cabecalhos-espaco {
+    margin-top: -16px;
+  }
+
+  .prontuario-identificacao {
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 0;
+    padding-bottom: 6px;
+    padding-right: 0;
+  }
 }
 
 /* ===== MOBILE (≤ 768px) ===== */
@@ -116,7 +421,7 @@ body {
   }
 
   .pep-header h1 {
-    font-size: 16px !important;
+    font-size: 18px !important;
   }
 
   .pep-header p {
@@ -183,7 +488,31 @@ body {
      atendimento/histórico embaixo (o separador vertical entre paciente
      e dados clínicos não faz sentido quando os dois empilham). */
   .prontuario-topo {
-    padding: 12px !important;
+    padding: 8px !important;
+  }
+
+  .prontuario-cabecalhos-fixos {
+    left: 10px;
+    right: 10px;
+  }
+
+  .prontuario-cabecalhos-espaco {
+    margin-top: -10px;
+  }
+
+  .prontuario-cadastro-grid,
+  .prontuario-clinicos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-identificacao-conteudo {
+    align-items: start;
+    gap: 5px;
+    grid-template-columns: 1fr;
+  }
+
+  .prontuario-identificacao {
+    align-items: flex-start;
   }
 
   .prontuario-separador-vertical {

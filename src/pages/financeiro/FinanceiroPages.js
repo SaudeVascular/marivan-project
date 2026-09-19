@@ -1,3 +1,4 @@
+import { dataLocalISO } from '../../utils/formatters';
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -188,26 +189,26 @@ export function CatalogoFinanceiroPage() {
             <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: p.ativo ? 1 : 0.5 }}>
               {editandoProc?.id === p.id ? (
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input value={editandoProc.nome} onChange={e => setEditandoProc({ ...editandoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '120px', padding: '6px', fontSize: '13px' }} />
-                  <input type="number" min="0" step="0.01" value={editandoProc.valorParticular} onChange={e => setEditandoProc({ ...editandoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '13px' }} />
-                  <input type="number" min="0" max="100" step="0.1" value={editandoProc.percentualRepasse} onChange={e => setEditandoProc({ ...editandoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '13px' }} />
-                  <button onClick={salvarEdicaoProcedimento} disabled={salvando} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoProc(null)} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                  <input value={editandoProc.nome} onChange={e => setEditandoProc({ ...editandoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '120px', padding: '6px', fontSize: '16px' }} />
+                  <input type="number" min="0" step="0.01" value={editandoProc.valorParticular} onChange={e => setEditandoProc({ ...editandoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
+                  <input type="number" min="0" max="100" step="0.1" value={editandoProc.percentualRepasse} onChange={e => setEditandoProc({ ...editandoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
+                  <button onClick={salvarEdicaoProcedimento} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
+                  <button onClick={() => setEditandoProc(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <strong>{p.nome}</strong>
-                    <div style={{ fontSize: '12px', color: '#666' }}>{formatarMoeda(p.valorParticular)} · {p.percentualRepasse}% repasse</div>
+                    <div style={{ fontSize: '16px', color: '#666' }}>{formatarMoeda(p.valorParticular)} · {p.percentualRepasse}% repasse</div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoProc({ id: p.id, nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse })} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => setEditandoProc({ id: p.id, nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
                       Editar
                     </button>
-                    <button onClick={() => alternarAtivoProcedimento(p)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: p.ativo ? '#fee2e2' : '#d1fae5', color: p.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => alternarAtivoProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: p.ativo ? '#fee2e2' : '#d1fae5', color: p.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                       {p.ativo ? 'Desativar' : 'Reativar'}
                     </button>
-                    <button onClick={() => excluirProcedimento(p)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => excluirProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
                       Excluir
                     </button>
                   </div>
@@ -229,21 +230,21 @@ export function CatalogoFinanceiroPage() {
             <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: c.ativo ? 1 : 0.5 }}>
               {editandoConvenio?.id === c.id ? (
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <input value={editandoConvenio.nome} onChange={e => setEditandoConvenio({ ...editandoConvenio, nome: e.target.value })} style={{ flex: 1, padding: '6px', fontSize: '13px' }} />
-                  <button onClick={salvarEdicaoConvenio} disabled={salvando} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoConvenio(null)} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                  <input value={editandoConvenio.nome} onChange={e => setEditandoConvenio({ ...editandoConvenio, nome: e.target.value })} style={{ flex: 1, padding: '6px', fontSize: '16px' }} />
+                  <button onClick={salvarEdicaoConvenio} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
+                  <button onClick={() => setEditandoConvenio(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>{c.nome}</strong>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome })} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
                       Editar
                     </button>
-                    <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                       {c.ativo ? 'Desativar' : 'Reativar'}
                     </button>
-                    <button onClick={() => excluirConvenio(c)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => excluirConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
                       Excluir
                     </button>
                   </div>
@@ -252,7 +253,7 @@ export function CatalogoFinanceiroPage() {
             </div>
           ))}
 
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', margin: '14px 0 6px' }}>Valores por procedimento</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', margin: '14px 0 6px' }}>Valores por procedimento</label>
           <select value={convenioSelecionado} onChange={e => setConvenioSelecionado(e.target.value)} style={{ width: '100%', padding: '7px', marginBottom: '10px' }}>
             <option value="">Selecione um convênio...</option>
             {convenios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -262,7 +263,7 @@ export function CatalogoFinanceiroPage() {
             const override = valorOverride(p.id);
             return (
               <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <span style={{ fontSize: '13px' }}>{p.nome} <span style={{ color: '#999' }}>(particular: {formatarMoeda(p.valorParticular)})</span></span>
+                <span style={{ fontSize: '16px' }}>{p.nome} <span style={{ color: '#999' }}>(particular: {formatarMoeda(p.valorParticular)})</span></span>
                 <input
                   type="number"
                   min="0"
@@ -270,7 +271,7 @@ export function CatalogoFinanceiroPage() {
                   placeholder="usa particular"
                   defaultValue={override ? override.valor : ''}
                   onBlur={e => salvarValorConvenio(p.id, e.target.value)}
-                  style={{ width: '110px', padding: '5px', fontSize: '13px' }}
+                  style={{ width: '110px', padding: '5px', fontSize: '16px' }}
                 />
               </div>
             );
@@ -341,14 +342,14 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
     <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
       <h3 style={{ marginTop: 0 }}>Nova cobrança</h3>
       <form onSubmit={salvar}>
-        {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+        {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
 
         <div style={{ marginBottom: '12px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Paciente *</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Paciente *</label>
           {pacienteSelecionado ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>{pacienteSelecionado.nome}</span>
-              <button type="button" onClick={() => { setPacienteId(''); setBusca(''); }} style={{ padding: '2px 8px', fontSize: '12px', cursor: 'pointer' }}>trocar</button>
+              <button type="button" onClick={() => { setPacienteId(''); setBusca(''); }} style={{ padding: '2px 8px', fontSize: '16px', cursor: 'pointer' }}>trocar</button>
             </div>
           ) : (
             <>
@@ -356,7 +357,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
               {pacientesFiltrados.length > 0 && (
                 <div style={{ border: '1px solid #e5e7eb', borderRadius: '4px', marginTop: '4px', maxHeight: '160px', overflow: 'auto' }}>
                   {pacientesFiltrados.map(p => (
-                    <div key={p.id} onClick={() => { setPacienteId(p.id); setBusca(''); }} style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: '14px' }}>
+                    <div key={p.id} onClick={() => { setPacienteId(p.id); setBusca(''); }} style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: '16px' }}>
                       {p.nome} {p.cpf ? `— ${p.cpf}` : ''}
                     </div>
                   ))}
@@ -368,35 +369,35 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
 
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
             <select value={convenioId} onChange={e => { setConvenioId(e.target.value); aplicarValorSugerido(procedimentoId, e.target.value); }} style={{ width: '100%', padding: '8px' }}>
               <option value="">Particular</option>
               {convenios.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
             <select value={procedimentoId} onChange={e => { setProcedimentoId(e.target.value); aplicarValorSugerido(e.target.value, convenioId); }} style={{ width: '100%', padding: '8px' }}>
               <option value="">Selecione...</option>
               {procedimentos.filter(p => p.ativo).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Valor (R$) *</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Valor (R$) *</label>
             <input type="number" min="0" step="0.01" required value={valor} onChange={e => setValor(e.target.value)} style={{ width: '100%', padding: '8px' }} />
           </div>
         </div>
 
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico responsável</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico responsável</label>
             <select value={medicoId} onChange={e => setMedicoId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">Não definido</option>
               {medicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Forma de pagamento</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Forma de pagamento</label>
             <select value={formaPagamento} onChange={e => setFormaPagamento(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">A definir</option>
               <option>Dinheiro</option>
@@ -408,7 +409,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
             </select>
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Descrição</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Descrição</label>
             <input value={descricao} onChange={e => setDescricao(e.target.value)} style={{ width: '100%', padding: '8px' }} />
           </div>
         </div>
@@ -431,7 +432,7 @@ export function FinanceiroPage({ pacientes }) {
   const { user, funcao } = useAuth();
   const podeGerenciar = FUNCOES_FINANCEIRO.includes(funcao);
 
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
   const primeiroDiaMes = hojeISO.slice(0, 8) + '01';
 
   const [de, setDe] = React.useState(primeiroDiaMes);
@@ -489,14 +490,14 @@ export function FinanceiroPage({ pacientes }) {
       <Link to="/pacientes">← Voltar</Link>
 
       <h2 style={{ marginTop: '20px' }}>Financeiro</h2>
-      {!podeGerenciar && <p style={{ color: '#666', fontSize: '14px', marginTop: '-8px' }}>Suas cobranças e repasses (somente leitura).</p>}
+      {!podeGerenciar && <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>Suas cobranças e repasses (somente leitura).</p>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <label style={{ fontSize: '13px' }}>De <input type="date" value={de} onChange={e => setDe(e.target.value)} style={{ padding: '6px' }} /></label>
-        <label style={{ fontSize: '13px' }}>Até <input type="date" value={ate} onChange={e => setAte(e.target.value)} style={{ padding: '6px' }} /></label>
+        <label style={{ fontSize: '16px' }}>De <input type="date" value={de} onChange={e => setDe(e.target.value)} style={{ padding: '6px' }} /></label>
+        <label style={{ fontSize: '16px' }}>Até <input type="date" value={ate} onChange={e => setAte(e.target.value)} style={{ padding: '6px' }} /></label>
         {podeGerenciar && (
           <>
-            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '13px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Procedimentos e Convênios</Link>
+            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Procedimentos e Convênios</Link>
             {!mostrarForm && (
               <button onClick={() => setMostrarForm(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 + Nova cobrança
@@ -508,11 +509,11 @@ export function FinanceiroPage({ pacientes }) {
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '12px', color: '#666' }}>Total no período</div>
+          <div style={{ fontSize: '16px', color: '#666' }}>Total no período</div>
           <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{formatarMoeda(totalPeriodo)}</div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '12px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
+          <div style={{ fontSize: '16px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
           <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{formatarMoeda(totalRepasse)}</div>
         </div>
       </div>
@@ -542,23 +543,23 @@ export function FinanceiroPage({ pacientes }) {
             <div key={c.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <strong>{nomePaciente(c.pacienteId)}</strong> — {formatarMoeda(c.valor)}
-                <div style={{ fontSize: '12px', color: '#666' }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>
                   {new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')} · {c.descricao || 'Sem descrição'} · {nomeMedico(c.medicoId)}
                   {podeGerenciar && c.valorRepasse > 0 && <> · repasse {formatarMoeda(c.valorRepasse)}</>}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
                   {c.status}
                 </span>
                 {podeGerenciar && c.status === 'Pendente' && (
                   <>
-                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
-                    <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>
+                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
+                    <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>
                   </>
                 )}
                 {podeGerenciar && (
-                  <Link to={`/financeiro/recibo/${c.id}`} style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}>
+                  <Link to={`/financeiro/recibo/${c.id}`} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}>
                     🖨️ Recibo
                   </Link>
                 )}
@@ -603,15 +604,15 @@ export function ImprimirReciboPage() {
   return (
     <div>
       <div className="no-print" style={{ padding: '12px 24px', backgroundColor: '#f3f4f6', borderBottom: '1px solid #ddd', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
           🖨️ Imprimir
         </button>
-        <Link to="/financeiro" style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', textDecoration: 'none' }}>
+        <Link to="/financeiro" style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', textDecoration: 'none' }}>
           Voltar
         </Link>
       </div>
 
-      <div className="doc-preview" style={{ maxWidth: '700px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.6' }}>
+      <div className="doc-preview" style={{ maxWidth: '700px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '16px', lineHeight: '1.6' }}>
         <CabecalhoImpresso paciente={paciente} />
 
         <h2 style={{ textAlign: 'center', letterSpacing: '2px', fontSize: '18px', margin: '0 0 24px', textTransform: 'uppercase' }}>Recibo</h2>

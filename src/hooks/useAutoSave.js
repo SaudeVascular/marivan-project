@@ -5,36 +5,42 @@ import storageService from '../services/storageService';
 export const useAutoSave = (data, saveFunction, delay = 2000) => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
+  const [error, setError] = useState(null);
   const timeoutRef = useRef(null);
 
   useEffect(() => {
+    let cancelado = false;
+    setLastSaved(null);
+    setError(null);
+    setIsSaving(false);
     // Limpa o timeout anterior
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
     // Define um novo timeout para salvar
-    timeoutRef.current = setTimeout(() => {
+    timeoutRef.current = setTimeout(async () => {
       setIsSaving(true);
-      
-      const success = saveFunction(data);
-      
-      if (success) {
-        setLastSaved(new Date());
+      try {
+        const success = await saveFunction(data);
+        if (!cancelado && success) setLastSaved(new Date());
+      } catch (err) {
+        if (!cancelado) setError(err);
+      } finally {
+        if (!cancelado) setIsSaving(false);
       }
-      
-      setIsSaving(false);
     }, delay);
 
     // Cleanup
     return () => {
+      cancelado = true;
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
   }, [data, saveFunction, delay]);
 
-  return { isSaving, lastSaved };
+  return { isSaving, lastSaved, error };
 };
 
 // Hook para gerenciar persistência de dados

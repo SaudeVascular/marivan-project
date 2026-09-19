@@ -39,6 +39,7 @@ export const supabase = {
     signOut: jest.fn(),
   },
   from: jest.fn(),
+  rpc: jest.fn(),
   functions: {
     invoke: jest.fn(),
   },
@@ -65,6 +66,7 @@ export function resetSupabaseMockPadrao() {
   supabase.auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: null });
   supabase.auth.signOut.mockResolvedValue({ error: null });
   supabase.from.mockImplementation(() => criarQueryBuilder());
+  supabase.rpc.mockResolvedValue({ data: null, error: null });
   supabase.functions.invoke.mockResolvedValue({ data: null, error: null });
   supabase.storage.from.mockReturnValue({
     upload: jest.fn(() => Promise.resolve({ data: null, error: null })),

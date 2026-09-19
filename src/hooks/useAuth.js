@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, createContext, useContext } f
 import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
 import { comTimeout } from '../utils/comTimeout';
-import { limparRascunhosAtendimento } from '../utils/rascunhoAtendimento';
+import { limparRascunhosAtendimento, limparRascunhosLegados } from '../utils/rascunhoAtendimento';
 import { iniciarMonitorInatividade, registrarLogoutPorInatividade } from '../utils/sessionSecurity';
 
 const AuthContext = createContext();
@@ -39,10 +39,12 @@ export const AuthProvider = ({ children }) => {
     const requisicao = ++requisicaoPerfilRef.current;
     const authUserId = authUser?.id ?? null;
     if (authUserId !== ultimoUserIdRef.current) {
+      if (ultimoUserIdRef.current !== undefined) limparRascunhosAtendimento();
       ultimoUserIdRef.current = authUserId;
       setPerfilPronto(false);
     }
     if (!authUser) {
+      limparRascunhosAtendimento();
       setPerfil(null);
       setPerfilPronto(true);
       return;
@@ -70,6 +72,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    limparRascunhosLegados();
     // Verificar sessão atual — com teto de tempo: sem isso, se o lock
     // interno de sessão do Supabase demorar (ex: renovação de token
     // presa), a tela fica presa em "Carregando pacientes..." (App.js)

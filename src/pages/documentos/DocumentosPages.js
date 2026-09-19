@@ -11,6 +11,7 @@ import { registrosService, salvarRegistroComFallback } from '../../services/regi
 import { modelosService } from '../../services/modelos.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarData } from '../../utils/mascaras';
+import { dataLocalISO } from '../../utils/formatters';
 
 const EXAMES_DISPONIVEIS = [
   {
@@ -74,7 +75,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade } = useMedicoPerfil();
   const [dias, setDias] = React.useState('1');
@@ -120,7 +121,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   };
 
   return (
-    <div>
+    <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -130,20 +131,20 @@ export function AtestadoPage({ pacientes, setPacientes }) {
           <h3 style={{ marginTop: 0 }}>Atestado Médico</h3>
           <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
               <input type="date" value={dataAtestado} onChange={(e) => setDataAtestado(e.target.value)} style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Dias de afastamento</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Dias de afastamento</label>
               <input type="number" min="1" value={dias} onChange={(e) => setDias(e.target.value)} style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID (opcional)</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID (opcional)</label>
               <input value={cid} onChange={(e) => setCid(e.target.value)} placeholder="Ex: Z00.0" style={{ width: '100%', padding: '8px' }} />
             </div>
           </div>
           <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações (opcional)</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações (opcional)</label>
             <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} rows={2} />
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -153,27 +154,27 @@ export function AtestadoPage({ pacientes, setPacientes }) {
             <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
-            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+            {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
         </div>
 
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
           <h2 style={{ textAlign: 'center', letterSpacing: '5px', fontSize: '18px', margin: '0 0 30px' }}>ATESTADO MÉDICO</h2>
-          <p style={{ fontSize: '15px', lineHeight: '2.2', textAlign: 'justify' }}>
+          <p style={{ fontSize: '16px', lineHeight: '2.2', textAlign: 'justify' }}>
             Atesto que o(a) paciente <strong>{paciente.nome}</strong>
             {paciente.cpf ? `, portador(a) do CPF ${paciente.cpf},` : ','} esteve sob meus cuidados médicos
             e necessita afastar-se de suas atividades por{' '}
             <strong>{dias} {Number(dias) === 1 ? 'dia' : 'dias'}</strong>, a contar de {dataFormatada}.
             {cid && ` CID: ${cid}.`}
           </p>
-          {observacoes && <p style={{ fontSize: '15px', lineHeight: '2', textAlign: 'justify' }}>{observacoes}</p>}
+          {observacoes && <p style={{ fontSize: '16px', lineHeight: '2', textAlign: 'justify' }}>{observacoes}</p>}
           <div style={{ marginTop: '60px', textAlign: 'right' }}>
-            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+            <p style={{ marginBottom: '50px', fontSize: '16px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{crm || 'CRM _______________'}</p>
                 {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
@@ -181,7 +182,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
           <RodapeImpresso />
         </div>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -189,7 +190,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataReceita]                   = React.useState(hojeISO);
@@ -264,6 +265,8 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
       .filter(m => m.nome)
       .map((m, idx) => {
         const linhas = [`${idx + 1}. ${m.nome}${m.dose ? ' ' + m.dose : ''}`];
+        if (m.quantidade) linhas.push(`   Quantidade: ${m.quantidade}`);
+        if (m.via) linhas.push(`   Administração: ${m.via}`);
         if (m.frequencia || m.duracao) linhas.push(`   ${m.frequencia}${m.duracao ? ' por ' + m.duracao : ''}`);
         if (m.instrucoes) linhas.push(`   ${m.instrucoes}`);
         return linhas.join('\n');
@@ -292,7 +295,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   };
 
   return (
-    <div>
+    <fieldset disabled={salvandoReceituario} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -304,20 +307,20 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
           {medicamentos.map((med, idx) => (
             <div key={med.id} style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '12px', marginBottom: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <strong style={{ fontSize: '13px', color: '#374151' }}>Medicamento {idx + 1}</strong>
+                <strong style={{ fontSize: '16px', color: '#374151' }}>Medicamento {idx + 1}</strong>
                 {medicamentos.length > 1 && (
-                  <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Remover</button>
+                  <button onClick={() => removerMed(med.id)} style={{ padding: '2px 8px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}>Remover</button>
                 )}
               </div>
               <div className="med-campos-principais" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
-                <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Apresentação (ex: 50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Quantidade (ex: 2 caixas)" value={med.quantidade} onChange={(e) => atualizarMed(med.id, 'quantidade', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Nome do medicamento *" value={med.nome} onChange={(e) => atualizarMed(med.id, 'nome', e.target.value)} style={{ padding: '7px', fontSize: '16px' }} />
+                <input placeholder="Apresentação (ex: 50mg)" value={med.dose} onChange={(e) => atualizarMed(med.id, 'dose', e.target.value)} style={{ padding: '7px', fontSize: '16px' }} />
+                <input placeholder="Quantidade (ex: 2 caixas)" value={med.quantidade} onChange={(e) => atualizarMed(med.id, 'quantidade', e.target.value)} style={{ padding: '7px', fontSize: '16px' }} />
               </div>
               <div className="med-campos-secundarios" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px' }}>
-                <input placeholder="Administração (ex: via oral)" value={med.via} onChange={(e) => atualizarMed(med.id, 'via', e.target.value)} list="lista-vias" style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Frequência (ex: 1x ao dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
-                <input placeholder="Duração (ex: 30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '13px' }} />
+                <input placeholder="Administração (ex: via oral)" value={med.via} onChange={(e) => atualizarMed(med.id, 'via', e.target.value)} list="lista-vias" style={{ padding: '7px', fontSize: '16px' }} />
+                <input placeholder="Frequência (ex: 1x ao dia)" value={med.frequencia} onChange={(e) => atualizarMed(med.id, 'frequencia', e.target.value)} style={{ padding: '7px', fontSize: '16px' }} />
+                <input placeholder="Duração (ex: 30 dias)" value={med.duracao} onChange={(e) => atualizarMed(med.id, 'duracao', e.target.value)} style={{ padding: '7px', fontSize: '16px' }} />
               </div>
               <datalist id="lista-vias">
                 <option value="via oral" />
@@ -331,24 +334,24 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
                 <option value="via retal" />
                 <option value="via transdérmica" />
               </datalist>
-              <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+              <input placeholder="Instruções (ex: tomar após as refeições)" value={med.instrucoes} onChange={(e) => atualizarMed(med.id, 'instrucoes', e.target.value)} style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
             </div>
           ))}
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
             <button onClick={salvarNoProntuario} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{salvandoReceituario ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
             <button onClick={() => window.print()} style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
-            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+            {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
 
           {/* Texto livre */}
           <div style={{ borderTop: '1px dashed #d1d5db', paddingTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '8px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', color: '#374151' }}>
                 Texto livre <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>— escreva livremente ou cole uma prescrição</span>
               </label>
               {textoLivre.trim() && !salvandoModelo && (
-                <button onClick={() => setSalvandoModelo(true)} style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}>
+                <button onClick={() => setSalvandoModelo(true)} style={{ fontSize: '16px', padding: '4px 10px', backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}>
                   💾 Salvar como modelo
                 </button>
               )}
@@ -362,7 +365,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
                     <button
                       onClick={() => setTextoLivre(m.conteudo)}
                       title="Clique para carregar este modelo"
-                      style={{ padding: '3px 10px', fontSize: '12px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+                      style={{ padding: '3px 10px', fontSize: '16px', color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
                     >
                       📋 {m.nome}
                     </button>
@@ -388,12 +391,12 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
                   onKeyDown={e => { if (e.key === 'Enter') salvarModelo(); if (e.key === 'Escape') setSalvandoModelo(false); }}
                   placeholder="Nome do modelo (ex: HAS básico)"
                   disabled={gravandoModelo}
-                  style={{ flex: 1, minWidth: '180px', padding: '6px 10px', fontSize: '13px', border: '1px solid #86efac', borderRadius: '4px', outline: 'none' }}
+                  style={{ flex: 1, minWidth: '180px', padding: '6px 10px', fontSize: '16px', border: '1px solid #86efac', borderRadius: '4px', outline: 'none' }}
                 />
-                <button onClick={salvarModelo} disabled={gravandoModelo} style={{ padding: '6px 12px', backgroundColor: gravandoModelo ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: gravandoModelo ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                <button onClick={salvarModelo} disabled={gravandoModelo} style={{ padding: '6px 12px', backgroundColor: gravandoModelo ? '#9ca3af' : '#16a34a', color: 'white', border: 'none', borderRadius: '4px', cursor: gravandoModelo ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
                   {gravandoModelo ? 'Salvando...' : 'Salvar'}
                 </button>
-                <button onClick={() => { setSalvandoModelo(false); setNomeModelo(''); }} disabled={gravandoModelo} style={{ padding: '6px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                <button onClick={() => { setSalvandoModelo(false); setNomeModelo(''); }} disabled={gravandoModelo} style={{ padding: '6px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}>
                   Cancelar
                 </button>
               </div>
@@ -404,7 +407,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
               onChange={e => setTextoLivre(e.target.value)}
               rows={6}
               placeholder="Digite ou cole aqui medicamentos em formato livre..."
-              style={{ width: '100%', padding: '10px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.6' }}
+              style={{ width: '100%', padding: '10px', fontSize: '16px', border: '1px solid #d1d5db', borderRadius: '6px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.6' }}
             />
           </div>
         </div>
@@ -422,11 +425,11 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
             <div key={med.id} style={{ marginBottom: '22px' }}>
               {/* Linha principal: nome (apresentação) ......... quantidade */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginBottom: '4px' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '15px', whiteSpace: 'nowrap' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '16px', whiteSpace: 'nowrap' }}>
                   {idx + 1}. {med.nome}{med.dose ? ` (${med.dose})` : ''}
                 </span>
                 <span style={{ flex: 1, borderBottom: '1px dotted #555', marginBottom: '3px', minWidth: '20px' }} />
-                <span style={{ fontSize: '14px', whiteSpace: 'nowrap', fontWeight: '500' }}>
+                <span style={{ fontSize: '16px', whiteSpace: 'nowrap', fontWeight: '500' }}>
                   {med.quantidade || '_____________'}
                 </span>
               </div>
@@ -438,7 +441,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
                 </p>
               )}
               {med.instrucoes && (
-                <p style={{ margin: 0, paddingLeft: '18px', fontSize: '13px', color: '#555', fontStyle: 'italic' }}>
+                <p style={{ margin: 0, paddingLeft: '18px', fontSize: '16px', color: '#555', fontStyle: 'italic' }}>
                   {med.instrucoes}
                 </p>
               )}
@@ -448,16 +451,16 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
           {/* Texto livre no impresso */}
           {textoLivre && (
             <div style={{ marginTop: medicamentos.filter(m => m.nome).length > 0 ? '16px' : '0', paddingTop: medicamentos.filter(m => m.nome).length > 0 ? '16px' : '0', borderTop: medicamentos.filter(m => m.nome).length > 0 ? '1px dashed #ccc' : 'none' }}>
-              <p style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: '1.8', margin: 0 }}>{textoLivre}</p>
+              <p style={{ whiteSpace: 'pre-wrap', fontSize: '16px', lineHeight: '1.8', margin: 0 }}>{textoLivre}</p>
             </div>
           )}
 
           <div style={{ marginTop: '60px', textAlign: 'right' }}>
-            <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
+            <p style={{ marginBottom: '50px', fontSize: '16px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{crm || 'CRM _______________'}</p>
                 {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
@@ -465,7 +468,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
           <RodapeImpresso />
         </div>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -473,7 +476,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
@@ -526,19 +529,19 @@ export function RelatorioPage({ pacientes, setPacientes }) {
 
   const campo = (label, value, setter, rows = 3, placeholder = '') => (
     <div style={{ marginBottom: '14px' }}>
-      <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>{label}</label>
+      <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>{label}</label>
       <textarea
         value={value}
         onChange={(e) => setter(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }}
+        style={{ width: '100%', padding: '8px', fontSize: '16px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }}
       />
     </div>
   );
 
   return (
-    <div>
+    <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -549,13 +552,13 @@ export function RelatorioPage({ pacientes, setPacientes }) {
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <h3 style={{ marginTop: 0 }}>Relatório Médico</h3>
           <div style={{ marginBottom: '14px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
-            <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+            <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ padding: '8px', fontSize: '16px' }} />
           </div>
 
           <div style={{ marginBottom: '14px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Finalidade do Relatório</label>
-            <select value={finalidade} onChange={(e) => setFinalidade(e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Finalidade do Relatório</label>
+            <select value={finalidade} onChange={(e) => setFinalidade(e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '16px' }}>
               <option value="">Selecione ou deixe em branco</option>
               <option value="Perícia médica">Perícia médica</option>
               <option value="Encaminhamento médico">Encaminhamento médico</option>
@@ -579,7 +582,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
             <button onClick={() => window.print()} style={{ padding: '10px 18px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
-            {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+            {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
         </div>
 
@@ -587,46 +590,46 @@ export function RelatorioPage({ pacientes, setPacientes }) {
         <div className="doc-preview">
           <CabecalhoImpresso paciente={paciente} />
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>RELATÓRIO MÉDICO</h2>
-          {finalidade && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 24px' }}>{finalidade}</p>}
+          {finalidade && <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 24px' }}>{finalidade}</p>}
 
           <div style={{ borderTop: '1px solid #ddd', paddingTop: '16px', marginBottom: '16px' }}>
-            <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>Paciente:</strong> {paciente.nome}</p>
-            {paciente.cpf && <p style={{ margin: '0 0 4px', fontSize: '14px' }}><strong>CPF:</strong> {paciente.cpf}</p>}
-            {paciente.nascimento && <p style={{ margin: '0', fontSize: '14px' }}><strong>Data de nascimento:</strong> {formatarData(paciente.nascimento)}</p>}
+            <p style={{ margin: '0 0 4px', fontSize: '16px' }}><strong>Paciente:</strong> {paciente.nome}</p>
+            {paciente.cpf && <p style={{ margin: '0 0 4px', fontSize: '16px' }}><strong>CPF:</strong> {paciente.cpf}</p>}
+            {paciente.nascimento && <p style={{ margin: '0', fontSize: '16px' }}><strong>Data de nascimento:</strong> {formatarData(paciente.nascimento)}</p>}
           </div>
 
           {diagnostico && (
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Diagnóstico</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{diagnostico}</p>
+              <h3 style={{ fontSize: '16px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Diagnóstico</h3>
+              <p style={{ fontSize: '16px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{diagnostico}</p>
             </div>
           )}
 
           {historico && (
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Histórico Clínico e Evolução</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{historico}</p>
+              <h3 style={{ fontSize: '16px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Histórico Clínico e Evolução</h3>
+              <p style={{ fontSize: '16px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{historico}</p>
             </div>
           )}
 
           {exames && (
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Exames Complementares</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{exames}</p>
+              <h3 style={{ fontSize: '16px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Exames Complementares</h3>
+              <p style={{ fontSize: '16px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{exames}</p>
             </div>
           )}
 
           {conduta && (
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conduta Terapêutica Atual</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{conduta}</p>
+              <h3 style={{ fontSize: '16px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conduta Terapêutica Atual</h3>
+              <p style={{ fontSize: '16px', lineHeight: '1.7', margin: 0, whiteSpace: 'pre-wrap' }}>{conduta}</p>
             </div>
           )}
 
           {conclusao && (
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '14px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conclusão e Parecer Médico</h3>
-              <p style={{ fontSize: '14px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{conclusao}</p>
+              <h3 style={{ fontSize: '16px', textTransform: 'uppercase', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 8px' }}>Conclusão e Parecer Médico</h3>
+              <p style={{ fontSize: '16px', lineHeight: '1.7', margin: 0, textAlign: 'justify', whiteSpace: 'pre-wrap' }}>{conclusao}</p>
             </div>
           )}
 
@@ -635,11 +638,11 @@ export function RelatorioPage({ pacientes, setPacientes }) {
           )}
 
           <div style={{ marginTop: '50px', textAlign: 'right' }}>
-            <p style={{ marginBottom: '50px', fontSize: '14px' }}>{dataFormatada}</p>
+            <p style={{ marginBottom: '50px', fontSize: '16px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: '0', fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{crm || 'CRM _______________'}</p>
                 {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
@@ -647,7 +650,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
           <RodapeImpresso />
         </div>
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -678,57 +681,59 @@ export function ImprimirAtendimentoPage() {
     { label: 'Tabagismo',    valor: paciente.tabagismo },
     { label: 'Etilismo',     valor: paciente.etilismo },
   ].filter(c => c.valor && c.valor !== 'Não' && c.valor !== '');
+  const temComorbidades = comorbidades.length > 0 || !!paciente.outrasComorbidades;
 
   return (
     <div>
       {/* Barra de ações — oculta na impressão */}
       <div className="no-print" style={{ padding: '12px 24px', backgroundColor: '#f3f4f6', borderBottom: '1px solid #ddd', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
+        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
           🖨️ Imprimir
         </button>
-        <button onClick={() => window.close()} style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '14px' }}>
+        <button onClick={() => window.close()} style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}>
           Fechar
         </button>
-        <span style={{ fontSize: '13px', color: '#555' }}>
+        <span style={{ fontSize: '16px', color: '#555' }}>
           {paciente.nome} — {registro.data} às {registro.hora}
         </span>
       </div>
 
       {/* Documento */}
-      <div className="doc-preview" style={{ maxWidth: '800px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '14px', lineHeight: '1.6' }}>
+      <div className="doc-preview" style={{ maxWidth: '800px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '16px', lineHeight: '1.6' }}>
         <CabecalhoImpresso paciente={paciente} />
 
         {/* Título e data */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <h2 style={{ margin: 0, fontSize: '16px', letterSpacing: '2px', textTransform: 'uppercase' }}>
+          <h2 style={{ margin: 0, fontSize: '18px', letterSpacing: '2px', textTransform: 'uppercase' }}>
             {registro.retificacaoDe ? 'Retificação de Registro' : 'Registro de Atendimento'}
           </h2>
-          <span style={{ fontSize: '13px', color: '#555' }}>{registro.data} às {registro.hora}</span>
+          <span style={{ fontSize: '16px', color: '#555' }}>{registro.data} às {registro.hora}</span>
         </div>
-        <p style={{ margin: '0 0 20px', fontSize: '12px', color: registro.status === 'Rascunho' ? '#b45309' : '#555' }}>
+        <p style={{ margin: '0 0 20px', fontSize: '16px', color: registro.status === 'Rascunho' ? '#b45309' : '#555' }}>
           {registro.status === 'Rascunho' ? '⚠ Rascunho — ainda não assinado' : '🔒 Assinado'}
         </p>
         {registro.retificacaoDe && registro.motivoRetificacao && (
-          <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 10px' }}>
+          <p style={{ margin: '0 0 20px', fontSize: '16px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 10px' }}>
             <strong>Motivo da retificação:</strong> {registro.motivoRetificacao}
           </p>
         )}
 
         {/* Antecedentes médicos */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
+          <h3 style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
             Antecedentes Médicos
           </h3>
           {comorbidades.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
               {comorbidades.map(c => (
-                <span key={c.label} style={{ padding: '3px 12px', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>
+                <span key={c.label} style={{ padding: '3px 12px', backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
                   {c.label}{c.valor !== 'Sim' ? `: ${c.valor}` : ''}
                 </span>
               ))}
             </div>
           )}
-          {!comorbidades.length && <p style={{ color: '#999', margin: '0 0 8px' }}>Sem comorbidades registradas.</p>}
+          {!temComorbidades && <p style={{ color: '#999', margin: '0 0 8px' }}>Sem comorbidades registradas.</p>}
+          {paciente.outrasComorbidades && <p style={{ margin: '4px 0' }}><strong>Outras comorbidades:</strong> {paciente.outrasComorbidades}</p>}
           {paciente.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {paciente.cirurgias}</p>}
           {paciente.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {paciente.medicamentosUso}</p>}
           {paciente.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {paciente.alergias}</p>}
@@ -736,7 +741,7 @@ export function ImprimirAtendimentoPage() {
 
         {/* História clínica */}
         <div style={{ marginBottom: '50px' }}>
-          <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
+          <h3 style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #ddd', paddingBottom: '6px', margin: '0 0 12px', color: '#333' }}>
             {registro.tipo === 'Consulta' ? 'História Clínica' : registro.titulo}
           </h3>
           <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: '1.9', textAlign: 'justify' }}>{registro.conteudo}</p>
@@ -744,13 +749,13 @@ export function ImprimirAtendimentoPage() {
 
         {/* Assinatura */}
         <div style={{ marginTop: '50px', textAlign: 'right' }}>
-          <p style={{ marginBottom: '50px', fontSize: '13px' }}>{registro.data}</p>
+          <p style={{ marginBottom: '50px', fontSize: '16px' }}>{registro.data}</p>
           <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
             <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
               {registro.assinadoPorNome ? (
                 <>
-                  <p style={{ margin: 0, fontWeight: 'bold', fontSize: '13px' }}>{registro.assinadoPorNome}</p>
-                  {registro.assinadoPorRegistro && <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{registro.assinadoPorRegistro}</p>}
+                  <p style={{ margin: 0, fontWeight: 'bold', fontSize: '16px' }}>{registro.assinadoPorNome}</p>
+                  {registro.assinadoPorRegistro && <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{registro.assinadoPorRegistro}</p>}
                   {registro.assinadoEm && (
                     <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#888' }}>
                       Assinado em {new Date(registro.assinadoEm).toLocaleString('pt-BR')}
@@ -758,7 +763,7 @@ export function ImprimirAtendimentoPage() {
                   )}
                 </>
               ) : (
-                <p style={{ margin: 0, fontSize: '13px' }}>Assinatura e carimbo do profissional</p>
+                <p style={{ margin: 0, fontSize: '16px' }}>Assinatura e carimbo do profissional</p>
               )}
             </div>
           </div>
@@ -791,7 +796,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { paciente } = usePacienteAtual(pacientes);
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataExame, setDataExame]         = React.useState(hojeISO);
@@ -820,21 +825,14 @@ export function LaudoPage({ pacientes, setPacientes }) {
       titulo: `Laudo — ${nomeExame || 'Exame'}`,
       conteudo,
     };
-    try {
-      const salvoDb = await comTimeout(registrosService.criar(registro, paciente.id, user?.id));
-      setPacientes(pacientes.map(p =>
-        p.id === paciente.id ? { ...p, registros: [salvoDb, ...(p.registros || [])] } : p
-      ));
-      setSalvo(true);
-    } catch (err) {
-      toast.error('Erro ao salvar: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
+    const resultado = await salvarRegistroComFallback({ registro, paciente, userId: user?.id, setPacientes });
+    setSalvando(false);
+    if (resultado.ok) setSalvo(true);
+    else toast.error(resultado.error.message);
   };
 
   return (
-    <div>
+    <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -844,31 +842,31 @@ export function LaudoPage({ pacientes, setPacientes }) {
       <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <h3 style={{ marginTop: 0 }}>Laudo — {paciente.nome}</h3>
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data do exame</label>
-          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data do exame</label>
+          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '16px' }} />
         </div>
 
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tipo de exame</label>
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Tipo de exame</label>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <select value={tipoExame} onChange={e => setTipoExame(e.target.value)} style={{ padding: '8px', fontSize: '14px', flex: '1', minWidth: '200px' }}>
+            <select value={tipoExame} onChange={e => setTipoExame(e.target.value)} style={{ padding: '8px', fontSize: '16px', flex: '1', minWidth: '200px' }}>
               <option value="">Selecione o exame...</option>
               {TIPOS_EXAME.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             {tipoExame === 'Outro' && (
-              <input value={tipoOutro} onChange={e => setTipoOutro(e.target.value)} placeholder="Descreva o exame" style={{ padding: '8px', fontSize: '14px', flex: '2', minWidth: '200px' }} />
+              <input value={tipoOutro} onChange={e => setTipoOutro(e.target.value)} placeholder="Descreva o exame" style={{ padding: '8px', fontSize: '16px', flex: '2', minWidth: '200px' }} />
             )}
           </div>
         </div>
 
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Achados / Descrição</label>
-          <textarea value={achados} onChange={e => setAchados(e.target.value)} rows={7} placeholder="Descreva os achados do exame..." style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Achados / Descrição</label>
+          <textarea value={achados} onChange={e => setAchados(e.target.value)} rows={7} placeholder="Descreva os achados do exame..." style={{ width: '100%', padding: '8px', fontSize: '16px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Conclusão / Impressão diagnóstica</label>
-          <textarea value={conclusao} onChange={e => setConclusao(e.target.value)} rows={4} placeholder="Conclusão do laudo..." style={{ width: '100%', padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Conclusão / Impressão diagnóstica</label>
+          <textarea value={conclusao} onChange={e => setConclusao(e.target.value)} rows={4} placeholder="Conclusão do laudo..." style={{ width: '100%', padding: '8px', fontSize: '16px', borderRadius: '4px', border: '1px solid #d1d5db', resize: 'vertical' }} />
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -878,7 +876,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
           <button onClick={() => window.print()} disabled={!achados && !conclusao} style={{ padding: '10px 18px', backgroundColor: !achados && !conclusao ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             🖨️ Imprimir
           </button>
-          {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
+          {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
         </div>
       </div>
 
@@ -886,23 +884,23 @@ export function LaudoPage({ pacientes, setPacientes }) {
       <div className="doc-preview">
         <CabecalhoImpresso paciente={paciente} />
         <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>LAUDO</h2>
-        {nomeExame && <p style={{ textAlign: 'center', color: '#555', fontSize: '14px', margin: '0 0 20px' }}>{nomeExame}</p>}
+        {nomeExame && <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 20px' }}>{nomeExame}</p>}
 
-        <div style={{ borderTop: '1px solid #ddd', paddingTop: '14px', marginBottom: '14px', fontSize: '13px' }}>
+        <div style={{ borderTop: '1px solid #ddd', paddingTop: '14px', marginBottom: '14px', fontSize: '16px' }}>
           <span><strong>Data do exame:</strong> {dataFormatada}</span>
         </div>
 
         {achados && (
           <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Achados</h3>
-            <p style={{ fontSize: '14px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{achados}</p>
+            <h3 style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Achados</h3>
+            <p style={{ fontSize: '16px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{achados}</p>
           </div>
         )}
 
         {conclusao && (
           <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Conclusão</h3>
-            <p style={{ fontSize: '14px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{conclusao}</p>
+            <h3 style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid #eee', paddingBottom: '4px', margin: '0 0 10px' }}>Conclusão</h3>
+            <p style={{ fontSize: '16px', lineHeight: '1.9', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>{conclusao}</p>
           </div>
         )}
 
@@ -911,18 +909,18 @@ export function LaudoPage({ pacientes, setPacientes }) {
         )}
 
         <div style={{ marginTop: '60px', textAlign: 'right' }}>
-          <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
+          <p style={{ marginBottom: '50px', fontSize: '16px' }}>{dataFormatada}</p>
           <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
             <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
               <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+              <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{crm || 'CRM _______________'}</p>
               {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
             </div>
           </div>
         </div>
         <RodapeImpresso />
       </div>
-    </div>
+    </fieldset>
   );
 }
 
@@ -931,7 +929,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   const { user } = useAuth();
   const { clinica } = useClinica();
   const { paciente } = usePacienteAtual(pacientes);
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade } = useMedicoPerfil();
   const [dataExame, setDataExame]         = React.useState(hojeISO);
@@ -982,13 +980,13 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   };
 
   const btnModo = (m, label) => (
-    <button onClick={() => setModo(m)} style={{ padding: '7px 16px', backgroundColor: modo === m ? '#1d4ed8' : '#e5e7eb', color: modo === m ? 'white' : '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: modo === m ? 'bold' : 'normal', fontSize: '13px' }}>
+    <button onClick={() => setModo(m)} style={{ padding: '7px 16px', backgroundColor: modo === m ? '#1d4ed8' : '#e5e7eb', color: modo === m ? 'white' : '#374151', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: modo === m ? 'bold' : 'normal', fontSize: '16px' }}>
       {label}
     </button>
   );
 
   return (
-    <div>
+    <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -998,23 +996,23 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
       <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', margin: '16px 0', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
         <h3 style={{ marginTop: 0 }}>Pedido de Exames — {paciente.nome}</h3>
         <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
-          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '14px' }} />
+          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
+          <input type="date" value={dataExame} onChange={e => setDataExame(e.target.value)} style={{ padding: '8px', fontSize: '16px' }} />
         </div>
 
         {/* Dados TISS (só mostram quando modo TISS) */}
         {modo === 'tiss' && (
           <div className="form-grid-3col" style={{ marginBottom: '14px', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '6px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
               <input value={paciente.convenio || ''} readOnly style={{ width: '100%', padding: '8px', backgroundColor: '#f8fafc' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nº Carteira do Beneficiário</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nº Carteira do Beneficiário</label>
               <input value={numeroBenef} onChange={e => setNumeroBenef(e.target.value)} placeholder="000000000000000" style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Validade da Carteira</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Validade da Carteira</label>
               <input type="date" value={validadeCart} onChange={e => setValidadeCart(e.target.value)} style={{ width: '100%', padding: '8px' }} />
             </div>
           </div>
@@ -1023,11 +1021,11 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
         {/* Indicação e CID */}
         <div className="form-grid-3col" style={{ marginBottom: '16px' }}>
           <div style={{ gridColumn: 'span 2' }}>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Indicação clínica</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Indicação clínica</label>
             <input value={indicacao} onChange={e => setIndicacao(e.target.value)} placeholder="Ex: Hipertensão arterial, investigação de dislipidemia..." style={{ width: '100%', padding: '8px' }} />
           </div>
           <div>
-            <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CID</label>
             <input value={cid} onChange={e => setCid(e.target.value)} placeholder="Ex: I10" style={{ width: '100%', padding: '8px' }} />
           </div>
         </div>
@@ -1035,21 +1033,21 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
         {/* Seleção de exames */}
         <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <strong style={{ fontSize: '14px' }}>Selecione os exames</strong>
-            <span style={{ fontSize: '12px', backgroundColor: examesSel.size > 0 ? '#dbeafe' : '#f3f4f6', color: examesSel.size > 0 ? '#1d4ed8' : '#6b7280', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
+            <strong style={{ fontSize: '16px' }}>Selecione os exames</strong>
+            <span style={{ fontSize: '16px', backgroundColor: examesSel.size > 0 ? '#dbeafe' : '#f3f4f6', color: examesSel.size > 0 ? '#1d4ed8' : '#6b7280', padding: '3px 10px', borderRadius: '10px', fontWeight: 'bold' }}>
               {examesSel.size} selecionado(s)
             </span>
           </div>
           {EXAMES_DISPONIVEIS.map(cat => (
             <div key={cat.categoria} style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', borderBottom: '1px solid #f3f4f6', paddingBottom: '4px', marginBottom: '6px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#374151', borderBottom: '1px solid #f3f4f6', paddingBottom: '4px', marginBottom: '6px' }}>
                 {cat.categoria}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                 {cat.exames.map(ex => {
                   const sel = examesSel.has(ex.id);
                   return (
-                    <button key={ex.id} onClick={() => toggle(ex.id)} style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: sel ? '#dbeafe' : '#f9fafb', color: sel ? '#1d4ed8' : '#374151', border: `1px solid ${sel ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '4px', cursor: 'pointer', fontWeight: sel ? '700' : '400' }}>
+                    <button key={ex.id} onClick={() => toggle(ex.id)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: sel ? '#dbeafe' : '#f9fafb', color: sel ? '#1d4ed8' : '#374151', border: `1px solid ${sel ? '#93c5fd' : '#e5e7eb'}`, borderRadius: '4px', cursor: 'pointer', fontWeight: sel ? '700' : '400' }}>
                       {sel ? '✓ ' : ''}{ex.nome}
                     </button>
                   );
@@ -1061,18 +1059,18 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
         {/* Ações */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={examesSel.size === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (examesSel.size === 0 || salvando) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (examesSel.size === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+          <button onClick={salvarNoProntuario} disabled={examesSel.size === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (examesSel.size === 0 || salvando) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (examesSel.size === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', color: '#6b7280' }}>Visualizar como:</span>
+            <span style={{ fontSize: '16px', color: '#6b7280' }}>Visualizar como:</span>
             {btnModo('receituario', '📋 Receituário')}
             {btnModo('tiss', '📄 Guia TISS')}
           </div>
-          <button onClick={() => window.print()} disabled={examesSel.size === 0} style={{ padding: '9px 16px', backgroundColor: examesSel.size === 0 ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: examesSel.size === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+          <button onClick={() => window.print()} disabled={examesSel.size === 0} style={{ padding: '9px 16px', backgroundColor: examesSel.size === 0 ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: examesSel.size === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             🖨️ Imprimir
           </button>
-          {salvo && <span style={{ color: '#28a745', fontSize: '13px', fontWeight: 'bold' }}>✓ Salvo!</span>}
+          {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo!</span>}
         </div>
       </div>
 
@@ -1086,25 +1084,25 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
             ? <p style={{ color: '#bbb', textAlign: 'center', fontStyle: 'italic' }}>Nenhum exame selecionado</p>
             : examsPorCategoria.map(cat => (
               <div key={cat.categoria} style={{ marginBottom: '16px' }}>
-                <p style={{ margin: '0 0 6px', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase', color: '#374151', borderBottom: '1px solid #eee', paddingBottom: '3px' }}>{cat.categoria}</p>
-                {cat.exames.map(e => <p key={e.id} style={{ margin: '3px 0 3px 12px', fontSize: '14px' }}>• {e.nome}</p>)}
+                <p style={{ margin: '0 0 6px', fontWeight: 'bold', fontSize: '16px', textTransform: 'uppercase', color: '#374151', borderBottom: '1px solid #eee', paddingBottom: '3px' }}>{cat.categoria}</p>
+                {cat.exames.map(e => <p key={e.id} style={{ margin: '3px 0 3px 12px', fontSize: '16px' }}>• {e.nome}</p>)}
               </div>
             ))
           }
 
           {(indicacao || cid) && (
-            <div style={{ marginTop: '16px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '13px' }}>
+            <div style={{ marginTop: '16px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '16px' }}>
               {indicacao && <p style={{ margin: '2px 0' }}><strong>Indicação:</strong> {indicacao}</p>}
               {cid && <p style={{ margin: '2px 0' }}><strong>CID:</strong> {cid}</p>}
             </div>
           )}
 
           <div style={{ marginTop: '50px', textAlign: 'right' }}>
-            <p style={{ marginBottom: '50px', fontSize: '13px' }}>{dataFormatada}</p>
+            <p style={{ marginBottom: '50px', fontSize: '16px' }}>{dataFormatada}</p>
             <div style={{ display: 'inline-block', textAlign: 'center', minWidth: '280px' }}>
               <div style={{ borderTop: '1px solid #333', paddingTop: '8px' }}>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>{medico || '_______________________________'}</p>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>{crm || 'CRM _______________'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>{crm || 'CRM _______________'}</p>
                 {especialidade && <p style={{ margin: '3px 0 0', fontSize: '11px', color: '#888' }}>{especialidade}</p>}
               </div>
             </div>
@@ -1122,12 +1120,12 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <LogoClinica size={28} />
                 <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{clinica.nome}</div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{clinica.nome}</div>
                   <div style={{ fontSize: '10px', opacity: 0.85 }}>{clinica.nomeFantasia}</div>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '12px' }}>GUIA DE SOLICITAÇÃO DE EXAME</div>
+                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>GUIA DE SOLICITAÇÃO DE EXAME</div>
                 <div style={{ fontSize: '10px' }}>Padrão TISS — ANS</div>
               </div>
             </div>
@@ -1242,7 +1240,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
           </div>
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -1276,7 +1274,7 @@ export function DocumentoPage({ titulo, pacientes }) {
             width: '100%',
             padding: '12px',
             marginTop: '15px',
-            fontSize: '16px'
+            fontSize: '18px'
           }}
         />
 

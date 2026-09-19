@@ -76,6 +76,9 @@ jobs:
       - name: Verificar proteções P0
         run: npm run db:verify:p0
 
+      - name: Testar idempotência, concorrência e permissões clínicas
+        run: npm run db:test:clinical
+
       - name: Encerrar banco descartável
         if: always()
         run: npx supabase stop --no-backup

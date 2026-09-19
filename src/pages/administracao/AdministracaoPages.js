@@ -36,27 +36,27 @@ export function PainelAdministrativoPage() {
         <Link to="/usuarios" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>👥</div>
           <h3 style={{ margin: '0 0 6px' }}>Usuários</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Criar contas, definir função e bloquear acesso.</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Criar contas, definir função e bloquear acesso.</p>
         </Link>
         <Link to="/auditoria" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>🕵️</div>
           <h3 style={{ margin: '0 0 6px' }}>Auditoria</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Histórico de criação, alteração e exclusão no banco.</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Histórico de criação, alteração e exclusão no banco.</p>
         </Link>
         <Link to="/configuracoes" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏥</div>
           <h3 style={{ margin: '0 0 6px' }}>Configurações da Clínica</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Nome, endereço e telefone usados nos documentos impressos.</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Nome, endereço e telefone usados nos documentos impressos.</p>
         </Link>
         <Link to="/filiais" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>🏢</div>
           <h3 style={{ margin: '0 0 6px' }}>Filiais</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Cadastro de outras unidades, cada uma com sua própria logomarca.</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Cadastro de outras unidades, cada uma com sua própria logomarca.</p>
         </Link>
         <Link to="/financeiro/config" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>💳</div>
           <h3 style={{ margin: '0 0 6px' }}>Convênios e Procedimentos</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>Cadastro de convênios, procedimentos e valores praticados por cada um.</p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Cadastro de convênios, procedimentos e valores praticados por cada um.</p>
         </Link>
       </div>
     </div>
@@ -139,16 +139,16 @@ export function UsuariosPage() {
         <form onSubmit={criarUsuario}>
           <div className="form-grid-3col" style={{ marginBottom: '14px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome completo *</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Nome completo *</label>
               <input required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Dr. João Silva" style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>E-mail *</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>E-mail *</label>
               <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="usuario@clinica.com" style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Função</label>
-              <select value={form.funcao} onChange={e => setForm({ ...form, funcao: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Função</label>
+              <select value={form.funcao} onChange={e => setForm({ ...form, funcao: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '16px' }}>
                 <option>Médico</option>
                 <option>Enfermeiro(a)</option>
                 <option>Recepcionista</option>
@@ -157,37 +157,37 @@ export function UsuariosPage() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '8px' }} />
-                <select value={form.uf} onChange={e => setForm({ ...form, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '8px', fontSize: '14px' }}>
+                <select value={form.uf} onChange={e => setForm({ ...form, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '8px', fontSize: '16px' }}>
                   <option value="">UF</option>
                   {UFS.map(uf => <option key={uf}>{uf}</option>)}
                 </select>
               </div>
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sexo</label>
-              <select value={form.sexo} onChange={e => setForm({ ...form, sexo: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '14px' }}>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sexo</label>
+              <select value={form.sexo} onChange={e => setForm({ ...form, sexo: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '16px' }}>
                 <option value="">Não informado</option>
                 <option value="Masculino">Masculino</option>
                 <option value="Feminino">Feminino</option>
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data de nascimento</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data de nascimento</label>
               <input type="date" value={form.nascimento} onChange={e => setForm({ ...form, nascimento: e.target.value })} style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CPF</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CPF</label>
               <input value={form.cpf} onChange={e => setForm({ ...form, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Especialidade médica</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Especialidade médica</label>
               <input value={form.especialidade} onChange={e => setForm({ ...form, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '8px' }} />
             </div>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Área de atuação</label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Área de atuação</label>
               <input value={form.area_atuacao} onChange={e => setForm({ ...form, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '8px' }} />
             </div>
             <datalist id="lista-especialidades">
@@ -198,7 +198,7 @@ export function UsuariosPage() {
           </div>
 
           {msg && (
-            <div style={{ padding: '10px 14px', borderRadius: '6px', marginBottom: '12px', backgroundColor: msg.tipo === 'sucesso' ? '#d1fae5' : '#fee2e2', color: msg.tipo === 'sucesso' ? '#065f46' : '#991b1b', fontSize: '14px' }}>
+            <div style={{ padding: '10px 14px', borderRadius: '6px', marginBottom: '12px', backgroundColor: msg.tipo === 'sucesso' ? '#d1fae5' : '#fee2e2', color: msg.tipo === 'sucesso' ? '#065f46' : '#991b1b', fontSize: '16px' }}>
               {msg.tipo === 'sucesso' ? '✓ ' : '⚠ '}{msg.texto}
             </div>
           )}
@@ -206,7 +206,7 @@ export function UsuariosPage() {
           <button type="submit" disabled={salvando} style={{ padding: '10px 20px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
             {salvando ? 'Enviando convite...' : '+ Convidar Usuário'}
           </button>
-          <p style={{ margin: '10px 0 0', fontSize: '12px', color: '#6b7280' }}>
+          <p style={{ margin: '10px 0 0', fontSize: '16px', color: '#6b7280' }}>
             O usuário receberá um link de uso único e criará a própria senha. O administrador nunca terá acesso a ela.
           </p>
         </form>
@@ -231,23 +231,23 @@ export function UsuariosPage() {
                       {funcaoIcone[u.funcao] || '👤'}
                     </div>
                     <div style={{ flex: 1, minWidth: '160px' }}>
-                      <div style={{ fontWeight: '600', fontSize: '15px', color: '#111' }}>{u.nome}</div>
-                      <div style={{ fontSize: '13px', color: '#6b7280' }}>{u.email}</div>
-                      <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '16px', color: '#111' }}>{u.nome}</div>
+                      <div style={{ fontSize: '16px', color: '#6b7280' }}>{u.email}</div>
+                      <div style={{ fontSize: '16px', color: '#9ca3af', marginTop: '2px' }}>
                         {u.funcao}{u.crm ? ` · CRM ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                      <span style={{ fontSize: '12px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
+                      <span style={{ fontSize: '16px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button
                         onClick={() => alterarStatus(u.id, u.ativo)}
                         disabled={processandoStatusId === u.id}
-                        style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoStatusId === u.id ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: processandoStatusId === u.id ? 0.6 : 1 }}
+                        style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: u.ativo ? '#fee2e2' : '#d1fae5', color: u.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoStatusId === u.id ? 'not-allowed' : 'pointer', fontWeight: '500', opacity: processandoStatusId === u.id ? 0.6 : 1 }}
                       >
                         {processandoStatusId === u.id ? '...' : (u.ativo ? 'Desativar' : 'Reativar')}
                       </button>
@@ -260,12 +260,12 @@ export function UsuariosPage() {
                   <div style={{ padding: '14px 16px', backgroundColor: '#f0f9ff', borderTop: '2px solid #0369a1' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nome</label>
-                        <input value={editando.nome} onChange={e => setEditando({ ...editando, nome: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Nome</label>
+                        <input value={editando.nome} onChange={e => setEditando({ ...editando, nome: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Função</label>
-                        <select value={editando.funcao} onChange={e => setEditando({ ...editando, funcao: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }}>
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Função</label>
+                        <select value={editando.funcao} onChange={e => setEditando({ ...editando, funcao: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '16px' }}>
                           <option>Médico</option>
                           <option>Enfermeiro(a)</option>
                           <option>Recepcionista</option>
@@ -274,10 +274,10 @@ export function UsuariosPage() {
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
                         <div style={{ display: 'flex', gap: '4px' }}>
-                          <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '7px', fontSize: '13px' }} />
-                          <select value={editando.uf || ''} onChange={e => setEditando({ ...editando, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '7px', fontSize: '13px' }}>
+                          <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '7px', fontSize: '16px' }} />
+                          <select value={editando.uf || ''} onChange={e => setEditando({ ...editando, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '7px', fontSize: '16px' }}>
                             <option value="">UF</option>
                             {UFS.map(uf => <option key={uf}>{uf}</option>)}
                           </select>
@@ -286,40 +286,40 @@ export function UsuariosPage() {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Sexo</label>
-                        <select value={editando.sexo || ''} onChange={e => setEditando({ ...editando, sexo: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }}>
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Sexo</label>
+                        <select value={editando.sexo || ''} onChange={e => setEditando({ ...editando, sexo: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '16px' }}>
                           <option value="">Não informado</option>
                           <option value="Masculino">Masculino</option>
                           <option value="Feminino">Feminino</option>
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Data de nascimento</label>
-                        <input type="date" value={editando.nascimento || ''} onChange={e => setEditando({ ...editando, nascimento: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Data de nascimento</label>
+                        <input type="date" value={editando.nascimento || ''} onChange={e => setEditando({ ...editando, nascimento: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CPF</label>
-                        <input value={editando.cpf || ''} onChange={e => setEditando({ ...editando, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CPF</label>
+                        <input value={editando.cpf || ''} onChange={e => setEditando({ ...editando, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Especialidade médica</label>
-                        <input value={editando.especialidade || ''} onChange={e => setEditando({ ...editando, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Especialidade médica</label>
+                        <input value={editando.especialidade || ''} onChange={e => setEditando({ ...editando, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                       <div>
-                        <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Área de atuação</label>
-                        <input value={editando.area_atuacao || ''} onChange={e => setEditando({ ...editando, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '7px', fontSize: '13px' }} />
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Área de atuação</label>
+                        <input value={editando.area_atuacao || ''} onChange={e => setEditando({ ...editando, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+                    <div style={{ fontSize: '16px', color: '#6b7280', marginBottom: '10px' }}>
                       E-mail: <strong>{u.email}</strong> <span style={{ color: '#9ca3af' }}>(não editável)</span>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={salvarEdicao} disabled={salvandoEdicaoUsuario} style={{ padding: '7px 16px', backgroundColor: salvandoEdicaoUsuario ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicaoUsuario ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                      <button onClick={salvarEdicao} disabled={salvandoEdicaoUsuario} style={{ padding: '7px 16px', backgroundColor: salvandoEdicaoUsuario ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicaoUsuario ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
                         {salvandoEdicaoUsuario ? 'Salvando...' : '✓ Salvar'}
                       </button>
-                      <button onClick={() => setEditando(null)} style={{ padding: '7px 12px', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                      <button onClick={() => setEditando(null)} style={{ padding: '7px 12px', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}>
                         Cancelar
                       </button>
                     </div>
@@ -382,7 +382,7 @@ export function AuditoriaPage() {
       <Link to="/painel">← Voltar ao Painel</Link>
 
       <h2 style={{ marginTop: '20px' }}>Auditoria</h2>
-      <p style={{ color: '#666', fontSize: '14px', marginTop: '-8px' }}>
+      <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>
         Últimos {eventos.length} eventos de criação, alteração e exclusão registrados no banco.
       </p>
 
@@ -409,12 +409,12 @@ export function AuditoriaPage() {
                 onClick={() => setExpandido(expandido === ev.id ? null : ev.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', cursor: 'pointer' }}
               >
-                <div style={{ fontSize: '14px' }}>
+                <div style={{ fontSize: '16px' }}>
                   <strong>{ROTULOS_OPERACAO[ev.operacao] || ev.operacao}</strong>
                   {' — '}{ROTULOS_TABELA[ev.tabela] || ev.tabela}
                   <span style={{ color: '#888' }}> · {nomeUsuario(ev.alterado_por)}</span>
                 </div>
-                <div style={{ fontSize: '13px', color: '#666' }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>
                   {new Date(ev.alterado_em).toLocaleString('pt-BR')}
                 </div>
               </div>
@@ -422,13 +422,13 @@ export function AuditoriaPage() {
               {expandido === ev.id && (
                 <div style={{ marginTop: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div>
-                    <strong style={{ fontSize: '12px', color: '#888' }}>ANTES</strong>
+                    <strong style={{ fontSize: '16px', color: '#888' }}>ANTES</strong>
                     <pre style={{ fontSize: '11px', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '4px', overflow: 'auto', maxHeight: '260px' }}>
                       {ev.dados_antigos ? JSON.stringify(ev.dados_antigos, null, 2) : '—'}
                     </pre>
                   </div>
                   <div>
-                    <strong style={{ fontSize: '12px', color: '#888' }}>DEPOIS</strong>
+                    <strong style={{ fontSize: '16px', color: '#888' }}>DEPOIS</strong>
                     <pre style={{ fontSize: '11px', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '4px', overflow: 'auto', maxHeight: '260px' }}>
                       {ev.dados_novos ? JSON.stringify(ev.dados_novos, null, 2) : '—'}
                     </pre>
@@ -448,8 +448,8 @@ export function AuditoriaPage() {
 function CampoVisualizacao({ label, valor }) {
   return (
     <div style={{ marginBottom: '12px' }}>
-      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>{label}</div>
-      <div style={{ fontSize: '14px', color: valor ? '#111827' : '#9ca3af' }}>{valor || 'Não informado'}</div>
+      <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#374151' }}>{label}</div>
+      <div style={{ fontSize: '16px', color: valor ? '#111827' : '#9ca3af' }}>{valor || 'Não informado'}</div>
     </div>
   );
 }
@@ -527,7 +527,7 @@ export function ConfiguracoesClinicaPage() {
   };
 
   const campoStyle = { width: '100%', padding: '8px' };
-  const labelStyle = { fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
+  const labelStyle = { fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
 
   return (
     <div>
@@ -537,21 +537,21 @@ export function ConfiguracoesClinicaPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '20px' }}>
         <h2 style={{ margin: 0 }}>Configurações da Clínica</h2>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Link to="/filiais" style={{ padding: '8px 14px', fontSize: '13px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>
+          <Link to="/filiais" style={{ padding: '8px 14px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>
             🏢 Filiais
           </Link>
           {!editando && (
-            <button onClick={() => setEditando(true)} style={{ padding: '8px 14px', fontSize: '13px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button onClick={() => setEditando(true)} style={{ padding: '8px 14px', fontSize: '16px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
               ✏️ Editar
             </button>
           )}
         </div>
       </div>
-      <p style={{ color: '#9ca3af', fontSize: '12px', marginTop: '4px' }}>
+      <p style={{ color: '#9ca3af', fontSize: '16px', marginTop: '4px' }}>
         Toda alteração fica registrada na Auditoria, com data e quem editou.
       </p>
 
-      {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+      {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
 
       <form onSubmit={salvar}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', alignItems: 'start' }}>
@@ -564,14 +564,14 @@ export function ConfiguracoesClinicaPage() {
               <div style={{ width: '220px', height: '220px', borderRadius: '10px', border: '1px solid #e5e7eb', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                 {form.logoUrl
                   ? <img src={form.logoUrl} alt="Logomarca da clínica" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  : <span style={{ fontSize: '13px', color: '#9ca3af' }}>sem logo</span>}
+                  : <span style={{ fontSize: '16px', color: '#9ca3af' }}>sem logo</span>}
               </div>
             </div>
             {editando && (
               <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                <input type="file" accept="image/*" onChange={enviarLogo} disabled={enviandoLogo} style={{ fontSize: '13px' }} />
-                <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#9ca3af' }}>Prefira uma imagem quadrada em boa resolução.</p>
-                {enviandoLogo && <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>Enviando...</p>}
+                <input type="file" accept="image/*" onChange={enviarLogo} disabled={enviandoLogo} style={{ fontSize: '16px' }} />
+                <p style={{ margin: '6px 0 0', fontSize: '16px', color: '#9ca3af' }}>Prefira uma imagem quadrada em boa resolução.</p>
+                {enviandoLogo && <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>Enviando...</p>}
               </div>
             )}
 
@@ -659,7 +659,7 @@ export function ConfiguracoesClinicaPage() {
               </>
             )}
 
-            <div style={{ marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #f3f4f6', fontSize: '12px', color: '#9ca3af' }}>
+            <div style={{ marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #f3f4f6', fontSize: '16px', color: '#9ca3af' }}>
               Esses dados aparecem no cabeçalho e rodapé de receitas, atestados, relatórios, guia TISS e recibos.
             </div>
 
@@ -671,7 +671,7 @@ export function ConfiguracoesClinicaPage() {
                 <button type="button" onClick={cancelarEdicao} style={{ padding: '10px 18px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>
                   Cancelar
                 </button>
-                {salvo && <span style={{ color: '#28a745', fontSize: '14px', fontWeight: 'bold' }}>✓ Salvo!</span>}
+                {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo!</span>}
               </div>
             )}
           </div>
@@ -800,7 +800,7 @@ export function FiliaisPage() {
   };
 
   const campoStyle = { width: '100%', padding: '8px' };
-  const labelStyle = { fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
+  const labelStyle = { fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
 
   return (
     <div>
@@ -816,7 +816,7 @@ export function FiliaisPage() {
         )}
       </div>
 
-      {erro && <p style={{ color: '#dc2626', fontSize: '14px' }}>{erro}</p>}
+      {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
 
       {mostrarForm && (
         <form onSubmit={salvar} style={{ marginTop: '16px' }}>
@@ -829,13 +829,13 @@ export function FiliaisPage() {
                 <div style={{ width: '220px', height: '220px', borderRadius: '10px', border: '1px solid #e5e7eb', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                   {form.logoUrl
                     ? <img src={form.logoUrl} alt="Logomarca da filial" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                    : <span style={{ fontSize: '13px', color: '#9ca3af' }}>sem logo</span>}
+                    : <span style={{ fontSize: '16px', color: '#9ca3af' }}>sem logo</span>}
                 </div>
               </div>
               <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                <input type="file" accept="image/*" onChange={enviarLogo} disabled={enviandoLogo} style={{ fontSize: '13px' }} />
-                <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#9ca3af' }}>Prefira uma imagem quadrada em boa resolução.</p>
-                {enviandoLogo && <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#666' }}>Enviando...</p>}
+                <input type="file" accept="image/*" onChange={enviarLogo} disabled={enviandoLogo} style={{ fontSize: '16px' }} />
+                <p style={{ margin: '6px 0 0', fontSize: '16px', color: '#9ca3af' }}>Prefira uma imagem quadrada em boa resolução.</p>
+                {enviandoLogo && <p style={{ margin: '4px 0 0', fontSize: '16px', color: '#666' }}>Enviando...</p>}
               </div>
 
               <div style={{ marginBottom: '12px' }}>
@@ -926,18 +926,18 @@ export function FiliaisPage() {
               </div>
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <strong>{filial.nome}</strong>{!filial.ativo && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626' }}>(inativa)</span>}
-                <div style={{ fontSize: '13px', color: '#666' }}>
+                <div style={{ fontSize: '16px', color: '#666' }}>
                   {[filial.cidade, filial.telefone].filter(Boolean).join(' · ') || 'Endereço e telefone não informados'}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => editarFilial(filial)} style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
+                <button onClick={() => editarFilial(filial)} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
                   Editar
                 </button>
                 <button
                   onClick={() => alternarAtivo(filial)}
                   disabled={processandoId === filial.id}
-                  style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: filial.ativo ? '#fee2e2' : '#d1fae5', color: filial.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoId === filial.id ? 'not-allowed' : 'pointer' }}
+                  style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: filial.ativo ? '#fee2e2' : '#d1fae5', color: filial.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoId === filial.id ? 'not-allowed' : 'pointer' }}
                 >
                   {filial.ativo ? 'Desativar' : 'Reativar'}
                 </button>

@@ -23,6 +23,10 @@ BEGIN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê pacientes.alergias diretamente';
   END IF;
 
+  IF has_column_privilege('authenticated', 'public.pacientes', 'outras_comorbidades', 'SELECT') THEN
+    RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê pacientes.outras_comorbidades diretamente';
+  END IF;
+
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';
   END IF;
@@ -82,6 +86,10 @@ BEGIN
 
   IF position('NEW.alergias := OLD.alergias' IN funcao_pacientes) = 0 THEN
     RAISE EXCEPTION 'Hotfix da Recepção ausente: dados clínicos não são preservados';
+  END IF;
+
+  IF position('NEW.outras_comorbidades := OLD.outras_comorbidades' IN funcao_pacientes) = 0 THEN
+    RAISE EXCEPTION 'Proteção de outras comorbidades ausente para perfis administrativos';
   END IF;
 
   IF position('NEW.created_by := auth.uid()' IN funcao_consultas) = 0

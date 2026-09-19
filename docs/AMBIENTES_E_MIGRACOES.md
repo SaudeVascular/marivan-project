@@ -36,6 +36,7 @@ npm run db:start
 npm run db:reset
 npm run db:lint
 npm run db:verify:p0
+npm run db:test:clinical
 ```
 
 `db:reset` é destrutivo somente para o banco local. Ele recria o banco usando
@@ -170,6 +171,12 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
   da aba;
 - sessões abertas encerram após 15 minutos sem atividade e limpam rascunhos
   clínicos locais;
+- rascunhos temporários usam `sessionStorage`, separados por usuário e paciente;
+  recarregar a mesma aba preserva o texto, mas fechar a aba ou sair da conta
+  encerra sua persistência normal. Para guardar o atendimento no servidor,
+  clique em **Salvar rascunho** antes de sair;
+- ao trocar de usuário ou função, o frontend descarta o cache de pacientes e
+  histórico da sessão anterior e ignora respostas atrasadas daquela sessão;
 - senhas novas exigem ao menos 12 caracteres, maiúscula, minúscula e número;
 - depois de uma recuperação de senha, todos os refresh tokens anteriores são
   revogados e o usuário precisa autenticar novamente;
@@ -182,3 +189,17 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
 - usuários autenticados podem trocar a senha em `/minha-conta`, após confirmar
   a senha atual; todas as sessões são revogadas depois da alteração;
 - alteração segura de senha está habilitada na configuração de Auth.
+
+## Gravações clínicas e migração 28
+
+A partir de `20260919000028_gravacao_clinica_segura.sql`, o frontend grava
+registros pela RPC `salvar_registro_clinico`, com identificador de operação
+e versão esperada. A migração deve preceder a publicação do frontend novo.
+Clientes antigos em cache precisam recarregar: a escrita direta em consultas
+é bloqueada para não contornar o controle de concorrência.
+
+Use `npm run db:test:clinical` apenas no banco local descartável. O padrão é
+`127.0.0.1:54322`; para outro PostgreSQL descartável local, configure
+`CLINICAL_TEST_DATABASE_URL`. O script recusa hosts remotos, cria dados
+fictícios e verifica transações concorrentes com processos `psql` separados.
+O escopo e os limites estão em [ESTABILIZACAO.md](./ESTABILIZACAO.md).

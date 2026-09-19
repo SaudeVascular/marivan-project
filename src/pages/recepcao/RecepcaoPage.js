@@ -1,3 +1,4 @@
+import { dataLocalISO } from '../../utils/formatters';
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Header } from '../../components/common/Layout';
@@ -14,7 +15,7 @@ export function RecepcaoPage({ pacientes }) {
   const toast = useToast();
   const { user } = useAuth();
 
-  const hojeISO = new Date().toISOString().split('T')[0];
+  const hojeISO = dataLocalISO();
   const [dataSelecionada, setDataSelecionada] = React.useState(hojeISO);
   const [agendamentos, setAgendamentos] = React.useState([]);
   const [usuarios, setUsuarios] = React.useState([]);
@@ -57,7 +58,7 @@ export function RecepcaoPage({ pacientes }) {
   const mudarDia = (delta) => {
     const d = new Date(dataSelecionada + 'T12:00:00');
     d.setDate(d.getDate() + delta);
-    setDataSelecionada(d.toISOString().split('T')[0]);
+    setDataSelecionada(dataLocalISO(d));
   };
 
   return (
@@ -108,11 +109,11 @@ export function RecepcaoPage({ pacientes }) {
               <div key={ag.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <strong>{ag.hora}</strong> — {paciente?.nome || '(paciente não encontrado)'}
-                  <div style={{ fontSize: '12px', color: '#666' }}>
+                  <div style={{ fontSize: '16px', color: '#666' }}>
                     {nomeProfissional(ag.medicoId)} · {ag.duracaoMin} min
                     {ag.observacoes && <> · {ag.observacoes}</>}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#444', marginTop: '2px' }}>
+                  <div style={{ fontSize: '16px', color: '#444', marginTop: '2px' }}>
                     {paciente?.telefone
                       ? <a href={`tel:${paciente.telefone.replace(/\D/g, '')}`} style={{ color: '#0369a1', textDecoration: 'none' }}>📞 {paciente.telefone}</a>
                       : <span>📞 sem telefone cadastrado</span>}
@@ -120,7 +121,7 @@ export function RecepcaoPage({ pacientes }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                  <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
                     {ag.status}
                   </span>
                   {(PROXIMOS_STATUS[ag.status] || []).map(s => (
@@ -128,7 +129,7 @@ export function RecepcaoPage({ pacientes }) {
                       key={s}
                       onClick={() => mudarStatus(ag, s)}
                       disabled={processandoId === ag.id}
-                      style={{ padding: '5px 10px', fontSize: '12px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
+                      style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === ag.id ? 'not-allowed' : 'pointer', opacity: processandoId === ag.id ? 0.5 : 1 }}
                     >
                       {s}
                     </button>

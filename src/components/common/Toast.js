@@ -51,7 +51,7 @@ export function ToastProvider({ children }) {
               role="alert"
               style={{
                 backgroundColor: cor.bg, border: `1px solid ${cor.border}`, color: cor.text,
-                borderRadius: '6px', padding: '10px 12px', fontSize: '13px', lineHeight: 1.4,
+                borderRadius: '6px', padding: '10px 12px', fontSize: '16px', lineHeight: 1.4,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)', display: 'flex', gap: '8px', alignItems: 'flex-start',
               }}
             >
@@ -60,7 +60,7 @@ export function ToastProvider({ children }) {
               <button
                 onClick={() => remover(id)}
                 aria-label="Fechar"
-                style={{ background: 'none', border: 'none', color: cor.text, cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0 }}
+                style={{ background: 'none', border: 'none', color: cor.text, cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}
               >
                 ✕
               </button>

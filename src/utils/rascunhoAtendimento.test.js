@@ -1,76 +1,62 @@
 import {
   RASCUNHO_ATENDIMENTO_PREFIX,
   limparRascunhosAtendimento,
+  limparRascunhosLegados,
   lerRascunhoAtendimento,
   salvarRascunhoAtendimento,
 } from './rascunhoAtendimento';
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
 });
 
-test('recupera o rascunho salvo pelo prefixo do paciente', () => {
-  const pacienteId = 'paciente-123';
-  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + pacienteId, 'texto digitado e não salvo ainda');
-
-  expect(localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + pacienteId)).toBe('texto digitado e não salvo ainda');
+test('recupera texto e vínculo com o servidor somente para o mesmo usuário e paciente', () => {
+  salvarRascunhoAtendimento('paciente-1', 'texto clínico', 'registro-1', 'medico-1', 4);
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-1')).toEqual({ texto: 'texto clínico', registroId: 'registro-1', versao: 4 });
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-2')).toEqual({ texto: '', registroId: null, versao: null });
+  expect(lerRascunhoAtendimento('paciente-2', 'medico-1')).toEqual({ texto: '', registroId: null, versao: null });
+  expect(localStorage.length).toBe(0);
 });
 
-test('logout limpa todos os rascunhos clínicos, de qualquer paciente', () => {
-  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1', 'rascunho 1');
-  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-2', 'rascunho 2');
-
-  limparRascunhosAtendimento();
-
-  expect(localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1')).toBeNull();
-  expect(localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-2')).toBeNull();
+test('rascunhos de usuários diferentes não sobrescrevem uns aos outros', () => {
+  salvarRascunhoAtendimento('paciente-1', 'texto A', null, 'medico-1');
+  salvarRascunhoAtendimento('paciente-1', 'texto B', null, 'medico-2');
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-1').texto).toBe('texto A');
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-2').texto).toBe('texto B');
 });
 
-test('logout NÃO mexe em preferências de UI que não são dado clínico (ex: tamanho do painel)', () => {
+test('limpa rascunhos de ambas as versões preservando preferências e token', () => {
+  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1', 'legado');
   localStorage.setItem('pep_split_prontuario', '60');
-  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1', 'rascunho clínico');
-
+  sessionStorage.setItem('token-teste', 'sessao');
+  sessionStorage.setItem('pep_operacao_clinica_teste', 'pedido clínico pendente');
+  salvarRascunhoAtendimento('paciente-1', 'texto', null, 'medico-1');
   limparRascunhosAtendimento();
-
-  expect(localStorage.getItem('pep_split_prontuario')).toBe('60');
   expect(localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1')).toBeNull();
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-1').texto).toBe('');
+  expect(localStorage.getItem('pep_split_prontuario')).toBe('60');
+  expect(sessionStorage.getItem('token-teste')).toBe('sessao');
+  expect(sessionStorage.getItem('pep_operacao_clinica_teste')).toBeNull();
 });
 
-test('salva e recupera o texto junto do id do registro já persistido no servidor', () => {
-  const pacienteId = 'paciente-123';
-  salvarRascunhoAtendimento(pacienteId, 'texto do atendimento', 'registro-abc');
-
-  expect(lerRascunhoAtendimento(pacienteId)).toEqual({
-    texto: 'texto do atendimento',
-    registroId: 'registro-abc',
-  });
+test('descarta formato legado sem autor e preserva rascunho da sessão no reload', () => {
+  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + 'paciente-1', 'autor desconhecido');
+  salvarRascunhoAtendimento('paciente-1', 'autor conhecido', null, 'medico-1');
+  limparRascunhosLegados();
+  expect(localStorage.length).toBe(0);
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-1').texto).toBe('autor conhecido');
 });
 
-test('sem id de registro salvo, volta registroId null (rascunho só local)', () => {
-  const pacienteId = 'paciente-123';
-  salvarRascunhoAtendimento(pacienteId, 'texto ainda não salvo no prontuário');
-
-  expect(lerRascunhoAtendimento(pacienteId)).toEqual({
-    texto: 'texto ainda não salvo no prontuário',
-    registroId: null,
-  });
+test('texto vazio remove apenas o rascunho correspondente', () => {
+  salvarRascunhoAtendimento('paciente-1', 'texto', null, 'medico-1');
+  salvarRascunhoAtendimento('paciente-2', 'outro texto', null, 'medico-1');
+  salvarRascunhoAtendimento('paciente-1', '', null, 'medico-1');
+  expect(lerRascunhoAtendimento('paciente-1', 'medico-1').texto).toBe('');
+  expect(lerRascunhoAtendimento('paciente-2', 'medico-1').texto).toBe('outro texto');
 });
 
-test('lê rascunho no formato antigo (texto puro, sem registroId) sem quebrar', () => {
-  const pacienteId = 'paciente-123';
-  localStorage.setItem(RASCUNHO_ATENDIMENTO_PREFIX + pacienteId, 'rascunho salvo antes desta mudança');
-
-  expect(lerRascunhoAtendimento(pacienteId)).toEqual({
-    texto: 'rascunho salvo antes desta mudança',
-    registroId: null,
-  });
-});
-
-test('texto vazio remove o rascunho salvo em vez de gravar uma entrada vazia', () => {
-  const pacienteId = 'paciente-123';
-  salvarRascunhoAtendimento(pacienteId, 'texto qualquer', 'registro-abc');
-  salvarRascunhoAtendimento(pacienteId, '', null);
-
-  expect(localStorage.getItem(RASCUNHO_ATENDIMENTO_PREFIX + pacienteId)).toBeNull();
-  expect(lerRascunhoAtendimento(pacienteId)).toEqual({ texto: '', registroId: null });
+test('recusa escrita sem identidade autenticada', () => {
+  expect(() => salvarRascunhoAtendimento('paciente-1', 'texto')).toThrow();
+  expect(sessionStorage.length).toBe(0);
 });

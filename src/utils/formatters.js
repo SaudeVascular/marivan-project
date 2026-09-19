@@ -1,5 +1,9 @@
 // Formatadores de dados para o prontuário eletrônico
 
+// Use a mesma data local do horário exibido, inclusive após 21h no Brasil.
+export const dataLocalISO = (data = new Date()) =>
+  `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
+
 // Datas como 'YYYY-MM-DD' não têm hora, então `new Date(date)` as interpreta
 // como meia-noite UTC — em horário de Brasília isso pode voltar um dia.
 // Construindo a data a partir dos componentes locais evitamos esse desvio.

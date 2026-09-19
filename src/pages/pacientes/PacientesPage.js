@@ -6,7 +6,7 @@ import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
 import { conveniosService } from '../../services/convenios.service';
 import { comTimeout } from '../../utils/comTimeout';
-import { formatarData, formatarCPF } from '../../utils/mascaras';
+import { dataBrasileiraParaISO, formatarData, formatarDataDigitada, formatarCPF } from '../../utils/mascaras';
 import { FUNCOES_CLINICAS } from '../../constants/roles';
 
 export function PacientesPage({ pacientes, setPacientes }) {
@@ -42,6 +42,13 @@ export function PacientesPage({ pacientes, setPacientes }) {
     return `${n.slice(0, 5)}-${n.slice(5)}`;
   };
 
+  const formatarEnderecoCompleto = (paciente) => {
+    const enderecoNumero = [paciente.endereco, paciente.numero ? `nº ${paciente.numero}` : '']
+      .filter(Boolean)
+      .join(', ');
+    return [enderecoNumero, paciente.complemento].filter(Boolean).join(' — ') || '-';
+  };
+
   const buscarCEP = async (cepFormatado) => {
     const cepLimpo = cepFormatado.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -65,7 +72,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
     convenioId: '',
     cep: '',
     endereco: '',
-    alergias: ''
+    numero: '',
+    complemento: ''
   });
 
   const pacientesFiltrados = pacientes
@@ -87,14 +95,23 @@ export function PacientesPage({ pacientes, setPacientes }) {
       convenioId: '',
       cep: '',
       endereco: '',
-      alergias: ''
+      numero: '',
+      complemento: ''
     });
     setPacienteEditando(null);
   };
 
   const salvarPaciente = async () => {
+    const nascimentoISO = novoPaciente.nascimento
+      ? dataBrasileiraParaISO(novoPaciente.nascimento)
+      : '';
+    if (novoPaciente.nascimento && !nascimentoISO) {
+      toast.warning('Informe uma data de nascimento válida no formato DD/MM/AAAA.');
+      return;
+    }
+
     const temIdentificador =
-      novoPaciente.cpf || novoPaciente.nascimento || novoPaciente.nomeMae;
+      novoPaciente.cpf || nascimentoISO || novoPaciente.nomeMae;
 
     if (!novoPaciente.nome || !temIdentificador || !novoPaciente.telefone) {
       toast.warning('Preencha o nome do paciente, telefone e pelo menos um destes dados: CPF, data de nascimento ou nome da mãe.');
@@ -114,19 +131,25 @@ export function PacientesPage({ pacientes, setPacientes }) {
 
     setSalvandoPaciente(true);
     try {
+      const dadosParaSalvar = { ...novoPaciente, nascimento: nascimentoISO };
       if (pacienteEditando) {
-        const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, novoPaciente));
+        const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, dadosParaSalvar));
         setPacientes(pacientes.map((p) =>
           p.id === pacienteEditando.id ? { ...p, ...atualizado, registros: p.registros } : p
         ));
       } else {
-        const criado = await comTimeout(pacientesService.criar(novoPaciente));
+        const criado = await comTimeout(pacientesService.criar(dadosParaSalvar));
         setPacientes([...pacientes, { ...criado, registros: [] }]);
       }
       limparFormulario();
     } catch (err) {
       if (err.code === '23505') {
         toast.warning('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
+      } else if (
+        err.code === 'PGRST204'
+        && /'(numero|complemento)' column of 'pacientes'/.test(err.message || '')
+      ) {
+        toast.error('O banco de dados ainda não recebeu a atualização dos campos Número e Complemento. Aplique a migração pendente e tente novamente.');
       } else {
         toast.error('Erro ao salvar paciente: ' + err.message);
       }
@@ -157,13 +180,14 @@ export function PacientesPage({ pacientes, setPacientes }) {
     setNovoPaciente({
       nome: paciente.nome || '',
       cpf: paciente.cpf || '',
-      nascimento: paciente.nascimento || '',
+      nascimento: paciente.nascimento ? formatarData(paciente.nascimento) : '',
       nomeMae: paciente.nomeMae || '',
       telefone: paciente.telefone || '',
       convenioId: paciente.convenioId || '',
       cep: paciente.cep || '',
       endereco: paciente.endereco || '',
-      alergias: paciente.alergias || ''
+      numero: paciente.numero || '',
+      complemento: paciente.complemento || ''
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -192,75 +216,113 @@ export function PacientesPage({ pacientes, setPacientes }) {
         </h3>
 
         <div className="form-grid-paciente">
-          <input
-            placeholder="Nome completo *"
-            value={novoPaciente.nome}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, nome: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 4' }}
-          />
-          <input
-            placeholder="CPF"
-            value={novoPaciente.cpf}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPF(e.target.value) })}
-            style={{ padding: '10px', gridColumn: 'span 2' }}
-          />
-          <input
-            type="date"
-            value={novoPaciente.nascimento}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, nascimento: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 2' }}
-          />
-          <input
-            placeholder="Nome da mãe"
-            value={novoPaciente.nomeMae}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, nomeMae: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 4' }}
-          />
-          <input
-            placeholder="(XX) XXXXX-XXXX"
-            value={novoPaciente.telefone}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, telefone: formatarTelefone(e.target.value) })}
-            style={{ padding: '10px', gridColumn: 'span 2' }}
-          />
-          <input
-            placeholder="CEP"
-            value={novoPaciente.cep}
-            onChange={(e) => {
-              const cepFormatado = formatarCEP(e.target.value);
-              setNovoPaciente(prev => ({ ...prev, cep: cepFormatado }));
-              buscarCEP(cepFormatado);
-            }}
-            style={{ padding: '10px', gridColumn: 'span 2' }}
-            maxLength={9}
-          />
-          <input
-            placeholder="Endereço (preenchido pelo CEP)"
-            value={novoPaciente.endereco}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, endereco: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 6' }}
-          />
-          <select
-            value={novoPaciente.convenioId}
-            onChange={(e) => setNovoPaciente({ ...novoPaciente, convenioId: e.target.value })}
-            style={{ padding: '10px', gridColumn: 'span 2' }}
-          >
-            <option value="">Convênio...</option>
-            {convenios.filter(c => c.ativo).map(c => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </select>
-          {podeVerProntuario && (
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 4' }}>
+            <span>Nome completo *</span>
             <input
-              placeholder="Alergias"
-              value={novoPaciente.alergias}
-              onChange={(e) => setNovoPaciente({ ...novoPaciente, alergias: e.target.value })}
-              style={{ padding: '10px', gridColumn: 'span 9' }}
+              placeholder="Digite o nome completo"
+              value={novoPaciente.nome}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, nome: e.target.value })}
             />
-          )}
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 2' }}>
+            <span>CPF</span>
+            <input
+              inputMode="numeric"
+              placeholder="000.000.000-00"
+              value={novoPaciente.cpf}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, cpf: formatarCPF(e.target.value) })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 2' }}>
+            <span>Data de nascimento</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="bday"
+              placeholder="DD/MM/AAAA"
+              aria-label="Data de nascimento"
+              value={novoPaciente.nascimento}
+              onChange={(e) => {
+                const removendo = e.target.value.length < novoPaciente.nascimento.length;
+                setNovoPaciente({
+                  ...novoPaciente,
+                  nascimento: formatarDataDigitada(e.target.value, !removendo),
+                });
+              }}
+              maxLength={10}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 4' }}>
+            <span>Nome da mãe</span>
+            <input
+              placeholder="Digite o nome da mãe"
+              value={novoPaciente.nomeMae}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, nomeMae: e.target.value })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 2' }}>
+            <span>Telefone *</span>
+            <input
+              inputMode="tel"
+              placeholder="(XX) XXXXX-XXXX"
+              value={novoPaciente.telefone}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, telefone: formatarTelefone(e.target.value) })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 2' }}>
+            <span>CEP</span>
+            <input
+              inputMode="numeric"
+              placeholder="00000-000"
+              value={novoPaciente.cep}
+              onChange={(e) => {
+                const cepFormatado = formatarCEP(e.target.value);
+                setNovoPaciente(prev => ({ ...prev, cep: cepFormatado }));
+                buscarCEP(cepFormatado);
+              }}
+              maxLength={9}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 5' }}>
+            <span>Endereço</span>
+            <input
+              placeholder="Preenchido automaticamente pelo CEP"
+              value={novoPaciente.endereco}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, endereco: e.target.value })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 1' }}>
+            <span>Número</span>
+            <input
+              placeholder="123"
+              value={novoPaciente.numero}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, numero: e.target.value })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 2' }}>
+            <span>Complemento</span>
+            <input
+              placeholder="Apto, bloco..."
+              value={novoPaciente.complemento}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, complemento: e.target.value })}
+            />
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 12' }}>
+            <span>Convênio</span>
+            <select
+              value={novoPaciente.convenioId}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, convenioId: e.target.value })}
+            >
+              <option value="">Selecione um convênio</option>
+              {convenios.filter(c => c.ativo).map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </label>
           <button
             onClick={salvarPaciente}
             disabled={salvandoPaciente}
-            style={{ padding: '12px', backgroundColor: salvandoPaciente ? '#9ca3af' : (pacienteEditando ? '#f59e0b' : '#28a745'), color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoPaciente ? 'not-allowed' : 'pointer', gridColumn: 'span 3' }}
+            style={{ padding: '12px', backgroundColor: salvandoPaciente ? '#9ca3af' : (pacienteEditando ? '#f59e0b' : '#28a745'), color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoPaciente ? 'not-allowed' : 'pointer', gridColumn: 'span 12' }}
           >
             {salvandoPaciente ? 'Salvando...' : (pacienteEditando ? 'Salvar Alterações' : 'Salvar Paciente')}
           </button>
@@ -274,7 +336,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
           )}
         </div>
 
-        <p style={{ fontSize: '13px', color: '#666', margin: '10px 0 0' }}>
+        <p className="field-note" style={{ color: '#666', margin: '10px 0 0' }}>
           * Obrigatório: nome, telefone e pelo menos CPF, data de nascimento ou nome da mãe.
         </p>
       </div>
@@ -307,7 +369,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
               padding: '12px',
               borderRadius: '6px',
               border: '1px solid #ccc',
-              fontSize: '16px',
+              fontSize: '18px',
               boxSizing: 'border-box'
             }}
           />
@@ -330,22 +392,22 @@ export function PacientesPage({ pacientes, setPacientes }) {
                 <div className="paciente-row-1">
                   <div>
                     <strong>{paciente.nome}</strong>
-                    <div style={{ fontSize: '13px', color: '#666' }}>
+                    <div style={{ fontSize: '16px', color: '#666' }}>
                       Mãe: {paciente.nomeMae || 'Não informado'}
                     </div>
                   </div>
 
-                  <div style={{ fontSize: '13px' }}>
+                  <div style={{ fontSize: '16px' }}>
                     <strong>CPF:</strong><br />
                     {paciente.cpf || '-'}
                   </div>
 
-                  <div style={{ fontSize: '13px' }}>
+                  <div style={{ fontSize: '16px' }}>
                     <strong>Nasc.:</strong><br />
                     {formatarData(paciente.nascimento)}
                   </div>
 
-                  <div style={{ fontSize: '13px' }}>
+                  <div style={{ fontSize: '16px' }}>
                     <strong>Tel.:</strong><br />
                     {paciente.telefone || '-'}
                   </div>
@@ -357,14 +419,9 @@ export function PacientesPage({ pacientes, setPacientes }) {
                   </div>
 
                   <div>
-                    <strong>Endereço:</strong> {paciente.endereco || '-'}
+                    <strong>Endereço:</strong> {formatarEnderecoCompleto(paciente)}
                   </div>
 
-                  {podeVerProntuario && (
-                    <div>
-                      <strong>Alergias:</strong> {paciente.alergias || '-'}
-                    </div>
-                  )}
                 </div>
 
                 <div style={{ marginTop: '8px' }}>

@@ -1,11 +1,11 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
-import { registrosService } from '../../services/registros.service';
+import { registrosService, aplicarRegistroConfirmado, confirmarRecebimentoRegistro } from '../../services/registros.service';
 import { pacientesService } from '../../services/pacientes.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
@@ -22,19 +22,30 @@ const TIPOS_HISTORICO = [
   'Prescrição', 'Atestado', 'Relatório', 'Pedido de Exames', 'Laudo',
 ];
 
-export function ProntuarioPage({ pacientes, setPacientes }) {
+export function ProntuarioPage(props) {
+  const { id } = useParams();
+  return <ProntuarioConteudo key={id} {...props} />;
+}
+
+function ProntuarioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcao } = useAuth();
   const enfermeiro = funcao === 'Enfermeiro(a)';
   const { paciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [rascunhoRegistroId, setRascunhoRegistroId] = React.useState(null);
+  const [rascunhoVersao, setRascunhoVersao] = React.useState(null);
+  const [conflito, setConflito] = React.useState(null);
   const [registroAberto, setRegistroAberto] = React.useState(null);
   const [registroEditando, setRegistroEditando] = React.useState(null);
   const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
   const [editandoClinicos, setEditandoClinicos] = React.useState(false);
   const [salvandoAtendimento, setSalvandoAtendimento] = React.useState(false);
   const [erroAtendimento, setErroAtendimento] = React.useState('');
+  const [erroStorage, setErroStorage] = React.useState('');
+  const [erroHistorico, setErroHistorico] = React.useState(false);
+  const [carregandoHistorico, setCarregandoHistorico] = React.useState(true);
+  const [tentativaHistorico, setTentativaHistorico] = React.useState(0);
   const [salvandoClinicos, setSalvandoClinicos] = React.useState(false);
   const [erroClinicos, setErroClinicos] = React.useState('');
   const [processandoAssinaturaId, setProcessandoAssinaturaId] = React.useState(null);
@@ -49,8 +60,27 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   });
   const isDragging = React.useRef(false);
   const splitContainerRef = React.useRef(null);
+  const cabecalhosFixosRef = React.useRef(null);
+  const [alturaCabecalhosFixos, setAlturaCabecalhosFixos] = React.useState(0);
   const [rascunhoRestaurado, setRascunhoRestaurado] = React.useState(false);
   const [dadosClinicosAbertos, setDadosClinicosAbertos] = React.useState(true);
+
+  React.useLayoutEffect(() => {
+    const elemento = cabecalhosFixosRef.current;
+    if (!elemento) return undefined;
+
+    const medir = () => setAlturaCabecalhosFixos(Math.ceil(elemento.getBoundingClientRect().height));
+    medir();
+
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    observer?.observe(elemento);
+    window.addEventListener('resize', medir);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', medir);
+    };
+  }, [dadosClinicosAbertos, editandoClinicos, erroClinicos]);
 
   React.useEffect(() => {
     usuariosService.listar().then(setUsuarios).catch(() => {});
@@ -63,21 +93,44 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   // paciente anterior vazaria para a tela do paciente novo.
   React.useEffect(() => {
     if (!paciente?.id) return;
-    const { texto, registroId } = lerRascunhoAtendimento(paciente.id);
-    setAtendimentoAtual(texto);
-    setRascunhoRestaurado(!!texto);
-    setRascunhoRegistroId(registroId);
+    setErroStorage('');
+    try {
+      const { texto, registroId, versao } = lerRascunhoAtendimento(paciente.id, user?.id);
+      setAtendimentoAtual(texto);
+      setRascunhoRestaurado(!!texto);
+      setRascunhoRegistroId(registroId);
+      setRascunhoVersao(versao);
+    } catch {
+      setAtendimentoAtual('');
+      setRascunhoRestaurado(false);
+      setRascunhoRegistroId(null);
+      setRascunhoVersao(null);
+      setErroStorage('Não foi possível recuperar o rascunho temporário desta aba. Confira os rascunhos salvos no histórico.');
+    }
     setErroAtendimento('');
     setErroClinicos('');
     setEditandoClinicos(false);
-  }, [paciente?.id]);
+  }, [paciente?.id, user?.id]);
 
   const salvarRascunhoLocal = React.useCallback((texto) => {
     if (!paciente?.id) return false;
-    return salvarRascunhoAtendimento(paciente.id, texto, rascunhoRegistroId);
-  }, [paciente?.id, rascunhoRegistroId]);
+    return salvarRascunhoAtendimento(paciente.id, texto, rascunhoRegistroId, user?.id, rascunhoVersao);
+  }, [paciente?.id, rascunhoRegistroId, user?.id, rascunhoVersao]);
 
-  const { isSaving: salvandoRascunhoLocal, lastSaved: rascunhoSalvoEm } = useAutoSave(atendimentoAtual, salvarRascunhoLocal, 1500);
+  const { isSaving: salvandoRascunhoLocal, lastSaved: rascunhoSalvoEm, error: erroRascunhoLocal } = useAutoSave(atendimentoAtual, salvarRascunhoLocal, 1500);
+
+  const persistirRascunhoLocal = (texto, registroId, versao = null) => {
+    try {
+      salvarRascunhoAtendimento(paciente.id, texto, registroId, user?.id, versao);
+      setErroStorage('');
+      return true;
+    } catch {
+      // Uma falha local não pode transformar uma gravação já confirmada
+      // no servidor em "erro ao salvar" e induzir uma segunda inserção.
+      setErroStorage('Não foi possível atualizar o rascunho temporário desta aba. Confira o registro salvo no histórico.');
+      return false;
+    }
+  };
 
   React.useEffect(() => {
     const onMove = (clientX) => {
@@ -103,7 +156,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   const [clinicos, setClinicos] = React.useState({
     has: '', dm: '', dac: '', dislipidemia: '',
     tabagismo: '', etilismo: '', cirurgias: '',
-    medicamentosUso: '', alergias: ''
+    medicamentosUso: '', alergias: '', outrasComorbidades: ''
   });
 
   // Só deve reinicializar quando o paciente EXIBIDO muda (paciente.id), não
@@ -128,17 +181,26 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
         cirurgias: p.cirurgias || '',
         medicamentosUso: p.medicamentosUso || '',
         alergias: p.alergias || '',
+        outrasComorbidades: p.outrasComorbidades || '',
       });
-      // Carrega histórico do banco se ainda não carregou
-      if (!p.registros?.length) {
-        registrosService.listarPorPaciente(p.id)
-          .then(registros => setPacientes(prev =>
-            prev.map(pp => pp.id === p.id ? { ...pp, registros } : pp)
-          ))
-          .catch(err => console.error('Erro ao carregar histórico:', err));
-      }
     }
   }, [paciente?.id, setPacientes]);
+
+  React.useEffect(() => {
+    if (!paciente?.id) return;
+    const pacienteId = paciente.id;
+    let cancelado = false;
+    setCarregandoHistorico(true);
+    setErroHistorico(false);
+    comTimeout(registrosService.listarPorPaciente(pacienteId))
+      .then(registros => {
+        if (!cancelado) setPacientes(prev => prev.map(p =>
+          p.id === pacienteId ? { ...p, registros } : p));
+      })
+      .catch(() => { if (!cancelado) setErroHistorico(true); })
+      .finally(() => { if (!cancelado) setCarregandoHistorico(false); });
+    return () => { cancelado = true; };
+  }, [paciente?.id, setPacientes, tentativaHistorico]);
 
   if (!paciente) return <p>Paciente não encontrado.</p>;
 
@@ -158,98 +220,105 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   const tituloAtendimento = enfermeiro ? 'Evolução de enfermagem' : 'Atendimento médico';
   const tipoAtendimento = enfermeiro ? 'Evolução de Enfermagem' : 'Consulta';
 
-  const aplicarRegistroSalvo = (salvo) => {
-    setPacientes(prev => prev.map(p => {
-      if (p.id !== paciente.id) return p;
-      const jaExiste = (p.registros || []).some(r => r.id === salvo.id);
-      return {
-        ...p,
-        registros: jaExiste
-          ? p.registros.map(r => r.id === salvo.id ? salvo : r)
-          : [salvo, ...(p.registros || [])],
-      };
-    }));
-  };
+  const aplicarRegistroSalvo = salvo => aplicarRegistroConfirmado(setPacientes, paciente.id, salvo);
 
-  const salvarComoRascunho = async () => {
-    if (!atendimentoAtual.trim()) return;
+  const gravarAtendimento = async (assinar) => {
+    if (!atendimentoAtual.trim() || salvandoAtendimento) return;
     setSalvandoAtendimento(true);
     setErroAtendimento('');
     try {
-      let salvo;
-      if (rascunhoRegistroId) {
-        salvo = await comTimeout(registrosService.atualizar(rascunhoRegistroId, {
-          titulo: tituloAtendimento,
-          conteudo: atendimentoAtual,
-        }));
+      const salvo = rascunhoRegistroId
+        ? await registrosService.atualizar(rascunhoRegistroId, {
+          titulo: tituloAtendimento, conteudo: atendimentoAtual,
+          pacienteId: paciente.id, versao: rascunhoVersao,
+        }, user?.id, assinar)
+        : await registrosService.criar({
+          tipo: tipoAtendimento, titulo: tituloAtendimento, conteudo: atendimentoAtual,
+          status: assinar ? 'Assinado' : 'Rascunho',
+        }, paciente.id, user?.id);
+      aplicarRegistroSalvo(salvo);
+      setConflito(null);
+      if (salvo.status === 'Assinado') {
+        if (persistirRascunhoLocal('', null)) confirmarRecebimentoRegistro(salvo);
+        setAtendimentoAtual('');
+        setRascunhoRegistroId(null);
+        setRascunhoVersao(null);
+        setRascunhoRestaurado(false);
       } else {
-        salvo = await comTimeout(registrosService.criar({
-          tipo: tipoAtendimento,
-          titulo: tituloAtendimento,
-          conteudo: atendimentoAtual,
-          status: 'Rascunho',
-        }, paciente.id, user?.id));
         setRascunhoRegistroId(salvo.id);
-        // Grava o vínculo já aqui (não esperar o debounce do autosave) —
-        // se a aba fechar ou a página remontar nos próximos segundos,
-        // o próximo "Salvar rascunho" precisa achar este id e atualizar
-        // a mesma linha, não criar uma duplicata.
-        salvarRascunhoAtendimento(paciente.id, atendimentoAtual, salvo.id);
+        setRascunhoVersao(salvo.versao);
+        if (persistirRascunhoLocal(atendimentoAtual, salvo.id, salvo.versao)) confirmarRecebimentoRegistro(salvo);
       }
-      aplicarRegistroSalvo(salvo);
     } catch (err) {
-      console.error('Erro ao salvar rascunho:', err);
-      setErroAtendimento('Não foi possível gravar o rascunho no servidor. O texto continua aqui (e salvo neste navegador) — confira sua conexão e tente de novo.');
+      if (err.registroConfirmado) {
+        const confirmado = err.registroConfirmado;
+        aplicarRegistroSalvo(confirmado);
+        setRascunhoRegistroId(confirmado.id);
+        setRascunhoVersao(confirmado.versao);
+        if (persistirRascunhoLocal(atendimentoAtual, confirmado.id, confirmado.versao)) confirmarRecebimentoRegistro(confirmado);
+        setConflito({ alvo: 'atendimento', id: confirmado.id, atual: confirmado });
+      } else if (err.code === 'P4090' || (rascunhoRegistroId && !rascunhoVersao)) {
+        setConflito({ alvo: 'atendimento', id: rascunhoRegistroId });
+      }
+      setErroAtendimento(err.message);
+    } finally {
+      setSalvandoAtendimento(false);
     }
-    setSalvandoAtendimento(false);
   };
 
-  const finalizarEAssinar = async () => {
-    if (!atendimentoAtual.trim()) return;
-    setSalvandoAtendimento(true);
-    setErroAtendimento('');
+  const salvarComoRascunho = () => gravarAtendimento(false);
+  const finalizarEAssinar = () => gravarAtendimento(true);
+
+  const carregarVersaoAtual = async () => {
     try {
-      let salvo;
-      if (rascunhoRegistroId) {
-        await comTimeout(registrosService.atualizar(rascunhoRegistroId, {
-          titulo: tituloAtendimento,
-          conteudo: atendimentoAtual,
-        }));
-        salvo = await comTimeout(registrosService.assinar(rascunhoRegistroId));
-      } else {
-        salvo = await comTimeout(registrosService.criar({
-          tipo: tipoAtendimento,
-          titulo: tituloAtendimento,
-          conteudo: atendimentoAtual,
-          status: 'Assinado',
-        }, paciente.id, user?.id));
-      }
-      aplicarRegistroSalvo(salvo);
-      // Só limpa o rascunho e o texto quando o servidor confirma de verdade
-      // — nunca antes, senão um erro de rede apaga o atendimento sem salvar.
-      salvarRascunhoAtendimento(paciente.id, '', null);
-      setRascunhoRestaurado(false);
-      setAtendimentoAtual('');
-      setRascunhoRegistroId(null);
-    } catch (err) {
-      console.error('Erro ao assinar atendimento:', err);
-      setErroAtendimento('Não foi possível finalizar e assinar no servidor. O texto continua aqui (e salvo como rascunho neste navegador) — confira sua conexão e tente de novo.');
+      const atual = await comTimeout(registrosService.buscarPorId(conflito.id));
+      setConflito(anterior => anterior?.id === atual.id ? { ...anterior, atual } : anterior);
+      aplicarRegistroSalvo(atual);
+    } catch {
+      toast.error('Não foi possível consultar a versão atual. Seu texto continua preservado.');
     }
-    setSalvandoAtendimento(false);
+  };
+
+  const resolverConflito = (manterTexto) => {
+    if (conflito.alvo === 'edicao' && registroEditando?.id !== conflito.id) {
+      setConflito(null);
+      return;
+    }
+    const atual = conflito.atual;
+    if (conflito.alvo === 'atendimento') {
+      const texto = manterTexto ? atendimentoAtual : atual.conteudo;
+      setAtendimentoAtual(texto);
+      setRascunhoRegistroId(atual.id);
+      setRascunhoVersao(atual.versao);
+      persistirRascunhoLocal(texto, atual.id, atual.versao);
+      setErroAtendimento('');
+    } else {
+      setRegistroEditando(anterior => ({
+        ...anterior, versao: atual.versao, pacienteId: atual.pacienteId,
+        ...(manterTexto ? {} : { titulo: atual.titulo, conteudo: atual.conteudo }),
+      }));
+    }
+    setConflito(null);
   };
 
   const assinarRegistroDoHistorico = async (registro) => {
+    if (registro.id === rascunhoRegistroId && atendimentoAtual !== registro.conteudo) {
+      toast.warning('Há alterações no atendimento atual. Use Finalizar e Assinar para salvar e assinar esse texto.');
+      return;
+    }
     setProcessandoAssinaturaId(registro.id);
     try {
-      const atualizado = await comTimeout(registrosService.assinar(registro.id));
+      const atualizado = await registrosService.assinar(registro, user?.id);
       aplicarRegistroSalvo(atualizado);
       if (registro.id === rascunhoRegistroId) {
         setRascunhoRegistroId(null);
+        setRascunhoVersao(null);
         setAtendimentoAtual('');
-        salvarRascunhoAtendimento(paciente.id, '', null);
-      }
+        if (persistirRascunhoLocal('', null)) confirmarRecebimentoRegistro(atualizado);
+      } else confirmarRecebimentoRegistro(atualizado);
     } catch (err) {
       toast.error('Erro ao assinar: ' + err.message);
+      setTentativaHistorico(valor => valor + 1);
     } finally {
       setProcessandoAssinaturaId(null);
     }
@@ -259,10 +328,13 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
     if (!registroEditando) return;
     setSalvandoEdicao(true);
     try {
-      const atualizado = await comTimeout(registrosService.atualizar(registroEditando.id, registroEditando));
+      const atualizado = await registrosService.atualizar(registroEditando.id, registroEditando, user?.id);
       aplicarRegistroSalvo(atualizado);
+      confirmarRecebimentoRegistro(atualizado);
       setRegistroEditando(null);
     } catch (err) {
+      if (err.registroConfirmado) { aplicarRegistroSalvo(err.registroConfirmado); confirmarRecebimentoRegistro(err.registroConfirmado); }
+      if (err.code === 'P4090' || err.registroConfirmado) setConflito({ alvo: 'edicao', id: registroEditando.id, atual: err.registroConfirmado });
       toast.error('Erro ao salvar edição: ' + err.message);
     } finally {
       setSalvandoEdicao(false);
@@ -280,14 +352,16 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
     }
     setSalvandoRetificacao(true);
     try {
-      const nova = await comTimeout(registrosService.retificar(
+      const nova = await registrosService.retificar(
         { original: retificando.original, conteudo: retificando.conteudo, motivo: retificando.motivo.trim() },
         paciente.id,
         user?.id,
-      ));
+      );
       aplicarRegistroSalvo(nova);
+      confirmarRecebimentoRegistro(nova);
       setRetificando(null);
     } catch (err) {
+      if (err.registroConfirmado) { aplicarRegistroSalvo(err.registroConfirmado); confirmarRecebimentoRegistro(err.registroConfirmado); }
       toast.error('Erro ao salvar retificação: ' + err.message);
     } finally {
       setSalvandoRetificacao(false);
@@ -303,7 +377,15 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
       setEditandoClinicos(false);
     } catch (err) {
       console.error('Erro ao salvar dados clínicos:', err);
-      setErroClinicos('Não foi possível salvar os dados clínicos. Revise a conexão e tente novamente.');
+      const detalhe = `${err?.code || ''} ${err?.message || ''} ${err?.details || ''}`.toLowerCase();
+      const bancoDesatualizado = detalhe.includes('outras_comorbidades')
+        || detalhe.includes('schema cache')
+        || detalhe.includes('pgrst204');
+      setErroClinicos(
+        bancoDesatualizado
+          ? 'O banco de homologação ainda não recebeu a atualização do campo “Outras comorbidades”. Aplique a migração pendente e tente novamente.'
+          : `Não foi possível salvar os dados clínicos. ${err?.message || 'Tente novamente em instantes.'}`
+      );
     }
     setSalvandoClinicos(false);
   };
@@ -346,43 +428,56 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
   });
 
   return (
-    <div>
-      <Header />
-      <Link to="/pacientes">← Voltar para pacientes</Link>
-      {/* Faixa horizontal fixa: dados do paciente + dados clínicos */}
-      <div className="prontuario-topo" style={{ ...painelStyle, marginTop: '16px', display: 'flex', gap: '0', alignItems: 'flex-start', flexWrap: 'wrap', position: 'sticky', top: '0', zIndex: 15, boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
+    <div className="prontuario-page">
+      <div ref={cabecalhosFixosRef} className="prontuario-cabecalhos-fixos">
+        <Header />
+        {/* Faixa horizontal fixa: dados do paciente + dados clínicos */}
+        <div className="prontuario-topo" style={{ ...painelStyle, padding: '8px 12px', marginTop: '0', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}>
 
         {/* Identificação do paciente */}
-        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingRight: '20px', flexShrink: 0, flexWrap: 'wrap' }}>
-          <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>👤</div>
-          <div>
-            <h2 style={{ margin: '0 0 6px', fontSize: '20px' }}>{paciente.nome}</h2>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '12px', color: '#555' }}>
-              <span><strong>CPF:</strong> {paciente.cpf || '-'}</span>
-              <span><strong>Nasc.:</strong> {formatarData(paciente.nascimento)}{paciente.nascimento ? ` (${calcularIdade(paciente.nascimento)} anos)` : ''}</span>
-              <span><strong>Tel.:</strong> {paciente.telefone || '-'}</span>
-              <span><strong>Convênio:</strong> {paciente.convenio || '-'}</span>
+        <section className="prontuario-identificacao" aria-label="Identificação do paciente">
+          <div className="prontuario-avatar" aria-hidden="true">👤</div>
+          <div className="prontuario-identificacao-conteudo">
+            <div className="prontuario-identidade-principal">
+              <div className="prontuario-secao-label">Paciente</div>
+              <h2 className="prontuario-paciente-nome">{paciente.nome}</h2>
+            </div>
+            <div className="prontuario-cadastro-grid">
+              <div className="prontuario-dado-cadastro">
+                <span>CPF</span>
+                <strong>{paciente.cpf || '-'}</strong>
+              </div>
+              <div className="prontuario-dado-cadastro">
+                <span>Nascimento</span>
+                <strong>{formatarData(paciente.nascimento)}{paciente.nascimento ? ` · ${calcularIdade(paciente.nascimento)} anos` : ''}</strong>
+              </div>
+              <div className="prontuario-dado-cadastro">
+                <span>Telefone</span>
+                <strong>{paciente.telefone || '-'}</strong>
+              </div>
+              <div className="prontuario-dado-cadastro">
+                <span>Convênio</span>
+                <strong>{paciente.convenio || '-'}</strong>
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Separador vertical */}
-        <div className="prontuario-separador-vertical" style={{ width: '1px', alignSelf: 'stretch', backgroundColor: '#e5e7eb', margin: '0 20px', flexShrink: 0 }} />
+        </section>
 
         {/* Dados clínicos */}
-        <div style={{ flex: 1, minWidth: '260px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <section className="prontuario-clinicos" aria-label="Comorbidades e dados clínicos">
+          <div className="prontuario-clinicos-cabecalho">
             <button
               onClick={() => setDadosClinicosAbertos(v => !v)}
               className="prontuario-toggle-clinicos"
-              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              aria-expanded={dadosClinicosAbertos}
             >
-              <strong style={{ fontSize: '13px' }}>Dados Clínicos</strong>
-              <span style={{ fontSize: '11px', color: '#888' }}>{dadosClinicosAbertos ? '▲' : '▼'}</span>
+              <span className="prontuario-secao-label">Dados clínicos e comorbidades</span>
+              <span className="prontuario-toggle-icone" aria-hidden="true">{dadosClinicosAbertos ? '▲' : '▼'}</span>
             </button>
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div className="prontuario-clinicos-acoes">
               {editandoClinicos && (
-                <button onClick={() => { setEditandoClinicos(false); setErroClinicos(''); }} style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
+                <button onClick={() => { setEditandoClinicos(false); setErroClinicos(''); }} style={{ padding: '3px 7px', fontSize: '12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
               )}
               <button
                 onClick={() => {
@@ -391,7 +486,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                   setErroClinicos('');
                 }}
                 disabled={salvandoClinicos}
-                style={{ padding: '2px 8px', fontSize: '11px', backgroundColor: salvandoClinicos ? '#9ca3af' : (editandoClinicos ? '#28a745' : '#6c757d'), color: 'white', border: 'none', borderRadius: '3px', cursor: salvandoClinicos ? 'not-allowed' : 'pointer' }}
+                style={{ padding: '3px 9px', fontSize: '12px', backgroundColor: salvandoClinicos ? '#9ca3af' : (editandoClinicos ? '#28a745' : '#6c757d'), color: 'white', border: 'none', borderRadius: '3px', cursor: salvandoClinicos ? 'not-allowed' : 'pointer' }}
               >
                 {salvandoClinicos ? 'Salvando...' : (editandoClinicos ? '✓ Salvar' : 'Editar')}
               </button>
@@ -399,7 +494,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
           </div>
 
           {erroClinicos && (
-            <div style={{ fontSize: '12px', color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '6px 8px', marginBottom: '8px' }}>
+            <div style={{ fontSize: '15px', color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '6px 8px', marginBottom: '8px' }}>
               ⚠ {erroClinicos}
             </div>
           )}
@@ -407,7 +502,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
           {dadosClinicosAbertos && (
             <>
               {/* Botões de comorbidade — clique para ativar/desativar */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '6px' }}>
                 {[
                   { key: 'has',          label: 'HAS',         ciclo: ['', 'Sim', 'Não'] },
                   { key: 'dm',           label: 'DM',          ciclo: ['', 'Sim', 'Não'] },
@@ -429,12 +524,12 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                       disabled={!editandoClinicos}
                       title={!editandoClinicos ? 'Clique em Editar para alterar' : especial ? valor : ativo ? 'Clique para alterar' : 'Clique para ativar'}
                       style={{
-                        padding: '5px 12px',
+                        padding: '3px 10px',
                         backgroundColor: bg,
                         color,
                         border: `1px solid ${border}`,
                         borderRadius: '20px',
-                        fontSize: '12px',
+                        fontSize: '15px',
                         fontWeight: ativo || especial ? '700' : '400',
                         cursor: editandoClinicos ? 'pointer' : 'default',
                         transition: 'all 0.15s',
@@ -448,34 +543,43 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                 })}
               </div>
 
-              {/* Cirurgias, Medicamentos, Alergias em linha */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 20px', fontSize: '12px' }}>
-                <div>
-                  <strong>Cirurgias: </strong>
+              {/* Informações de texto em cartões responsivos */}
+              <div className="prontuario-clinicos-grid">
+                <div className="prontuario-clinico-card">
+                  <strong className="prontuario-clinico-label">Cirurgias</strong>
                   {editandoClinicos
-                    ? <input value={clinicos.cirurgias} onChange={e => setClinicos({ ...clinicos, cirurgias: e.target.value })} placeholder="Ex: Apendicectomia 2010" style={{ fontSize: '12px', padding: '2px 4px', width: '160px' }} />
-                    : <span style={{ color: clinicos.cirurgias ? '#333' : '#999' }}>{clinicos.cirurgias || '-'}</span>
+                    ? <textarea className="prontuario-clinico-campo prontuario-clinico-campo-multilinha" value={clinicos.cirurgias} onChange={e => setClinicos({ ...clinicos, cirurgias: e.target.value })} rows={2} placeholder="Ex: Apendicectomia 2010" />
+                    : <span className="prontuario-clinico-valor" style={{ color: clinicos.cirurgias ? '#333' : '#999' }}>{clinicos.cirurgias || '-'}</span>
                   }
                 </div>
-                <div>
-                  <strong>Medicamentos: </strong>
+                <div className="prontuario-clinico-card">
+                  <strong className="prontuario-clinico-label">Medicamentos em uso</strong>
                   {editandoClinicos
-                    ? <input value={clinicos.medicamentosUso} onChange={e => setClinicos({ ...clinicos, medicamentosUso: e.target.value })} style={{ fontSize: '12px', padding: '2px 4px', width: '200px' }} />
-                    : <span style={{ color: clinicos.medicamentosUso ? '#333' : '#999' }}>{clinicos.medicamentosUso || '-'}</span>
+                    ? <textarea className="prontuario-clinico-campo prontuario-clinico-campo-multilinha" value={clinicos.medicamentosUso} onChange={e => setClinicos({ ...clinicos, medicamentosUso: e.target.value })} rows={2} placeholder="Informe os medicamentos em uso" />
+                    : <span className="prontuario-clinico-valor" style={{ color: clinicos.medicamentosUso ? '#333' : '#999' }}>{clinicos.medicamentosUso || '-'}</span>
                   }
                 </div>
-                <div>
-                  <strong>Alergias: </strong>
+                <div className={`prontuario-clinico-card prontuario-clinico-card-alergias${clinicos.alergias ? ' tem-alergia' : ''}`}>
+                  <strong className="prontuario-clinico-label">Alergias</strong>
                   {editandoClinicos
-                    ? <input value={clinicos.alergias} onChange={e => setClinicos({ ...clinicos, alergias: e.target.value })} style={{ fontSize: '12px', padding: '2px 4px', width: '140px' }} />
-                    : <span style={{ color: clinicos.alergias ? '#dc3545' : '#999', fontWeight: clinicos.alergias ? 'bold' : 'normal' }}>{clinicos.alergias || '-'}</span>
+                    ? <textarea className="prontuario-clinico-campo prontuario-alergias-campo" value={clinicos.alergias} onChange={e => setClinicos({ ...clinicos, alergias: e.target.value })} rows={3} placeholder="Informe medicamentos, substâncias ou alimentos" />
+                    : <span className="prontuario-clinico-valor prontuario-alergias-valor" style={{ color: clinicos.alergias ? '#b91c1c' : '#999', fontWeight: clinicos.alergias ? 'bold' : 'normal' }}>{clinicos.alergias || '-'}</span>
+                  }
+                </div>
+                <div className="prontuario-clinico-card">
+                  <strong className="prontuario-clinico-label">Outras comorbidades</strong>
+                  {editandoClinicos
+                    ? <textarea className="prontuario-clinico-campo prontuario-outras-comorbidades-campo" value={clinicos.outrasComorbidades} onChange={e => setClinicos({ ...clinicos, outrasComorbidades: e.target.value })} rows={2} placeholder="Informe outras condições clínicas" />
+                    : <span className="prontuario-clinico-valor prontuario-outras-comorbidades-valor" style={{ color: clinicos.outrasComorbidades ? '#333' : '#999' }}>{clinicos.outrasComorbidades || '-'}</span>
                   }
                 </div>
               </div>
             </>
           )}
+        </section>
         </div>
       </div>
+      <div className="prontuario-cabecalhos-espaco" aria-hidden="true" style={{ height: `${alturaCabecalhosFixos}px` }} />
 
       <div ref={splitContainerRef} className="prontuario-split" style={{ marginTop: '16px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
 
@@ -483,34 +587,36 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
         <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
           <h2 style={{ marginTop: 0 }}>{enfermeiro ? 'Evolução de Enfermagem' : 'Atendimento Atual'}</h2>
           {rascunhoRestaurado && !rascunhoRegistroId && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '13px', color: '#92400e' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '16px', color: '#92400e' }}>
               <span>📝 Rascunho recuperado automaticamente (não salvo no prontuário ainda).</span>
               <button
                 onClick={() => {
-                  salvarRascunhoAtendimento(paciente.id, '', null);
+                  persistirRascunhoLocal('', null);
                   setAtendimentoAtual('');
                   setRascunhoRestaurado(false);
                   setRascunhoRegistroId(null);
+        setRascunhoVersao(null);
                 }}
-                style={{ padding: '4px 8px', backgroundColor: 'transparent', border: '1px solid #92400e', color: '#92400e', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}
+                style={{ padding: '4px 8px', backgroundColor: 'transparent', border: '1px solid #92400e', color: '#92400e', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}
               >
                 Descartar
               </button>
             </div>
           )}
           {rascunhoRegistroId && (
-            <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px' }}>
-              📝 Rascunho salvo no prontuário, ainda não assinado — outros profissionais já conseguem vê-lo no histórico.
+            <p style={{ margin: '0 0 8px', fontSize: '16px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px' }}>
+              📝 Rascunho salvo no prontuário, ainda não assinado — visível ao autor e à administração.
             </p>
           )}
           <textarea
             placeholder={enfermeiro
               ? 'Evolução de enfermagem: cuidados realizados, resposta do paciente, intercorrências...'
               : 'História clínica, exame físico, hipótese diagnóstica, conduta...'}
+            disabled={salvandoAtendimento}
             value={atendimentoAtual}
             onChange={(e) => setAtendimentoAtual(e.target.value)}
             rows={18}
-            style={{ width: '100%', padding: '12px', fontSize: '15px', borderRadius: '6px', border: '1px solid #ccc', resize: 'vertical' }}
+            style={{ width: '100%', padding: '12px', fontSize: '16px', borderRadius: '6px', border: '1px solid #ccc', resize: 'vertical' }}
           />
           <div className="prontuario-atendimento-acoes" style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
             <button
@@ -528,19 +634,25 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
               {salvandoAtendimento ? 'Salvando...' : '🔒 Finalizar e Assinar'}
             </button>
           </div>
-          <p style={{ marginTop: '6px', fontSize: '12px', color: '#888' }}>
+          <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
+            Antes de fechar esta aba ou sair da conta, clique em Salvar rascunho para guardar o texto no prontuário.
+          </p>
+          {(erroStorage || erroRascunhoLocal) && <p role="alert">
+            {erroStorage || 'Não foi possível guardar o rascunho nesta aba. Salve no prontuário antes de sair.'}
+          </p>}
+          <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
             Depois de assinado, o conteúdo não pode mais ser editado — uma correção posterior vira uma retificação, mantendo o texto original.
           </p>
           {erroAtendimento && (
-            <p style={{ marginTop: '8px', fontSize: '13px', color: '#dc2626', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', padding: '8px 12px' }}>
+            <p style={{ marginTop: '8px', fontSize: '16px', color: '#dc2626', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', padding: '8px 12px' }}>
               ⚠ {erroAtendimento}
             </p>
           )}
           {atendimentoAtual.trim() && (salvandoRascunhoLocal || rascunhoSalvoEm) && (
-            <p style={{ marginTop: '6px', fontSize: '12px', color: '#888' }}>
+            <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
               {salvandoRascunhoLocal
-                ? 'Salvando rascunho neste navegador...'
-                : `Rascunho salvo neste navegador às ${rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — só vira registro do prontuário ao clicar em "Salvar rascunho" ou "Finalizar e Assinar".`}
+                ? 'Salvando rascunho nesta aba...'
+                : `Rascunho salvo nesta aba às ${rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — só vira registro do prontuário ao clicar em "Salvar rascunho" ou "Finalizar e Assinar".`}
             </p>
           )}
           <div className="atalhos-grid">
@@ -572,11 +684,40 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
         </div>
 
         {/* Painel direito — histórico */}
-        <div className="prontuario-split-right" style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
-          <h2 style={{ marginTop: 0 }}>Histórico ({registrosFiltrados.length}{registrosFiltrados.length !== registros.length ? ` de ${registros.length}` : ''})</h2>
+        <div className="prontuario-split-right prontuario-historico" style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
+          <h2 style={{ marginTop: 0 }}>Histórico</h2>
+          {conflito && <section role="alert" style={{ border: '1px solid #d97706', padding: '12px', marginBottom: '12px' }}>
+            <p>Seu texto foi preservado. Compare com o registro atual antes de continuar.</p>
+            <button onClick={carregarVersaoAtual}>Consultar versão atual</button>
+            {conflito.atual && <>
+              <p>Versão {conflito.atual.versao} — {conflito.atual.status}</p>
+              <pre style={{ whiteSpace: 'pre-wrap' }}>{conflito.atual.conteudo}</pre>
+              {conflito.atual.status === 'Rascunho' ? <>
+                <button onClick={() => resolverConflito(false)}>Usar o texto da versão atual</button>
+                <button onClick={() => resolverConflito(true)}>Manter meu texto sobre esta versão</button>
+              </> : <>
+                <p>Este registro já está assinado. Uma correção exige retificação.</p>
+                <button onClick={() => {
+                  setRetificando({ original: conflito.atual, conteudo: conflito.alvo === 'atendimento' ? atendimentoAtual : registroEditando?.conteudo || '', motivo: '' });
+                  if (conflito.alvo === 'atendimento') {
+                    setAtendimentoAtual('');
+                    setRascunhoRegistroId(null);
+                    setRascunhoVersao(null);
+                    persistirRascunhoLocal('', null);
+                    setErroAtendimento('');
+                  } else setRegistroEditando(null);
+                  setRegistroAberto(conflito.id);
+                  setConflito(null);
+                }}>Criar retificação com meu texto</button>
+              </>}
+            </>}
+          </section>}
+          <button disabled={carregandoHistorico} onClick={() => setTentativaHistorico(valor => valor + 1)}>
+            Atualizar histórico
+          </button>
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} style={{ padding: '7px', fontSize: '13px', flex: '1', minWidth: '140px' }}>
+            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} style={{ padding: '7px', fontSize: '16px', flex: '1', minWidth: '140px' }}>
               <option value="">Todos os tipos</option>
               {TIPOS_HISTORICO.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -584,12 +725,14 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
               value={buscaHistorico}
               onChange={e => setBuscaHistorico(e.target.value)}
               placeholder="Buscar no histórico..."
-              style={{ padding: '7px', fontSize: '13px', flex: '2', minWidth: '160px' }}
+              style={{ padding: '7px', fontSize: '16px', flex: '2', minWidth: '160px' }}
             />
           </div>
 
-          {registrosFiltrados.length === 0 ? (
-            <p style={{ color: '#999', fontSize: '14px' }}>
+          {carregandoHistorico ? <p role="status">Carregando histórico...</p> : erroHistorico ? (
+            <p role="alert">Não foi possível carregar o histórico. Verifique sua conexão e clique em Atualizar histórico.</p>
+          ) : registrosFiltrados.length === 0 ? (
+            <p style={{ color: '#999', fontSize: '16px' }}>
               {registros.length === 0 ? 'Nenhum registro ainda.' : 'Nenhum registro encontrado com esse filtro.'}
             </p>
           ) : (
@@ -623,7 +766,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                           </div>
                           <span style={{ fontSize: '11px', color: '#666' }}>{registro.hora}</span>
                         </div>
-                        <p style={{ margin: '4px 0 2px', fontSize: '13px', fontWeight: '500' }}>{registro.titulo}</p>
+                        <p style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: '500' }}>{registro.titulo}</p>
                         <div style={{ fontSize: '11px', color: '#888' }}>{autoriaTexto(registro)}</div>
                         {!editando && !retificandoEste && (
                           <small style={{ color: cor, fontSize: '11px' }}>{aberto ? '▲ Fechar' : '▼ Ver detalhes'}</small>
@@ -634,11 +777,11 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                       {aberto && !editando && !retificandoEste && (
                         <div style={{ backgroundColor: 'white', border: '1px solid #ddd', borderTop: 'none', padding: '10px 12px', borderRadius: '0 0 6px 6px' }}>
                           {registro.retificacaoDe && registro.motivoRetificacao && (
-                            <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: '16px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '4px', padding: '6px 8px' }}>
                               <strong>Motivo da retificação:</strong> {registro.motivoRetificacao}
                             </p>
                           )}
-                          <div style={{ whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: '1.6', maxHeight: '280px', overflowY: 'auto', marginBottom: '8px' }}>
+                          <div style={{ whiteSpace: 'pre-wrap', fontSize: '16px', lineHeight: '1.6', maxHeight: '280px', overflowY: 'auto', marginBottom: '8px' }}>
                             {registro.conteudo}
                           </div>
 
@@ -646,7 +789,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                             <div style={{ marginBottom: '8px', paddingTop: '8px', borderTop: '1px dashed #e5e7eb' }}>
                               <strong style={{ fontSize: '11px', color: '#92400e' }}>Adendos / retificações:</strong>
                               {adendos.map(ad => (
-                                <div key={ad.id} style={{ fontSize: '12px', color: '#555', marginTop: '4px', paddingLeft: '8px', borderLeft: '2px solid #fde68a' }}>
+                                <div key={ad.id} style={{ fontSize: '16px', color: '#555', marginTop: '4px', paddingLeft: '8px', borderLeft: '2px solid #fde68a' }}>
                                   {ad.data} {ad.hora} — {ad.motivoRetificacao} <span style={{ color: '#999' }}>({autoriaTexto(ad)})</span>
                                 </div>
                               ))}
@@ -656,14 +799,14 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             <button
                               onClick={(e) => { e.stopPropagation(); window.open(`/imprimir/${paciente.id}/${registro.id}`, '_blank'); }}
-                              style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
+                              style={{ fontSize: '16px', padding: '4px 10px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}
                             >
                               🖨️ Imprimir
                             </button>
                             {podeEditar && (
                               <button
-                                onClick={(e) => { e.stopPropagation(); setRegistroEditando({ id: registro.id, titulo: registro.titulo, conteudo: registro.conteudo }); }}
-                                style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#f0f7ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer' }}
+                                onClick={(e) => { e.stopPropagation(); setConflito(null); setRegistroEditando({ ...registro, pacienteId: paciente.id }); }}
+                                style={{ fontSize: '16px', padding: '4px 10px', backgroundColor: '#f0f7ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 ✏️ Editar rascunho
                               </button>
@@ -672,7 +815,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                               <button
                                 onClick={(e) => { e.stopPropagation(); assinarRegistroDoHistorico(registro); }}
                                 disabled={processandoAssinaturaId === registro.id}
-                                style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', borderRadius: '4px', cursor: processandoAssinaturaId === registro.id ? 'not-allowed' : 'pointer' }}
+                                style={{ fontSize: '16px', padding: '4px 10px', backgroundColor: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', borderRadius: '4px', cursor: processandoAssinaturaId === registro.id ? 'not-allowed' : 'pointer' }}
                               >
                                 {processandoAssinaturaId === registro.id ? 'Assinando...' : '🔒 Assinar'}
                               </button>
@@ -680,7 +823,7 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                             {podeRetificar && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); iniciarRetificacao(registro); }}
-                                style={{ fontSize: '12px', padding: '4px 10px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '4px', cursor: 'pointer' }}
+                                style={{ fontSize: '16px', padding: '4px 10px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 📝 Retificar
                               </button>
@@ -693,33 +836,35 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                       {editando && (
                         <div style={{ backgroundColor: 'white', border: '1px solid #3b82f6', borderTop: 'none', padding: '12px', borderRadius: '0 0 6px 6px' }}>
                           <div style={{ marginBottom: '8px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Título</label>
+                            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Título</label>
                             <input
+                              disabled={salvandoEdicao}
                               value={registroEditando.titulo}
                               onChange={e => setRegistroEditando({ ...registroEditando, titulo: e.target.value })}
-                              style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                              style={{ width: '100%', padding: '6px 8px', fontSize: '16px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                             />
                           </div>
                           <div style={{ marginBottom: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Conteúdo</label>
+                            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Conteúdo</label>
                             <textarea
+                              disabled={salvandoEdicao}
                               value={registroEditando.conteudo}
                               onChange={e => setRegistroEditando({ ...registroEditando, conteudo: e.target.value })}
                               rows={6}
-                              style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px', resize: 'vertical' }}
+                              style={{ width: '100%', padding: '6px 8px', fontSize: '16px', border: '1px solid #d1d5db', borderRadius: '4px', resize: 'vertical' }}
                             />
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                               onClick={salvarEdicaoRegistro}
                               disabled={salvandoEdicao}
-                              style={{ padding: '6px 14px', backgroundColor: salvandoEdicao ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicao ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                              style={{ padding: '6px 14px', backgroundColor: salvandoEdicao ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoEdicao ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: 'bold' }}
                             >
                               {salvandoEdicao ? 'Salvando...' : '✓ Salvar'}
                             </button>
                             <button
-                              onClick={() => setRegistroEditando(null)}
-                              style={{ padding: '6px 14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+                              onClick={() => { setRegistroEditando(null); if (conflito?.alvo === 'edicao') setConflito(null); }}
+                              style={{ padding: '6px 14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}
                             >
                               Cancelar
                             </button>
@@ -730,38 +875,40 @@ export function ProntuarioPage({ pacientes, setPacientes }) {
                       {/* Formulário de retificação */}
                       {retificandoEste && (
                         <div style={{ backgroundColor: 'white', border: '1px solid #f59e0b', borderTop: 'none', padding: '12px', borderRadius: '0 0 6px 6px' }}>
-                          <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#92400e' }}>
+                          <p style={{ margin: '0 0 8px', fontSize: '16px', color: '#92400e' }}>
                             O registro original não será alterado — isto cria uma nova entrada vinculada a ele.
                           </p>
                           <div style={{ marginBottom: '8px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Motivo da retificação *</label>
+                            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Motivo da retificação *</label>
                             <input
+                              disabled={salvandoRetificacao}
                               value={retificando.motivo}
                               onChange={e => setRetificando({ ...retificando, motivo: e.target.value })}
                               placeholder="Ex: correção de dose prescrita"
-                              style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px' }}
+                              style={{ width: '100%', padding: '6px 8px', fontSize: '16px', border: '1px solid #d1d5db', borderRadius: '4px' }}
                             />
                           </div>
                           <div style={{ marginBottom: '10px' }}>
-                            <label style={{ fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Conteúdo da retificação</label>
+                            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px', color: '#374151' }}>Conteúdo da retificação</label>
                             <textarea
+                              disabled={salvandoRetificacao}
                               value={retificando.conteudo}
                               onChange={e => setRetificando({ ...retificando, conteudo: e.target.value })}
                               rows={6}
-                              style={{ width: '100%', padding: '6px 8px', fontSize: '13px', border: '1px solid #d1d5db', borderRadius: '4px', resize: 'vertical' }}
+                              style={{ width: '100%', padding: '6px 8px', fontSize: '16px', border: '1px solid #d1d5db', borderRadius: '4px', resize: 'vertical' }}
                             />
                           </div>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                               onClick={salvarRetificacao}
                               disabled={salvandoRetificacao}
-                              style={{ padding: '6px 14px', backgroundColor: salvandoRetificacao ? '#9ca3af' : '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoRetificacao ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}
+                              style={{ padding: '6px 14px', backgroundColor: salvandoRetificacao ? '#9ca3af' : '#f59e0b', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoRetificacao ? 'not-allowed' : 'pointer', fontSize: '16px', fontWeight: 'bold' }}
                             >
                               {salvandoRetificacao ? 'Salvando...' : '✓ Salvar retificação'}
                             </button>
                             <button
                               onClick={() => setRetificando(null)}
-                              style={{ padding: '6px 14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+                              style={{ padding: '6px 14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }}
                             >
                               Cancelar
                             </button>
