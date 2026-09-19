@@ -2,6 +2,17 @@
 
 ## Objetivo
 
+### Origens da função administrativa
+
+Antes de publicar o frontend, configure `ADMIN_ALLOWED_ORIGINS` nos secrets
+do respectivo projeto Supabase, com as origens HTTPS exatas separadas por
+vírgula (sem caminho nem barra final). A função `admin-create-user` compara
+a origem integralmente e continua exigindo um Administrador ativo. Não use
+wildcards para previews de terceiros. Ao mudar a URL de homologação, atualize
+a lista e os redirecionamentos permitidos do Auth no mesmo ambiente.
+
+## Fluxo de migrações
+
 Nenhuma mudança nova de banco deve ser criada diretamente no SQL Editor de
 produção. O fluxo passa a ser:
 

@@ -3,6 +3,10 @@ import { createClient } from 'npm:@supabase/supabase-js@2.53.0';
 const origensPermitidas = new Set([
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  ...(Deno.env.get('ADMIN_ALLOWED_ORIGINS') || '')
+    .split(',')
+    .map((origem) => origem.trim())
+    .filter(Boolean),
 ]);
 const funcoesPermitidas = new Set([
   'Administrador', 'Médico', 'Enfermeiro(a)', 'Recepcionista', 'Financeiro',
