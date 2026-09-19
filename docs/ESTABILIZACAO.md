@@ -87,7 +87,9 @@ ou produção e sem publicar o frontend.
   valida transações, triggers e privilégios do PostgreSQL, mas não equivale
   a um teste HTTP completo com Supabase Auth/PostgREST.
 - A integração contínua agora executa os mesmos testes de banco sobre o
-  Supabase descartável. Essa execução remota ainda depende de commit/push.
+  Supabase descartável. A primeira execução remota revelou a ausência de um
+  `GRANT SELECT` explícito em `consultas` num banco novo. A migração 28 passa
+  a conceder essa leitura a `authenticated`, sujeita à política RLS existente.
 
 ### Publicação e limites
 

@@ -146,5 +146,8 @@ $$;
 REVOKE ALL ON FUNCTION public.salvar_registro_clinico(UUID, TEXT, UUID, UUID, INTEGER, JSONB) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.salvar_registro_clinico(UUID, TEXT, UUID, UUID, INTEGER, JSONB) TO authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.consultas FROM PUBLIC, anon, authenticated;
+-- Não depender dos privilégios padrão do projeto para carregar o histórico.
+-- A política RLS existente continua filtrando usuários ativos e funções.
+GRANT SELECT ON public.consultas TO authenticated;
 
 COMMIT;
