@@ -557,7 +557,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
           <div className="prontuario-identificacao-conteudo">
             <div className="prontuario-identidade-principal">
               <div className="prontuario-secao-label">Paciente</div>
-              <h2 className="prontuario-paciente-nome">{paciente.nome}</h2>
+              <h2 className="prontuario-paciente-nome" title={paciente.nome}>{paciente.nome}</h2>
             </div>
             <div className="prontuario-cadastro-grid">
               <div className="prontuario-dado-cadastro">

@@ -53,25 +53,65 @@ button {
 .pep-header {
   background-color: #007bff;
   color: white;
-  padding: 15px 20px;
-  margin-bottom: 16px;
+  padding: 6px 12px;
+  margin-bottom: 10px;
   border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 100;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
-.pep-header-right {
+.pep-header-clinica {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pep-header-titulo {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pep-header-subtitulo {
+  margin: 1px 0 0;
+  font-size: 11px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* Menu no meio, alinhado à direita, quebra em mais linhas se faltar espaço
+   sem empurrar as logos para fora dos cantos. */
+.pep-header-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pep-header-email {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-right: 4px;
+}
+
+.pep-header-sistema {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.35);
 }
 
 /* Patient registration form — 12-column grid */
@@ -196,8 +236,26 @@ button {
 .prontuario-identificacao-conteudo {
   align-items: center;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(520px, 2.2fr);
+  gap: 16px;
+  /* Nome ocupa todo o espaço que sobra; CPF, nascimento, telefone e
+     convênio ficam juntos, colados à direita, na largura que precisam. */
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* "PACIENTE" e o nome na mesma linha, e o nome nunca quebra: se for
+   maior que o espaço, termina em "…" (o nome inteiro aparece ao passar
+   o mouse). */
+.prontuario-identidade-principal {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prontuario-identidade-principal .prontuario-paciente-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prontuario-secao-label {
@@ -212,7 +270,7 @@ button {
 
 .prontuario-paciente-nome {
   color: #0f172a;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1.25;
   margin: 0;
   overflow-wrap: anywhere;
@@ -221,8 +279,9 @@ button {
 .prontuario-cadastro-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 18px;
+  gap: 3px 14px;
   font-size: 13px;
+  justify-content: flex-end;
 }
 
 /* Cada dado (inclusive "Nascimento: … · NN anos") nunca quebra no meio. */
@@ -409,10 +468,6 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .prontuario-identificacao-conteudo {
-    grid-template-columns: minmax(180px, 0.8fr) minmax(0, 2fr);
-  }
-
   .prontuario-cadastro-grid,
   .prontuario-clinicos-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -441,17 +496,23 @@ button {
     padding: 10px;
   }
 
+  /* Celular: clínica e PEP na primeira linha (cada um no seu canto), menu
+     embaixo ocupando a largura toda. */
   .pep-header {
-    padding: 10px 14px;
-    margin-bottom: 14px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 6px 10px;
+    margin-bottom: 8px;
     border-radius: 6px;
   }
 
-  .pep-header h1 {
-    font-size: 18px !important;
+  .pep-header-nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
   }
 
-  .pep-header p {
+  .pep-header-subtitulo,
+  .pep-header-sistema-texto {
     display: none;
   }
 
@@ -537,6 +598,10 @@ button {
     align-items: start;
     gap: 5px;
     grid-template-columns: 1fr;
+  }
+
+  .prontuario-cadastro-grid {
+    justify-content: flex-start;
   }
 
   .prontuario-identificacao {

@@ -103,6 +103,12 @@ function LogoPep({ altura = 40, impresso = false }) {
   );
 }
 
+const ALTURA_LOGO_CABECALHO = 36;
+const linkCabecalho = {
+  fontSize: '13px', color: 'white', opacity: 0.95, textDecoration: 'none', padding: '3px 8px',
+  border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px', background: 'none', whiteSpace: 'nowrap', lineHeight: 1.4,
+};
+
 export function Header() {
   const { logout, user, funcao, temAcessoClinico } = useAuth();
   const { clinica } = useClinica();
@@ -121,71 +127,45 @@ export function Header() {
     }
   };
 
+  // Três áreas fixas (ver .pep-header em index.css): clínica colada à
+  // esquerda, menu no meio e PEP colado à direita — as duas logos com a
+  // mesma altura (ALTURA_LOGO_CABECALHO).
   return (
     <div className="pep-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+      <div className="pep-header-clinica">
         <span style={{ display: 'flex', backgroundColor: 'white', borderRadius: '50%', padding: '2px', flexShrink: 0 }}>
-          <LogoClinica size={40} />
+          <LogoClinica size={ALTURA_LOGO_CABECALHO - 4} />
         </span>
         <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: '20px' }}>{clinica.nome || clinica.nomeFantasia || 'Clínica'}</h1>
-          {clinica.nome && clinica.nomeFantasia && clinica.nomeFantasia !== clinica.nome && <p style={{ margin: '4px 0 0', fontSize: '15px', opacity: 0.85 }}>{clinica.nomeFantasia}</p>}
+          <h1 className="pep-header-titulo">{clinica.nome || clinica.nomeFantasia || 'Clínica'}</h1>
+          {clinica.nome && clinica.nomeFantasia && clinica.nomeFantasia !== clinica.nome && <p className="pep-header-subtitulo">{clinica.nomeFantasia}</p>}
         </div>
       </div>
-      <div className="pep-header-right">
-        <span className="pep-header-email" style={{ fontSize: '15px', opacity: 0.85 }}>{user?.email}</span>
-        <Link to="/minha-conta" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-          👤 Minha conta
-        </Link>
-        <Link to="/pacientes" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-          🧑‍🤝‍🧑 Pacientes
-        </Link>
-        <Link to="/agenda" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-          📅 Agenda
-        </Link>
-        {FUNCOES_RECEPCAO.includes(funcao) && (
-          <Link to="/recepcao" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-            🛎️ Recepção
-          </Link>
-        )}
+      <nav className="pep-header-nav" aria-label="Menu principal">
+        {/* E-mail só na dica do "Minha conta": exibido, empurrava o menu para duas linhas. */}
+        <Link to="/minha-conta" style={linkCabecalho} title={user?.email ? `Conectado como ${user.email}` : undefined}>👤 Minha conta</Link>
+        <Link to="/pacientes" style={linkCabecalho}>🧑‍🤝‍🧑 Pacientes</Link>
+        <Link to="/agenda" style={linkCabecalho}>📅 Agenda</Link>
+        {FUNCOES_RECEPCAO.includes(funcao) && <Link to="/recepcao" style={linkCabecalho}>🛎️ Recepção</Link>}
         {(funcao === 'Enfermeiro(a)' || (funcao === 'Administrador' && temAcessoClinico)) && (
-          <Link to="/enfermagem" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-            🩺 Enfermagem
-          </Link>
+          <Link to="/enfermagem" style={linkCabecalho}>🩺 Enfermagem</Link>
         )}
-        {(FUNCOES_FINANCEIRO.includes(funcao) || funcao === 'Médico') && (
-          <Link to="/financeiro" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-            💰 Financeiro
-          </Link>
-        )}
-        {funcao === 'Administrador' && (
-          <Link to="/painel" style={{ fontSize: '15px', color: 'white', opacity: 0.9, textDecoration: 'none', padding: '5px 10px', border: '1px solid rgba(255,255,255,0.4)', borderRadius: '4px' }}>
-            ⚙️ Administração
-          </Link>
-        )}
+        {(FUNCOES_FINANCEIRO.includes(funcao) || funcao === 'Médico') && <Link to="/financeiro" style={linkCabecalho}>💰 Financeiro</Link>}
+        {funcao === 'Administrador' && <Link to="/painel" style={linkCabecalho}>⚙️ Administração</Link>}
         <button
           onClick={handleLogout}
           disabled={saindo}
-          style={{
-            padding: '6px 14px',
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.4)',
-            borderRadius: '4px',
-            cursor: saindo ? 'not-allowed' : 'pointer',
-            fontSize: '15px',
-            opacity: saindo ? 0.7 : 1
-          }}
+          style={{ ...linkCabecalho, backgroundColor: 'rgba(255,255,255,0.2)', cursor: saindo ? 'not-allowed' : 'pointer', opacity: saindo ? 0.7 : 1 }}
         >
           {saindo ? 'Saindo...' : 'Sair'}
         </button>
-        <div className="pep-header-sistema" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '12px', borderLeft: '1px solid rgba(255,255,255,0.35)' }}>
-          <div style={{ textAlign: 'right', lineHeight: 1.2 }}>
-            <div style={{ fontSize: '14px', fontWeight: 'bold' }}>PEP - Prontuário Eletrônico</div>
-            <div style={{ fontSize: '12px', opacity: 0.85 }}>Sistema médico</div>
-          </div>
-          <LogoPep />
+      </nav>
+      <div className="pep-header-sistema">
+        <div className="pep-header-sistema-texto" style={{ textAlign: 'right', lineHeight: 1.2 }}>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>PEP - Prontuário Eletrônico</div>
+          <div style={{ fontSize: '11px', opacity: 0.85 }}>Sistema médico</div>
         </div>
+        <LogoPep altura={ALTURA_LOGO_CABECALHO} />
       </div>
     </div>
   );
