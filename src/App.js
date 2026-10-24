@@ -3,14 +3,13 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Navigate,
-  useLocation
+  Navigate
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClinicaProvider } from './hooks/useClinica';
 import { ToastProvider } from './components/common/Toast';
 import Login from './components/Login';
-import { pacientesService } from './services/pacientes.service';
+import { PacientesCacheContext } from './hooks/usePacientesCache';
 import {
   ProtectedLayout,
   SomenteAdmin,
@@ -54,42 +53,17 @@ import { AtivarContaPage } from './pages/auth/AtivarContaPage';
 import { MinhaContaPage } from './pages/auth/MinhaContaPage';
 
 function AppContent() {
-  const { user } = useAuth();
-  const { pathname } = useLocation();
   const [pacientes, setPacientes] = React.useState([]);
-  const [inicializando, setInicializando] = React.useState(true);
-  const [erroCarregamento, setErroCarregamento] = React.useState(false);
-  const [tentativa, setTentativa] = React.useState(0);
-  const rotaAuth = ['/login', '/ativar-conta', '/redefinir-senha', '/minha-conta'].includes(pathname);
 
-  React.useEffect(() => {
-    if (!user?.id) return;
-    let cancelado = false;
-    setInicializando(true);
-    setErroCarregamento(false);
-    pacientesService.listar()
-      .then(data => { if (!cancelado) setPacientes(data); })
-      .catch(() => { if (!cancelado) setErroCarregamento(true); })
-      .finally(() => { if (!cancelado) setInicializando(false); });
-    return () => { cancelado = true; };
-  }, [user?.id, tentativa]);
-
-  if (inicializando && user && !rotaAuth) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#666', fontSize: '18px' }}>Carregando pacientes...</p>
-      </div>
-    );
-  }
-
-  if (erroCarregamento && user && !rotaAuth) {
-    return <div role="alert">
-      <p>Não foi possível carregar os pacientes. Verifique sua conexão e tente novamente.</p>
-      <button onClick={() => setTentativa(valor => valor + 1)}>Tentar novamente</button>
-    </div>;
-  }
+  // Pacientes não são mais carregados todos ao abrir (o banco limita cada
+  // resposta a 1000 linhas e a lista crescia sem paginação): cada tela
+  // busca no servidor o que precisa e guarda aqui — ver usePacientesCache.
+  // Trocar de usuário/função recria este componente (key em
+  // ConteudoDaSessao), descartando o que a sessão anterior leu.
+  const cachePacientes = React.useMemo(() => ({ pacientes, setPacientes }), [pacientes]);
 
   return (
+    <PacientesCacheContext.Provider value={cachePacientes}>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/ativar-conta" element={<AtivarContaPage />} />
@@ -327,6 +301,7 @@ function AppContent() {
         }
       />
     </Routes>
+    </PacientesCacheContext.Provider>
   );
 }
 

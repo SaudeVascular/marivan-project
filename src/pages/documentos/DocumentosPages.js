@@ -40,7 +40,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const { clinica } = useClinica();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
@@ -54,7 +54,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const dataFormatada = new Date(dataAtestado + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
@@ -206,7 +206,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
@@ -253,7 +253,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
     }
   };
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const adicionarMed = () => setMedicamentos([...medicamentos, {
     id: Date.now(), nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: ''
@@ -555,7 +555,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
@@ -571,7 +571,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const dataFormatada = new Date(dataRelatorio + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
@@ -1053,7 +1053,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
@@ -1065,7 +1065,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo]                 = React.useState(false);
   const [salvando, setSalvando]           = React.useState(false);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const nomeExame = tipoExame === 'Outro' ? tipoOutro : tipoExame;
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -1230,7 +1230,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
   const { medico, crm, especialidade, assinaturaImagem, registroConselho = {} } = useMedicoPerfil();
@@ -1317,7 +1317,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chavePreviaGuia]);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const catalogoAtivo = catalogo.filter(e => e.ativo);
   const idsNaLista = new Set(itens.map(i => i.id));
@@ -1726,10 +1726,10 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 }
 
 export function DocumentoPage({ titulo, pacientes }) {
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
 
   if (!paciente) {
-    return <p>Paciente não encontrado.</p>;
+    return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
   }
 
   return (

@@ -7,6 +7,7 @@ import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
+import { usePacientesPorIds } from '../../hooks/usePacientesCache';
 import { STATUS_CORES, PROXIMOS_STATUS, NovoAgendamentoForm } from '../agenda/AgendaPages';
 
 // Mesma agenda que AgendaPage, mas recortada para o fluxo de check-in da
@@ -41,6 +42,7 @@ export function RecepcaoPage({ pacientes }) {
 
   const profissionais = usuarios.filter(u => u.ativo && FUNCOES_CLINICAS.includes(u.funcao));
 
+  usePacientesPorIds(React.useMemo(() => agendamentos.map(a => a.pacienteId), [agendamentos]));
   const pacientePor = (id) => pacientes.find(p => p.id === id);
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 

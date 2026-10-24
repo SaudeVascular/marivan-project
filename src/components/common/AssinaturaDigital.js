@@ -142,7 +142,7 @@ export function AssinaturaDigital({ valorAtual, salvando, onSalvar, onRemover })
           <p style={{ margin: '0 0 6px', fontSize: '15px', color: '#6b7280' }}>
             Se você já tem uma imagem da sua assinatura no computador, envie aqui (PNG ou JPG, até 1 MB).
           </p>
-          <input type="file" accept="image/*" onChange={escolherArquivo} style={{ fontSize: '15px' }} />
+          <input type="file" accept="image/*" aria-label="Arquivo da assinatura" onChange={escolherArquivo} style={{ fontSize: '15px' }} />
           {preVisualizacaoArquivo && (
             <div style={{ marginTop: '10px', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', backgroundColor: '#fafafa' }}>
               <img src={preVisualizacaoArquivo} alt="Pré-visualização da assinatura enviada" style={{ maxHeight: '70px', maxWidth: '100%' }} />

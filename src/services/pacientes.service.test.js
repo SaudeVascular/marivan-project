@@ -100,3 +100,63 @@ test('atualização clínica envia somente campos clínicos', async () => {
   expect(payload).not.toHaveProperty('cpf');
   expect(payload).not.toHaveProperty('telefone');
 });
+
+describe('busca no servidor', () => {
+  const { montarFiltroBusca } = jest.requireActual('./pacientes.service');
+
+  test('vírgula, parênteses e aspas não quebram nem injetam filtro', () => {
+    expect(montarFiltroBusca('Silva, (Ana)')).toBe(
+      'nome.ilike."%Silva, (Ana)%",nome_mae.ilike."%Silva, (Ana)%",cpf.ilike."%Silva, (Ana)%"');
+    expect(montarFiltroBusca('x"),id.eq.(1')).toBe(
+      'nome.ilike."%x),id.eq.(1%",nome_mae.ilike."%x),id.eq.(1%",cpf.ilike."%x),id.eq.(1%"');
+    expect(montarFiltroBusca('100%*')).toContain('nome.ilike."%100%"');
+    expect(montarFiltroBusca('   ')).toBeNull();
+  });
+
+  test('CPF só com números também procura o CPF com máscara', () => {
+    expect(montarFiltroBusca('12345678900')).toContain('cpf.ilike."%123.456.789-00%"');
+    expect(montarFiltroBusca('1234')).toContain('cpf.ilike."%123.4%"');
+  });
+
+  test('data DD/MM/AAAA procura a data de nascimento', () => {
+    expect(montarFiltroBusca('01/02/1980')).toContain('nascimento.eq.1980-02-01');
+  });
+
+  test('pagina pelo range e devolve o total', async () => {
+    const range = jest.fn();
+    const or = jest.fn();
+    const builder = criarQueryBuilder({ data: [{ id: 'p1', nome: 'ana' }], error: null, count: 120 });
+    builder.range = (...args) => { range(...args); return builder; };
+    builder.or = (...args) => { or(...args); return builder; };
+    builder.then = (resolve) => resolve({ data: [{ id: 'p1', nome: 'ana' }], error: null, count: 120 });
+    supabase.from.mockReturnValue(builder);
+
+    const r = await pacientesService.buscar({ termo: 'ana', limite: 50, offset: 50 });
+    expect(supabase.from).toHaveBeenCalledWith('pacientes_view');
+    expect(range).toHaveBeenCalledWith(50, 99);
+    expect(or).toHaveBeenCalledWith(expect.stringContaining('nome.ilike."%ana%"'));
+    expect(r.total).toBe(120);
+    expect(r.itens[0].nome).toBe('Ana');
+  });
+
+  test('sem termo lista sem filtro', async () => {
+    const or = jest.fn();
+    const builder = criarQueryBuilder({ data: [], error: null });
+    builder.or = (...args) => { or(...args); return builder; };
+    supabase.from.mockReturnValue(builder);
+    await pacientesService.buscar();
+    expect(or).not.toHaveBeenCalled();
+  });
+
+  test('buscarPorIds consulta em lotes de 100, sem repetir ids', async () => {
+    const lotes = [];
+    supabase.from.mockImplementation(() => {
+      const b = criarQueryBuilder({ data: [], error: null });
+      b.in = (_, ids) => { lotes.push(ids); return b; };
+      return b;
+    });
+    const ids = Array.from({ length: 150 }, (_, i) => `id-${i}`);
+    await pacientesService.buscarPorIds([...ids, 'id-0', null]);
+    expect(lotes.map(l => l.length)).toEqual([100, 50]);
+  });
+});

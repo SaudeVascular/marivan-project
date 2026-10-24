@@ -16,6 +16,7 @@ export function criarQueryBuilder(resultado = { data: [], error: null }) {
     eq: () => builder,
     neq: () => builder,
     in: () => builder,
+    or: () => builder,
     is: () => builder,
     order: () => builder,
     limit: () => builder,

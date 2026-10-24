@@ -31,7 +31,7 @@ test('médico vê a seção e consegue salvar uma assinatura enviada por arquivo
 
   fireEvent.click(screen.getByRole('button', { name: /Enviar imagem/ }));
   const arquivo = new File(['conteudo-fictício'], 'assinatura.png', { type: 'image/png' });
-  fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [arquivo] } });
+  fireEvent.change(screen.getByLabelText('Arquivo da assinatura'), { target: { files: [arquivo] } });
 
   await screen.findByAltText('Pré-visualização da assinatura enviada');
   fireEvent.click(screen.getByRole('button', { name: /Salvar assinatura/ }));

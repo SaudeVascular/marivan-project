@@ -11,6 +11,7 @@ import { procedimentosService } from '../../services/procedimentos.service';
 import { conveniosService } from '../../services/convenios.service';
 import { cobrancasService } from '../../services/cobrancas.service';
 import { comTimeout } from '../../utils/comTimeout';
+import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
 import { FUNCOES_FINANCEIRO } from '../../constants/roles';
 
 export function formatarMoeda(valor) {
@@ -305,9 +306,8 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
   const [salvando, setSalvando] = React.useState(false);
   const [erro, setErro] = React.useState('');
 
-  const pacientesFiltrados = busca.trim()
-    ? pacientes.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()) || (p.cpf || '').includes(busca)).slice(0, 8)
-    : [];
+  // Busca no servidor (8 primeiros); o escolhido já fica no cache.
+  const { itens: pacientesFiltrados } = useBuscaPacientes(busca, { limite: 8 });
   const pacienteSelecionado = pacientes.find(p => p.id === pacienteId);
   const procedimentoSelecionado = procedimentos.find(p => p.id === procedimentoId);
 
@@ -475,7 +475,8 @@ export function FinanceiroPage({ pacientes }) {
   }, [podeGerenciar, toast]);
 
   const medicos = usuarios.filter(u => u.ativo && u.funcao === 'Médico');
-  const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || '(paciente não encontrado)';
+  const buscandoNomes = usePacientesPorIds(React.useMemo(() => cobrancas.map(c => c.pacienteId), [cobrancas]));
+  const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
   const nomeMedico = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
   const mudarStatus = async (cobranca, novoStatus) => {

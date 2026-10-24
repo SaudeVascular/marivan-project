@@ -4,11 +4,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
+import { useBuscaPacientes, mesclarPacientes } from '../../hooks/usePacientesCache';
 import { conveniosService } from '../../services/convenios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { dataBrasileiraParaISO, formatarData, formatarDataDigitada, formatarCPF } from '../../utils/mascaras';
 
-export function PacientesPage({ pacientes, setPacientes }) {
+export function PacientesPage({ setPacientes }) {
   const navigate = useNavigate();
   const toast = useToast();
   const { temAcessoClinico } = useAuth();
@@ -23,8 +24,6 @@ export function PacientesPage({ pacientes, setPacientes }) {
   React.useEffect(() => {
     conveniosService.listar().then(setConvenios).catch(() => toast.error('Não foi possível carregar os convênios. Recarregue a página antes de editar o cadastro.'));
   }, [toast]);
-
-  const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
 
   const formatarTelefone = (valor) => {
     const n = valor.replace(/\D/g, '').slice(0, 11);
@@ -76,14 +75,9 @@ export function PacientesPage({ pacientes, setPacientes }) {
     cns: ''
   });
 
-  const pacientesFiltrados = pacientes
-    .filter((paciente) =>
-      (paciente.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
-      (paciente.cpf || '').includes(busca) ||
-      (paciente.nascimento || '').includes(busca) ||
-      (paciente.nomeMae || '').toLowerCase().includes(busca.toLowerCase())
-    )
-    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  // Busca e paginação no servidor (50 por vez, "Carregar mais").
+  const resultado = useBuscaPacientes(busca, { listarSemTermo: true });
+  const pacientesFiltrados = resultado.itens;
 
   const limparFormulario = () => {
     setNovoPaciente({
@@ -119,34 +113,26 @@ export function PacientesPage({ pacientes, setPacientes }) {
       return;
     }
 
-    const cpfAtual = limparCPF(novoPaciente.cpf);
     if (novoPaciente.cns && novoPaciente.cns.length !== 15) {
       toast.warning('O Cartão Nacional de Saúde tem 15 dígitos.');
       return;
     }
-    if (cpfAtual) {
-      const cpfDuplicado = pacientes.some((p) =>
-        limparCPF(p.cpf) === cpfAtual && p.id !== pacienteEditando?.id
-      );
-      if (cpfDuplicado) {
-        toast.warning('Já existe um paciente cadastrado com este CPF.');
-        return;
-      }
-    }
+    // CPF repetido: o banco recusa (UNIQUE) e o erro 23505 é tratado
+    // abaixo — a checagem não pode depender de quais pacientes estão
+    // carregados na tela.
 
     setSalvandoPaciente(true);
     try {
       const dadosParaSalvar = { ...novoPaciente, nascimento: nascimentoISO };
       if (pacienteEditando) {
         const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, dadosParaSalvar));
-        setPacientes(pacientes.map((p) =>
-          p.id === pacienteEditando.id ? { ...p, ...atualizado, registros: p.registros } : p
-        ));
+        setPacientes(prev => mesclarPacientes(prev, [atualizado]));
       } else {
         const criado = await comTimeout(pacientesService.criar(dadosParaSalvar));
-        setPacientes([...pacientes, { ...criado, registros: [] }]);
+        setPacientes(prev => mesclarPacientes(prev, [criado]));
       }
       limparFormulario();
+      resultado.recarregar();
     } catch (err) {
       if (err.code === '23505') {
         toast.warning('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
@@ -171,7 +157,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
     setProcessandoId(paciente.id);
     try {
       await comTimeout(pacientesService.deletar(paciente.id));
-      setPacientes(pacientes.filter((p) => p.id !== paciente.id));
+      setPacientes(prev => prev.filter((p) => p.id !== paciente.id));
+      resultado.recarregar();
     } catch (err) {
       toast.error('Erro ao desativar paciente: ' + err.message);
     } finally {
@@ -392,8 +379,14 @@ export function PacientesPage({ pacientes, setPacientes }) {
         </div>
 
         <div style={{ marginTop: '15px', display: 'grid', gap: '8px' }}>
+          {resultado.erro && (
+            <p role="alert" style={{ color: '#b91c1c' }}>
+              Não foi possível buscar os pacientes. Verifique a conexão.{' '}
+              <button onClick={resultado.recarregar}>Tentar novamente</button>
+            </p>
+          )}
           {pacientesFiltrados.length === 0 ? (
-            <p>Nenhum paciente encontrado.</p>
+            !resultado.erro && <p>{resultado.carregando ? 'Buscando pacientes...' : 'Nenhum paciente encontrado.'}</p>
           ) : (
             pacientesFiltrados.map((paciente) => (
               <div
@@ -491,6 +484,16 @@ export function PacientesPage({ pacientes, setPacientes }) {
                 </div>
               </div>
             ))
+          )}
+          {pacientesFiltrados.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', fontSize: '15px', color: '#555' }}>
+              <span>Mostrando {pacientesFiltrados.length} de {resultado.total} paciente{resultado.total === 1 ? '' : 's'}</span>
+              {resultado.temMais && (
+                <button onClick={resultado.carregarMais} disabled={resultado.carregando} style={{ padding: '8px 14px', cursor: resultado.carregando ? 'not-allowed' : 'pointer' }}>
+                  {resultado.carregando ? 'Carregando...' : 'Carregar mais'}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

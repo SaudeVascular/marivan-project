@@ -8,6 +8,7 @@ import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
+import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
 
 export const STATUS_CORES = {
   'Agendado': '#3b82f6',
@@ -40,12 +41,8 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
   const [salvando, setSalvando] = React.useState(false);
   const [erro, setErro] = React.useState('');
 
-  const pacientesFiltrados = busca.trim()
-    ? pacientes.filter(p =>
-        p.nome.toLowerCase().includes(busca.toLowerCase()) ||
-        (p.cpf || '').includes(busca)
-      ).slice(0, 8)
-    : [];
+  // Busca no servidor (8 primeiros); o escolhido já fica no cache.
+  const { itens: pacientesFiltrados } = useBuscaPacientes(busca, { limite: 8 });
 
   const pacienteSelecionado = pacientes.find(p => p.id === pacienteId);
 
@@ -187,7 +184,8 @@ export function AgendaPage({ pacientes }) {
 
   const profissionais = usuarios.filter(u => u.ativo && FUNCOES_CLINICAS.includes(u.funcao));
 
-  const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || '(paciente não encontrado)';
+  const buscandoNomes = usePacientesPorIds(React.useMemo(() => agendamentos.map(a => a.pacienteId), [agendamentos]));
+  const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
   const mudarStatus = async (ag, novoStatus) => {

@@ -36,7 +36,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   // conta veria a tela de Médico e teria a gravação recusada pelo banco.
   const enfermeiro = funcaoClinicaEfetiva === 'Enfermeiro(a)';
   const emite = (tipo) => podeEmitir(funcaoClinicaEfetiva, tipo);
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [rascunhoRegistroId, setRascunhoRegistroId] = React.useState(null);
   const [rascunhoVersao, setRascunhoVersao] = React.useState(null);
@@ -207,7 +207,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     return () => { cancelado = true; };
   }, [paciente?.id, setPacientes, tentativaHistorico]);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const registros = paciente.registros || [];
 
@@ -382,7 +382,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     setErroClinicos('');
     try {
       await comTimeout(pacientesService.atualizarClinicos(paciente.id, novoClinicos));
-      setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
+      setPacientes(prev => prev.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
       setEditandoClinicos(false);
     } catch (err) {
       // Só código/mensagem do erro do banco — nunca o objeto inteiro, que

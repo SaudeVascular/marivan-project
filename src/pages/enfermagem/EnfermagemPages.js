@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { useBuscaPacientes } from '../../hooks/usePacientesCache';
 import { Header, painelStyle } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { salvarRegistroComFallback } from '../../services/registros.service';
@@ -13,7 +14,7 @@ import { calcularIdade } from '../../utils/formatters';
 export function SinaisVitaisPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
-  const { paciente } = usePacienteAtual(pacientes);
+  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const [pressaoArterial, setPressaoArterial] = React.useState('');
   const [frequenciaCardiaca, setFrequenciaCardiaca] = React.useState('');
   const [temperatura, setTemperatura] = React.useState('');
@@ -25,7 +26,7 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
   const [salvando, setSalvando] = React.useState(false);
   const [salvo, setSalvo] = React.useState(false);
 
-  if (!paciente) return <p>Paciente não encontrado.</p>;
+  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const pesoNum = Number(peso.replace(',', '.'));
   const alturaNum = Number(altura.replace(',', '.'));
@@ -130,15 +131,10 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
 // Aba própria da enfermagem (seção 2.2 do Documento Mestre) — busca de
 // paciente com atalho direto pra Sinais Vitais e Prontuário, sem passar
 // pelo Cadastro de Pacientes genérico (que é o fluxo administrativo).
-export function EnfermagemPage({ pacientes }) {
+export function EnfermagemPage() {
   const [busca, setBusca] = React.useState('');
-
-  const pacientesFiltrados = pacientes
-    .filter((paciente) =>
-      (paciente.nome || '').toLowerCase().includes(busca.toLowerCase()) ||
-      (paciente.cpf || '').includes(busca)
-    )
-    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  const resultado = useBuscaPacientes(busca, { listarSemTermo: true });
+  const pacientesFiltrados = resultado.itens;
 
   return (
     <div>
@@ -155,8 +151,9 @@ export function EnfermagemPage({ pacientes }) {
       </div>
 
       <div style={{ ...painelStyle, display: 'grid', gap: '8px' }}>
+        {resultado.erro && <p role="alert" style={{ color: '#b91c1c' }}>Não foi possível buscar os pacientes. Verifique a conexão.</p>}
         {pacientesFiltrados.length === 0 ? (
-          <p style={{ color: '#666' }}>Nenhum paciente encontrado.</p>
+          !resultado.erro && <p style={{ color: '#666' }}>{resultado.carregando ? 'Buscando pacientes...' : 'Nenhum paciente encontrado.'}</p>
         ) : (
           pacientesFiltrados.map((paciente) => (
             <div key={paciente.id} style={{ border: '1px solid #ddd', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -178,6 +175,11 @@ export function EnfermagemPage({ pacientes }) {
               </div>
             </div>
           ))
+        )}
+        {resultado.temMais && (
+          <button onClick={resultado.carregarMais} disabled={resultado.carregando} style={{ justifySelf: 'start', padding: '8px 14px' }}>
+            {resultado.carregando ? 'Carregando...' : `Carregar mais (${pacientesFiltrados.length} de ${resultado.total})`}
+          </button>
         )}
       </div>
     </div>
