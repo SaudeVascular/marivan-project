@@ -1,5 +1,71 @@
 # Estabilização do PEP
 
+## Revisão de erros, persistência e autorização — 19/09/2026
+
+Correções desta revisão implementadas localmente; migração 29 ainda não aplicada
+em homologação ou produção.
+
+- Carregamentos auxiliares de profissionais, convênios, modelos e dados de
+  cobrança agora exibem falha explícita. Impressão diferencia falha de rede
+  de registro inexistente; configuração da clínica permite nova tentativa.
+- Removidos `useDataPersistence` e `storageService`, sem consumidores no app,
+  que ofereciam persistência de listas clínicas em `localStorage`.
+  Autosave de digitação continua em `sessionStorage`; autosave remoto é planejado.
+- Migração 29 restringe modelos a prescritores ativos e define privilégios
+  mínimos para as 14 tabelas públicas e duas views. Clientes não recebem
+  `TRUNCATE`, `TRIGGER`, escrita na auditoria ou acesso direto aos recibos.
+- Testes de autorização com identidades por função, conta inativa e pendente,
+  leitura mascarada, autoria, operações de manutenção e isolamento financeiro
+  integrados a `npm run db:test:clinical` e, portanto, à CI existente.
+- 82 testes de frontend em 20 suítes, build, verificação P0 e suíte completa
+  de integridade/concorrência/autorização passaram localmente.
+- Documento mestre reescrito com estados por área; versão anterior preservada
+  em `docs/historico`. Matriz e limites em [AUTORIZACAO.md](AUTORIZACAO.md).
+
+
+## Publicação iniciada — 19/09/2026
+
+- Homologação `snhmydckyypgucwbsaus` e produção `vhaadfzdvhdztfrilohf`
+  estavam pausadas. Ambas foram reativadas e confirmadas como `ACTIVE_HEALTHY`.
+- Depois da restauração completa, homologação tinha as migrações 1–27.
+  A migração 28 foi aplicada pelo CLI, com histórico preservado.
+- Commit de aplicação `f895a4e79cbc917391672b691ec9bde3823de989` enviado à
+  branch `refatoracao-arquitetura`. [CI aprovada](https://github.com/SaudeVascular/marivan-project/actions/runs/35453417964).
+- [Preview criado pela Vercel](https://marivan-project-4ncr6rydk-marivan-s-projects.vercel.app).
+  A validação da interface e do ambiente efetivamente compilado está pendente:
+  o preview exige login na Vercel, ainda indisponível na CLI desta sessão.
+- Testes HTTP com Auth/PostgREST reais em homologação passaram: login,
+  criação simultânea idempotente, conflito de edição, assinatura atômica,
+  repetição após confirmação, imutabilidade, restrições de recepção/enfermagem,
+  bloqueio de escrita direta, recibos privados e auditoria sem duplicação.
+  Contas e registros fictícios desta execução foram removidos.
+- `admin-create-user` publicada em homologação. `ADMIN_ALLOWED_ORIGINS`
+  configurado para o preview acima; preflight HTTP confirmou origem permitida
+  e rejeição de origem externa. Auth recebeu os redirecionamentos exatos
+  `/ativar-conta` e `/redefinir-senha`, preservando os anteriores.
+- Backups dos schemas da aplicação e Auth guardados fora do repositório em
+  `/private/tmp/pep-publicacao-20260919`, com acesso restrito. O backup final
+  de produção inclui permissões; SHA256:
+  `bc3050de6684484e4ea7d4e8e821d27131bf588d4703279647b74a30b857dcaa`.
+- Restauração dos dados e schema de produção testada em PostgreSQL temporário,
+  com 5 pacientes, 21 consultas, 5 usuários e 13 tabelas públicas. As migrações
+  24–28 foram simuladas nessa cópia; fingerprint dos registros clínicos,
+  normalizado para UTC e desconsiderando a nova coluna `versao`, permaneceu
+  idêntico ao remoto. A cópia foi removida e o PostgreSQL temporário encerrado.
+  O ensaio usou proprietário local e não comprova restauração dos serviços
+  gerenciados, configurações de Auth ou permissões de infraestrutura Supabase.
+- Produção passou na verificação P0 anterior à migração 26. Não possui
+  histórico registrado nem Edge Functions publicadas. Antes da promoção,
+  registrar o histórico inicial verificado sem reaplicar as migrações 1–23,
+  aplicar 24–28, publicar/configurar a função administrativa e o frontend
+  compatível, com validação dos domínios e do backend de produção.
+- **Produção ainda não recebeu as novas migrações nem o novo frontend.**
+  A aplicação da migração 28 depende da validação e preparação do frontend,
+  pois clientes antigos perdem a permissão de escrita direta em `consultas`.
+
+Os registros abaixo descrevem as etapas de implementação anteriores a esta
+publicação; suas observações de execução apenas local são históricas.
+
 ## Primeira etapa — 19/09/2026
 
 Implementada localmente, sem publicação nem alterações no banco remoto.

@@ -1,505 +1,142 @@
 # Documento Mestre do Projeto — PEP
 
-**Projeto:** Prontuário Eletrônico de Pacientes  
-**Responsável clínico:** Dr. Marivan Araujo  
-**Versão do documento:** 1.0  
-**Data:** 10/07/2026  
-**Status:** Protótipo funcional em desenvolvimento
+**Responsável clínico:** Dr. Marivan Araujo
+**Versão:** 2.0 — 19/09/2026
+**Estado:** aplicação em estabilização e validação; publicação em produção ainda pendente.
 
-**Atualização de 19/09/2026:** iniciada a estabilização de integridade de receitas,
-datas, rascunhos e isolamento de sessões. A segunda etapa adiciona gravação
-idempotente, controle de versões e assinatura atômica (migração 28). O escopo implementado, cuidados antes
-de publicar e pendências estão em [docs/ESTABILIZACAO.md](./docs/ESTABILIZACAO.md).
-As listas históricas abaixo ainda contêm itens já resolvidos; não devem ser
-usadas isoladamente como diagnóstico da implementação atual.
+Este documento distingue implementação de validação operacional. Um recurso
+implementado no código não está necessariamente publicado nem liberado para uso real.
+O histórico anterior foi preservado em [arquivo histórico](docs/historico/DOCUMENTO_MESTRE_ANTERIOR.md).
 
----
+## Estados adotados
 
-## 1. Objetivo do sistema
+- **IMPLEMENTADO:** existe no código e tem o comportamento descrito abaixo.
+- **EM VALIDAÇÃO:** existe, mas falta comprovação no ambiente ou fluxo indicado.
+- **PLANEJADO:** evolução identificada, ainda não implementada.
+- **PENDENTE:** decisão, configuração ou requisito ainda sem conclusão.
 
-Construir um Prontuário Eletrônico de Pacientes (PEP) em nuvem, responsivo para computador, tablet e celular, com foco em:
+## Objetivo e arquitetura
 
-- uso simples e rápido durante o atendimento médico;
-- armazenamento prioritário das informações digitadas pelo médico;
-- acesso restrito por login e senha;
-- separação de funções por perfil de usuário;
-- possibilidade de expansão modular;
-- segurança adequada ao tratamento de dados pessoais sensíveis.
+Prontuário em nuvem para cadastro, atendimento, documentos, agenda e financeiro,
+com autoria e acesso por função. Frontend React 19, React Router e CSS próprio;
+backend Supabase Auth, PostgreSQL com RLS e Edge Functions.
 
-O sistema deverá atender inicialmente uma clínica médica e poderá ser expandido para outras unidades, profissionais e especialidades.
+O aplicativo oficial está em `prontuario-eletronico`. `src/App.js` reúne providers
+e rotas; `src/pages/` organiza os domínios; `src/services/` concentra acesso ao
+backend; `src/hooks/` e `src/utils/` oferecem lógica compartilhada.
+As migrações versionadas estão em `supabase/migrations/` e os testes de banco
+em `supabase/tests/`. Não alterar migrações já aplicadas.
 
----
+O frontend recebe `REACT_APP_SUPABASE_URL` e `REACT_APP_SUPABASE_ANON_KEY`.
+A chave `service_role` nunca pertence ao bundle ou às variáveis do frontend.
 
-## 2. Perfis de usuário previstos
+## Estado funcional
 
-### 2.1 Médico
-
-Acesso a:
-
-- cadastro e consulta de pacientes;
-- prontuário clínico;
-- evoluções médicas;
-- receitas e prescrições;
-- atestados;
-- relatórios;
-- pedidos de exames;
-- laudos;
-- histórico do paciente.
-
-### 2.2 Enfermeiro
-
-Acesso previsto a:
-
-- triagem;
-- sinais vitais;
-- evolução de enfermagem;
-- curativos;
-- procedimentos de enfermagem;
-- informações clínicas permitidas.
-
-### 2.3 Recepcionista
-
-Acesso previsto a:
-
-- cadastro administrativo do paciente;
-- agenda;
-- confirmação de atendimento;
-- telefone, endereço e convênio;
-- status de chegada.
-
-Não deverá visualizar evoluções médicas completas sem autorização específica.
-
-### 2.4 Financeiro
-
-Acesso previsto a:
-
-- pagamentos;
-- contas a receber;
-- repasses;
-- recibos;
-- relatórios financeiros.
-
-Não deverá visualizar conteúdo clínico do prontuário.
-
-### 2.5 Administrador
-
-Acesso a:
-
-- criação e bloqueio de usuários;
-- definição de funções e permissões;
-- configurações da clínica;
-- auditoria;
-- parametrização de modelos;
-- manutenção do sistema.
-
----
-
-## 3. Arquitetura atual
-
-### 3.1 Front-end
-
-- React 19
-- Create React App
-- React Router
-- Lucide React para ícones
-- CSS próprio
-
-### 3.2 Backend e banco de dados
-
-- Supabase
-- PostgreSQL
-- Supabase Auth para login
-- Row Level Security (RLS)
-
-### 3.3 Estrutura atual relevante
-
-```text
-src/
-├── App.js
-├── App.css
-├── components/
-│   ├── Login.js
-│   ├── ProntuarioEletronico.js
-│   ├── common/
-│   ├── consultas/
-│   ├── pacientes/
-│   └── relatorios/
-├── hooks/
-│   ├── useAuth.js
-│   ├── usePacientes.js
-│   ├── useConsultas.js
-│   ├── useAnexos.js
-│   └── useAutoSave.js
-├── services/
-│   ├── supabase.js
-│   ├── authService.js
-│   ├── pacientes.service.js
-│   ├── consultas.service.js
-│   ├── registros.service.js
-│   ├── usuarios.service.js
-│   ├── modelos.service.js
-│   ├── anexos.service.js
-│   └── storageService.js
-├── utils/
-└── data/
-```
-
-### 3.4 Variáveis de ambiente
-
-O projeto usa:
-
-```text
-REACT_APP_SUPABASE_URL
-REACT_APP_SUPABASE_ANON_KEY
-```
-
-Essas variáveis ficam no arquivo `.env.local`.
-
-Nunca inserir nesse arquivo uma chave `service_role` no front-end.
-
----
-
-## 4. Banco de dados atual
-
-### 4.1 Tabela `pacientes`
-
-Campos identificados:
-
-- id
-- nome
-- cpf
-- nascimento
-- nome_mae
-- telefone
-- convenio
-- cep
-- endereco
-- alergias
-- hipertensão arterial
-- diabetes
-- doença arterial coronariana
-- dislipidemia
-- tabagismo
-- etilismo
-- cirurgias
-- medicamentos em uso
-- ativo
-- created_by
-- created_at
-- updated_at
-
-### 4.2 Tabela `consultas`
-
-Atualmente é usada como tabela genérica de registros clínicos e documentos.
-
-Tipos previstos:
-
-- Consulta
-- Atestado
-- Receituário
-- Prescrição
-- Relatório
-- Pedido de Exames
-- Laudo
-
-Campos clínicos encontrados:
-
-- queixa principal
-- exame físico
-- hipótese diagnóstica
-- conduta
-- pressão arterial
-- frequência cardíaca
-- temperatura
-- peso
-- altura
-- saturação
-
-### 4.3 Tabela `medicamentos_receita`
-
-Armazena itens vinculados a uma consulta ou receituário.
-
-### 4.4 Tabela `perfis`
-
-Campos identificados:
-
-- id
-- nome
-- email
-- função
-- ativo
-- nascimento
-- sexo
-- cpf
-- especialidade
-- área de atuação
-- CRM
-
-### 4.5 Tabela `modelos_receita`
-
-Armazena modelos pessoais de prescrição por usuário.
-
----
-
-## 5. Funcionalidades já implementadas ou parcialmente implementadas
-
-- login por e-mail e senha usando Supabase Auth;
-- proteção básica de rotas para usuário autenticado;
-- cadastro e listagem de pacientes;
-- edição de paciente;
-- busca por nome e CPF;
-- formatação de CPF, telefone e CEP;
-- consulta automática de endereço pelo ViaCEP;
-- prontuário com diferentes tipos de registro;
-- receitas e modelos de receita;
-- atestados;
-- relatórios;
-- pedidos de exames;
-- laudos;
-- gestão inicial de usuários;
-- impressão de documentos;
-- build de produção já gerada.
-
----
-
-## 6. Situação atual do projeto
-
-### Classificação
-
-**Protótipo funcional avançado, ainda não liberado para uso clínico real.**
-
-### Pontos positivos
-
-- aplicação executa normalmente;
-- autenticação está integrada ao Supabase;
-- estrutura de banco já foi iniciada;
-- existem serviços separados para várias entidades;
-- há componentes e hooks organizados;
-- existem políticas RLS básicas;
-- o sistema já possui funções clínicas relevantes.
-
-### Pontos que exigem correção antes do uso real
-
-1. ~~O arquivo `App.js` concentra grande quantidade de lógica e interface.~~ Resolvido em 30/07/2026 — dividido por domínio em `src/pages/`, `App.js` ficou só com providers e rotas (~300 linhas). Ver registro de decisões.
-2. Existem dados fictícios de pacientes dentro do código.
-3. As permissões atuais do banco permitem que qualquer usuário autenticado veja, crie e edite todos os pacientes e consultas.
-4. Ainda não existe separação efetiva de acesso entre médico, recepção, enfermagem e financeiro.
-5. Não foi identificada auditoria completa de visualização e alteração.
-6. Não existe recuperação de senha na tela de login.
-7. Não foi confirmada política de backup, retenção e restauração.
-8. Não foi confirmada autenticação em dois fatores.
-9. Não foi confirmada assinatura digital dos documentos.
-10. Não há documentação técnica própria; o README atual é o padrão do Create React App.
-11. Existem arquivos de backup e cópias antigas dentro de `src`, que devem ser organizados.
-12. A aplicação ainda precisa de revisão de segurança antes de receber dados reais.
-
----
-
-## 7. Regra principal de segurança
-
-Até que a revisão de segurança seja concluída, utilizar apenas dados fictícios ou anonimizados no ambiente de desenvolvimento.
-
-O projeto não deve ser considerado pronto para armazenar prontuários reais apenas porque possui login.
-
-Login é apenas uma das camadas de segurança.
-
----
-
-## 8. Regras de negócio iniciais
-
-### 8.1 Cadastro de paciente
-
-Campos mínimos para salvar:
-
-- nome do paciente;
-- telefone de contato;
-- pelo menos um dos seguintes:
-  - CPF;
-  - data de nascimento;
-  - nome da mãe.
-
-Regras:
-
-- CPF não pode ser duplicado;
-- CPF deve aceitar apenas números durante a digitação e ser exibido formatado;
-- cadastro deve permanecer editável;
-- exclusão deve ser preferencialmente lógica, usando `ativo = false`;
-- alterações importantes devem gerar registro de auditoria.
-
-### 8.2 Prontuário
-
-- cada registro deve possuir data, hora e autor;
-- registros concluídos não devem ser apagados sem rastreabilidade;
-- correções devem preservar o conteúdo anterior;
-- o histórico deve ser cronológico;
-- cada documento deve estar vinculado ao paciente e ao profissional responsável.
-
-Implementado em 31/07/2026 (antes só valia como intenção, o código deixava editar por 8h):
-
-- todo registro nasce como **Rascunho** (editável só por quem criou) ou já **Assinado** (atestado/receituário/relatório/laudo/pedido de exames, que não têm fluxo de rascunho próprio ainda);
-- **Assinado é imutável** — bloqueado no banco por trigger, não só na tela; nem o autor, nem Administrador, conseguem mudar título/conteúdo/tipo depois;
-- correção de um registro assinado vira uma **retificação**: registro novo, vinculado ao original, com motivo obrigatório — quem pode retificar é só quem assinou o original;
-- a assinatura grava nome e CRM/COREN **no momento de assinar** (não é um link vivo pro cadastro, que pode ser corrigido depois).
-
-### 8.3 Permissões
-
-- médico: acesso clínico completo conforme autorização;
-- enfermeiro: acesso a registros de enfermagem e dados necessários ao cuidado;
-- recepcionista: acesso prioritariamente administrativo;
-- financeiro: acesso financeiro, sem conteúdo clínico;
-- administrador: acesso administrativo e auditoria, com controles reforçados.
-
----
-
-## 9. Roadmap recomendado
-
-### Fase 1 — Organização e segurança da base
-
-- substituir o README padrão por documentação do projeto;
-- remover dados fictícios do código principal;
-- dividir o `App.js` em páginas e componentes menores;
-- revisar todas as políticas RLS;
-- implementar permissões por função;
-- criar tabela de auditoria;
-- implementar recuperação de senha;
-- revisar variáveis de ambiente;
-- remover arquivos antigos e backups do diretório `src`;
-- criar ambiente de desenvolvimento separado do ambiente de produção.
-
-### Fase 2 — Núcleo clínico
-
-- finalizar cadastro de pacientes;
-- finalizar consulta médica;
-- histórico cronológico;
-- receitas;
-- atestados;
-- relatórios;
-- pedidos de exames;
-- laudos;
-- autosave com controle de versões;
-- validação de campos clínicos.
-
-### Fase 3 — Módulos profissionais
-
-- módulo de enfermagem;
-- módulo de recepção;
-- agenda;
-- módulo financeiro;
-- permissões específicas por módulo;
-- painel administrativo.
-
-### Fase 4 — Produção
-
-- hospedagem em nuvem;
-- domínio próprio;
-- HTTPS;
-- backups automáticos;
-- testes de restauração;
-- logs de segurança;
-- monitoramento de erros;
-- política de privacidade;
-- termos internos de confidencialidade;
-- plano de resposta a incidentes;
-- validação jurídica, regulatória e de segurança.
-
----
-
-## 10. Próxima tarefa recomendada
-
-**Criar a documentação dentro do projeto e fazer uma cópia segura antes de alterar o código.**
-
-Ordem sugerida:
-
-1. salvar este arquivo na raiz do projeto como `DOCUMENTO_MESTRE_PEP.md`;
-2. confirmar o repositório Git ativo;
-3. criar um commit de segurança;
-4. criar uma branch para as próximas alterações;
-5. mapear todas as telas e rotas atuais;
-6. corrigir primeiro a recuperação de senha;
-7. revisar as permissões do Supabase.
-
----
-
-## 11. Convenções para o desenvolvimento
-
-### Código
-
-- uma funcionalidade por componente sempre que possível;
-- nomes claros em português ou inglês, sem mistura aleatória;
-- não guardar dados clínicos em variáveis fixas no código;
-- não registrar dados sensíveis no console;
-- não expor chaves administrativas no front-end;
-- validar os dados no front-end e no banco;
-- registrar alterações relevantes.
-
-### Git
-
-Cada mudança deve ser salva com uma mensagem clara, por exemplo:
-
-```text
-feat: adiciona recuperação de senha
-fix: corrige validação de CPF
-security: restringe acesso de recepcionista ao prontuário
-refactor: divide App.js em páginas
-```
-
-### Testes
-
-Antes de considerar uma função concluída:
-
-- testar no computador;
-- testar em largura de tablet;
-- testar em largura de celular;
-- testar usuário autorizado;
-- testar usuário sem permissão;
-- testar erro de conexão;
-- testar campos vazios e dados inválidos.
-
----
-
-## 12. Registro de decisões
-
-| Data | Decisão | Motivo |
+| Área | Estado | Implementação e limite atual |
 |---|---|---|
-| 10/07/2026 | Manter React e Supabase nesta fase | O projeto já está funcional nessa arquitetura |
-| 10/07/2026 | Criar Documento Mestre | Evitar perda de contexto e organizar a evolução |
-| 10/07/2026 | Não usar dados reais antes da revisão de segurança | As permissões atuais ainda são amplas |
-| 10/07/2026 | Priorizar organização, recuperação de senha e RLS | São pontos críticos antes da expansão |
-| 27/07/2026 | Mascarar alergias/antecedentes clínicos por view (`pacientes_view`), não só na tela | RLS de `pacientes` não filtra coluna, só linha; Recepcionista precisa do cadastro administrativo mas não do dado clínico |
-| 27/07/2026 | Ampliar leitura de `perfis` pra qualquer usuário ativo ver colegas ativos, mascarando cpf/nascimento/sexo por view (`perfis_view`) | RLS anterior só deixava ver o próprio perfil ou Administrador ver todos — Recepcionista não conseguia listar Médico/Enfermeiro(a) pra agendar, e Financeiro não conseguia listar médico pra lançar cobrança nem mostrar nome no recibo |
-| 27/07/2026 | Módulo de Enfermagem: tela de Sinais Vitais/Triagem, evolução de enfermagem com tipo próprio no histórico, e Receituário/Prescrição/Atestado restritos a Médico/Administrador (tela e RLS) | Seção 2.2 do Documento Mestre não lista atos exclusivos de CRM no acesso do Enfermeiro; sinais vitais tinham colunas na tabela desde o schema original mas nenhuma tela usava |
-| 27/07/2026 | Painel Administrativo unificado (/painel) reunindo Usuários, Auditoria e nova tela de Configurações da Clínica; nome/endereço/telefone saem do código (`CLINICA` fixo) e viram tabela `configuracoes_clinica` editável | Seção 2.5 lista "configurações da clínica" no acesso do Administrador; dado fixo no código impedia corrigir informação administrativa sem mexer no código — e a pendência #2 (nome/dados reais da clínica) segue aberta até o Administrador preencher pela tela nova |
-| 27/07/2026 | Configurações da Clínica ganha Nome Fantasia (no lugar de "subtitulo"), CNPJ, logomarca (upload, bucket público) e CEP separado com busca automática de endereço (ViaCEP) | Pedido direto do usuário após ver a primeira versão da tela; CNPJ e logomarca são esperados em documento impresso de clínica real |
-| 27/07/2026 | Configurações da Clínica ganha número/complemento no endereço, modo de visualização com botão "Editar" explícito, e auditoria de alterações; nova tela de Filiais (cadastro de outras unidades, mesma estrutura de dados, cada uma com logomarca própria) | Pedido direto do usuário; exigir "Editar" antes de mexer, mais o trigger de auditoria já usado em outras tabelas, cria rastro de quem alterou os dados da clínica |
-| 28/07/2026 | Rodada de estabilização após revisão externa (ChatGPT): corrigidos os 4 avisos do ESLint sem desativar regra nenhuma, `npm test` voltou a funcionar (Jest não resolvia `react-router-dom`/`react-router` — `moduleNameMapper` em `package.json` + polyfill de `TextEncoder` em `setupTests.js` + `.env.test` com credenciais falsas), removido fallback silencioso que fingia salvar atendimento/documento clínico quando a gravação no Supabase falhava, rascunho de atendimento passa a ser apagado do navegador no logout, criado `.env.example` | `npm ci` limpo confirmou que a falha do Jest era um bug real do pacote `react-router-dom` (não do node_modules do projeto) — `dist/main.js` declarado no `package.json` dele não existe nem recém-instalado; fallback silencioso é risco clínico real (profissional acredita que salvou e o registro não existe no banco); rascunho em localStorage sobrevivendo ao logout expõe dado clínico a quem usar o navegador depois |
-| 30/07/2026 | Divide `App.js` (4903 linhas) por domínio em `src/pages/*`, `src/components/` (Layout, guards) e `src/constants/roles.js` — `App.js` final só com providers e rotas (~300 linhas) | Item 1 da lista de "pontos que exigem correção antes do uso real" desde a criação deste documento; build e teste automatizado verificados a cada domínio movido (nenhuma lógica alterada, só localização do código), tamanho do bundle final idêntico ao de antes do refactor |
-| 31/07/2026 | Prontuário: registro assinado fica imutável (trigger no banco), correção vira retificação vinculada ao original; atendimento ganha Rascunho (editável, salvo no banco) e Finalizar e Assinar (grava nome+CRM/COREN no momento da assinatura); histórico passa a mostrar autoria, é agrupado por data, ganha filtro por tipo e busca por texto, e ações explícitas (Imprimir/Editar/Assinar/Retificar) em vez de depender só de duplo clique; tamanho dos painéis do prontuário passa a ser lembrado (localStorage); dados clínicos do topo ficam recolhíveis | Revisão externa apontou que o registro "consolidado" podia ser reescrito por 8h (o código chamava a variável de `dentroDE24h`, mas o prazo real era 8h) sem deixar rastro visível na tela — o mais importante dos apontamentos; RLS de UPDATE em `consultas` também foi restringida ao autor (ou Administrador), que antes deixava qualquer clínico editar registro de colega via API direta. Itens 2 (campos clínicos estruturados), 7 (cirurgias/medicamentos estruturados) e 8 (comorbidades em 4 estados) da mesma revisão ficaram de fora a pedido do usuário |
-| 31/07/2026 | Migração `supabase_prontuario_assinatura.sql` corrigida: normaliza `status` antigo (`'Realizada'`/`NULL`) para `'Assinado'` antes de criar a constraint, e adiciona `NOT NULL` explícito | `consultas.status` já existia desde `supabase_schema.sql`, com `DEFAULT 'Realizada'`, nunca usado por nenhuma tela — `ADD COLUMN IF NOT EXISTS` foi um no-op em banco existente e a `CHECK` nova falhou (`23514`) contra linhas antigas |
-| 31/07/2026 | Correção de bug: em "Dados Clínicos" do prontuário, erro ao salvar (Supabase fora do ar) fechava o modo de edição mesmo sem gravar, e não avisava o usuário — passou só a `console.error` | Mesmo padrão de risco já corrigido em outros pontos (rodada de 28/07): profissional pode acreditar que salvou uma alteração clínica que na verdade não foi para o banco |
-| 31/07/2026 | Substituídos os ~40 `alert()` do app por um sistema central de notificação (`ToastProvider`/`useToast`, canto superior direito, não bloqueia a tela) | Pedido direto do usuário após revisão externa; `alert()` trava a interface inteira e é descartado pelos navegadores em iframes/PWA — mantido `window.confirm()` nas ações destrutivas (desativar paciente, excluir procedimento/convênio), que é um caso de uso diferente (confirmação, não notificação) |
-| 31/07/2026 | `npm test` ganha mock manual do Supabase (`src/services/__mocks__/supabase.js`) e passa de 1 para 18 testes (guards de rota por função, `usePacienteAtual`, limpeza de rascunho no logout, salvar/preservar atendimento em caso de falha do servidor) | Pedido direto do usuário após revisão externa apontar que só havia um teste de "renderiza sem quebrar", com aviso de `act()` por falta de mock da sessão do Supabase |
+| Consulta | IMPLEMENTADO | Digitar, salvar rascunho remoto, reabrir, editar e finalizar/assinar. Autosave de digitação ainda é local à aba. |
+| Assinatura | IMPLEMENTADO / EM VALIDAÇÃO | Texto e assinatura atômicos, autoria com identidade profissional, imutabilidade e retificação vinculada. Migração 28 em homologação; produção pendente. Não equivale a certificação digital externa. |
+| Concorrência | IMPLEMENTADO / EM VALIDAÇÃO | UUID por operação, recibo idempotente, versão esperada e revisão explícita em conflito. Testes HTTP passaram em homologação; validação do preview ainda pendente. |
+| Receitas e documentos | IMPLEMENTADO | Quantidade, via, dose e demais campos preservados no registro. Erros de gravação não produzem confirmação de sucesso. |
+| Cadastro | IMPLEMENTADO | Identificação, endereço, convênio e dados clínicos separados por view e triggers. Campos obrigatórios definitivos dependem de decisão clínica. |
+| Perfis e autorização | IMPLEMENTADO / EM VALIDAÇÃO | RLS, views mascaradas e proteção de função/status. Administrador clínico agora é concessão explícita (migração 30), não automática. Migrações 29 e 30 ainda não aplicadas remotamente. |
+| Agenda e recepção | IMPLEMENTADO | Agendamento e fluxo de status/check-in. A política atual da agenda ainda admite toda conta ativa; restrição adicional por função exige decisão explícita. |
+| Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura do próprio repasse pelo médico. |
+| Usuários | IMPLEMENTADO / EM VALIDAÇÃO | Convites por Edge Function com administrador ativo e origens explícitas. Função publicada em homologação; produção e fluxos finais de e-mail pendentes. |
+| Clínica e filiais | IMPLEMENTADO | Cadastro/configuração e múltiplas filiais. Não representa isolamento entre organizações independentes. |
+| Erros de carregamento | IMPLEMENTADO | Avisos nos carregamentos auxiliares, erros de impressão explícitos e nova tentativa para configuração da clínica e histórico. Não registrar objetos de erro potencialmente sensíveis no console. |
+| Auditoria | IMPLEMENTADO / PLANEJADO | Triggers de alterações existentes; auditoria de leitura e monitoramento operacional ainda planejados. |
 
----
+## Matriz de autorização atual
 
-## 13. Pendências abertas
+A matriz descreve o banco após a migração 29. Restrições devem existir no
+backend mesmo quando uma rota está escondida no frontend. A matriz e suas
+ressalvas estão detalhadas em [AUTORIZACAO.md](docs/AUTORIZACAO.md).
 
-- [ ] Confirmar nome definitivo do sistema.
-- [ ] Confirmar nome e dados reais da clínica.
-- [ ] Definir especialidades atendidas.
-- [ ] Definir campos obrigatórios do cadastro.
-- [ ] Definir fluxo completo da consulta.
-- [ ] Definir permissões de cada função.
-- [ ] Definir se haverá múltiplas clínicas ou unidades.
-- [ ] Definir regras de assinatura dos documentos.
-- [ ] Definir estratégia de hospedagem.
-- [ ] Definir política de backup e retenção.
-- [ ] Definir responsável administrativo pelo sistema.
-- [ ] Definir ambiente de homologação e produção.
+| Domínio | Médico | Enfermagem | Recepção | Financeiro | Administrador |
+|---|---|---|---|---|---|
+| Identificação do paciente | Ler/editar | Ler/editar | Ler/editar | Ler | Ler/editar |
+| Dados clínicos e histórico | Sim | Sim | Não | Não | Só com papel clínico concedido |
+| Emitir receita, prescrição e atestado | Sim | Não | Não | Não | Só com papel clínico Médico concedido |
+| Modelos de receita | Próprios | Não | Não | Não | Próprios, só com papel clínico Médico concedido |
+| Agenda | Sim | Sim | Sim | Só leitura | Sim |
+| Cobranças | Leitura das próprias | Não | Não | Gerenciar | Gerenciar/excluir |
+| Configuração e filiais | Ler | Ler | Ler | Ler | Gerenciar |
+| Auditoria de alterações | Não | Não | Não | Não | Ler |
 
----
+Desde a migração 30, "Administrador" na tabela acima é administração
+técnica por padrão — sem qualquer poder clínico automático. Uma conta
+Administrador só ganha as células marcadas "com papel clínico concedido"
+se OUTRO Administrador ativo conceder explicitamente `papel_clinico_administrador`
+(Médico ou Enfermeiro(a)) a ela; a concessão nunca é automática nem
+autoatribuível, mesmo por quem já é Administrador. Ver [AUTORIZACAO.md](docs/AUTORIZACAO.md).
 
-## 14. Histórico de versões deste documento
+Contas inativas não conservam os poderes da função anterior. Perfis têm
+exposição mínima da própria identidade para permitir o fluxo de autenticação.
+Nenhum cliente recebe escrita direta em consultas, edição de auditoria,
+acesso direto aos recibos de operação ou privilégios de `TRUNCATE`/`TRIGGER`.
+
+**IMPLEMENTADO (migração 30, 19/09/2026):** administração técnica separada de
+atuação clínica. Administrador só tem acesso clínico se outro administrador
+conceder `papel_clinico_administrador` (Médico ou Enfermeiro(a)) — nunca
+automático nem autoconcedido. Enfermagem consulta o histórico clínico,
+inclusive documentos já existentes, mas não emite receita/prescrição/atestado.
+
+## Rascunhos e armazenamento no navegador
+
+**IMPLEMENTADO:** texto temporário no `sessionStorage`, com chave por usuário
+e paciente; limpeza no logout; rascunhos antigos anônimos do `localStorage`
+removidos na inicialização. No `localStorage` da interface atual permanece
+somente a preferência de largura dos painéis. O serviço legado, não utilizado,
+que permitia persistir listas de pacientes/consultas foi removido nesta revisão.
+
+`sessionStorage` ainda contém informação clínica e pode ser restaurado pelo
+navegador. Não é um mecanismo de expiração garantida. Não se impôs um prazo que
+apagaria texto ainda não enviado ao servidor. Salvar antes de sair ou fechar a
+aba continua necessário. Pedidos com resultado incerto preservam o mesmo UUID
+na aba até sua confirmação; apagar esse estado pode induzir duplicação.
+
+**PLANEJADO:** autosave remoto do rascunho, com debounce, recuperação da versão,
+reconciliação de respostas perdidas e conflito entre sessões, seguido de redução
+ou remoção do armazenamento local. O botão “Salvar rascunho” remoto já existe;
+essa evolução não deve ser confundida com autosave remoto já implementado.
+
+## Validação e publicação
+
+- **IMPLEMENTADO:** testes de frontend, integridade clínica, concorrência e
+  autorização diretamente em PostgreSQL descartável. `npm run db:test:clinical`
+  inclui a matriz das 14 tabelas com contas ativas/inativas e privilégios anônimos.
+- **EM VALIDAÇÃO:** alterações desta revisão e migração 29. A aplicação remota
+  deve seguir homologação antes de produção; os testes HTTP anteriores cobrem a 28.
+- **EM VALIDAÇÃO:** preview da Vercel exige autenticação para confirmar sua
+  configuração e os fluxos de navegador. Produção ainda aguarda atualização coordenada.
+- **IMPLEMENTADO:** backup pontual e ensaio de restauração do schema/dados de
+  produção, incluindo comparação dos registros clínicos. Isso não comprova
+  uma política recorrente de backup nem recuperação dos serviços gerenciados.
+
+Evidências, commits, URLs e estado por ambiente estão em
+[ESTABILIZACAO.md](docs/ESTABILIZACAO.md). Procedimento operacional em
+[AMBIENTES_E_MIGRACOES.md](docs/AMBIENTES_E_MIGRACOES.md).
+
+## Pendências abertas
+
+| Estado | Pendência |
+|---|---|
+| PENDENTE | Confirmar nome definitivo, dados institucionais, especialidades e responsável administrativo. |
+| PENDENTE | Aprovar campos obrigatórios e critérios clínicos para finalizar documentos. |
+| EM VALIDAÇÃO | Validar fluxo já implementado da consulta com profissionais e cenários de falha. |
+| IMPLEMENTADO | Administrador clínico e agenda do Financeiro resolvidos na migração 30 — ver seção "Matriz de autorização atual". |
+| PENDENTE | Decidir se filiais compartilham pacientes ou precisam de isolamento institucional. |
+| EM VALIDAÇÃO | Regras de assinatura já implementadas; validação operacional e requisitos externos ainda abertos. |
+| IMPLEMENTADO / EM VALIDAÇÃO | Ambientes Supabase separados e hospedagem Vercel definidos; promoção coordenada pendente. |
+| PENDENTE | Política de backup, retenção, RPO/RTO e teste recorrente de restauração. |
+| PENDENTE | Comprovar MFA, monitoramento, revisão de acessos e recuperação operacional. |
+| PLANEJADO | Autosave remoto, auditoria de leitura e paginação/busca de pacientes no servidor. |
+
+## Histórico documental
 
 | Versão | Data | Alteração |
 |---|---|---|
-| 1.0 | 10/07/2026 | Criação do documento a partir da análise do projeto atual |
+| 1.0 | 10/07/2026 | Documento original e decisões subsequentes, preservados no arquivo histórico. |
+| 2.0 | 19/09/2026 | Estado real por área, matriz de permissões, distinção entre rascunho remoto e autosave local, pendências e publicação. |
+| 2.1 | 19/09/2026 | Migração 30: Administrador deixou de ter acesso clínico automático (passa a exigir concessão explícita de outro administrador); Financeiro passou a só ler a agenda. |

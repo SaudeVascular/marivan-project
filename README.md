@@ -182,7 +182,6 @@ src/
 │   ├── useClinica.js         # dados da clínica (nome, logo, endereço) via Context
 │   ├── useMedicoPerfil.js    # autofill de médico/CRM/especialidade nos documentos
 │   ├── usePacienteAtual.js   # paciente atual a partir da URL
-│   ├── useAnexos.js          # upload de anexos (não usado no app ainda)
 │   └── useAutoSave.js        # debounce de autosave
 ├── services/                 # um arquivo por entidade, todos falando com o Supabase
 └── utils/
