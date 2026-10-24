@@ -127,7 +127,7 @@ e faça os testes de interface com dados fictícios.
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
 | Homologação | `snhmydckyypgucwbsaus` | 01–37 | OK (24/10) |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–36 | OK (24/10); **37 pendente** |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–37 | OK (24/10) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
