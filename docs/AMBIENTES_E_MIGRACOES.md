@@ -122,7 +122,29 @@ CONFIRM_STAGING_PUSH=APLICAR_EM_HOMOLOGACAO npm run db:staging:push
 Depois execute `supabase_verify_security_p0.sql` no SQL Editor da homologação
 e faça os testes de interface com dados fictícios.
 
-## Adotar o histórico na produção existente — uma única vez
+## Estado atual (24/10/2026)
+
+| Ambiente | Ref | Migrações | Verificação P0 |
+|---|---|---|---|
+| Homologação | `snhmydckyypgucwbsaus` | 01–36 | OK (24/10, já com a checagem da auditoria) |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–36 | OK (24/10, já com a checagem da auditoria) |
+
+A seção seguinte é histórica: a adoção na produção **já foi feita**, em
+23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
+`scripts/diagnostico-migracoes-producao.sql` mostrou que a produção já tinha
+de 01 a 25, e não só as 23 iniciais. Por isso 01–25 foram registradas como
+aplicadas, sem reexecutar, e 26–35 foram aplicadas depois do backup. A
+conexão com a produção é direta (`db.vhaadfzdvhdztfrilohf.supabase.co`); o
+pooler `aws-0-sa-east-1` não conhece esse projeto.
+
+**Daqui em diante, para cada migração nova:**
+
+```bash
+bash scripts/supabase-push-producao.sh                   # dry-run, para
+CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
+```
+
+## Adotar o histórico na produção existente — uma única vez (já feito)
 
 Produção já recebeu os 23 scripts manualmente. Eles não podem ser executados
 novamente pelo CLI. Depois de confirmar `OK` em `supabase_verify_security_p0.sql`:

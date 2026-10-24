@@ -27,6 +27,13 @@ BEGIN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê pacientes.outras_comorbidades diretamente';
   END IF;
 
+  -- Migração 36: auditoria guarda linhas inteiras (conteúdo clínico,
+  -- assinaturas) — só pode ser lida pela auditoria_view mascarada.
+  IF has_table_privilege('authenticated', 'public.auditoria', 'SELECT')
+     OR to_regclass('public.auditoria_view') IS NULL THEN
+    RAISE EXCEPTION 'P0 inseguro: auditoria legível diretamente (aplique a migração 36)';
+  END IF;
+
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';
   END IF;

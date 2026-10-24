@@ -74,7 +74,9 @@ INSERT INTO matriz VALUES
  ('cobrancas',ARRAY['Médico','Financeiro','Administrador'],ARRAY['Financeiro','Administrador'],ARRAY['Administrador'],'valor'),
  ('configuracoes_clinica',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY['Administrador'],ARRAY[]::TEXT[],'nome'),
  ('filiais',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY['Administrador'],ARRAY['Administrador'],'nome'),
- ('auditoria',ARRAY['Administrador'],ARRAY[]::TEXT[],ARRAY[]::TEXT[],'tabela'),
+ -- Auditoria: ninguém lê a tabela base (migração 36); Administrador lê
+ -- pela auditoria_view mascarada — ver supabase/tests/auditoria_mascarada.sql.
+ ('auditoria',ARRAY[]::TEXT[],ARRAY[]::TEXT[],ARRAY[]::TEXT[],'tabela'),
  -- Catálogo de exames: leitura por quem usa no Pedido de Exames (papel
  -- clínico direto) mais Administrador (gerencia o catálogo, mesmo sem
  -- papel_clinico_administrador concedido — não é dado clínico de
