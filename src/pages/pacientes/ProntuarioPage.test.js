@@ -91,3 +91,91 @@ test('conflito preserva texto e só adota outra versão depois da comparação e
   fireEvent.click(screen.getByRole('button', { name: /Salvar rascunho/ }));
   await waitFor(() => expect(registrosService.atualizar).toHaveBeenLastCalledWith('r1', expect.objectContaining({ versao: 2, conteudo: 'Minha edição' }), 'medico-1', false));
 });
+
+describe('salvamento automático no prontuário', () => {
+  const { act } = require('@testing-library/react');
+  const caixa = () => screen.getByLabelText('Atendimento atual');
+  const digitar = (texto) => fireEvent.change(caixa(), { target: { value: texto } });
+  const avancar = async (ms) => { await act(async () => { jest.advanceTimersByTime(ms); }); };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    registrosService.listarPorPaciente.mockResolvedValue([]);
+  });
+  afterEach(() => { jest.useRealTimers(); });
+
+  test('10 s sem digitar criam o rascunho; novas alterações atualizam a mesma versão', async () => {
+    registrosService.criar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 1, conteudo: 'Primeira parte' });
+    registrosService.atualizar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 2, conteudo: 'Primeira parte e mais' });
+    render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+
+    digitar('Primeira parte');
+    await avancar(9000);
+    expect(registrosService.criar).not.toHaveBeenCalled();
+    await avancar(1000);
+    await waitFor(() => expect(registrosService.criar).toHaveBeenCalledWith(
+      expect.objectContaining({ conteudo: 'Primeira parte', status: 'Rascunho' }), 'p1', 'medico-1'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Salvo no prontuário às/));
+    expect(caixa()).not.toBeDisabled();
+
+    digitar('Primeira parte e mais');
+    await avancar(10000);
+    await waitFor(() => expect(registrosService.atualizar).toHaveBeenCalledWith('r1',
+      expect.objectContaining({ conteudo: 'Primeira parte e mais', versao: 1 }), 'medico-1', false));
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+  });
+
+  test('sem conexão avisa sem erro em vermelho e tenta de novo em 30 s', async () => {
+    registrosService.criar
+      .mockRejectedValueOnce(new Error('Failed to fetch'))
+      .mockResolvedValueOnce({ id: 'r1', status: 'Rascunho', versao: 1, conteudo: 'Texto' });
+    render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+
+    digitar('Texto');
+    await avancar(10000);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Sem conexão com o servidor/));
+    expect(screen.queryByText(/Failed to fetch/)).not.toBeInTheDocument();
+
+    await avancar(30000);
+    await waitFor(() => expect(registrosService.criar).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Salvo no prontuário às/));
+  });
+
+  test('esconder a aba grava na hora, sem esperar os 10 s', async () => {
+    registrosService.criar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 1, conteudo: 'Texto' });
+    render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Texto');
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    try {
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+      await waitFor(() => expect(registrosService.criar).toHaveBeenCalledTimes(1));
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    }
+  });
+
+  test('sair da tela antes dos 10 s grava o texto pendente', async () => {
+    registrosService.criar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 1, conteudo: 'Texto' });
+    const { unmount } = render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Texto pendente');
+    await avancar(3000);
+    unmount();
+    expect(registrosService.criar).toHaveBeenCalledWith(expect.objectContaining({ conteudo: 'Texto pendente' }), 'p1', 'medico-1');
+  });
+
+  test('sair da tela grava o que falta e não repete texto já salvo', async () => {
+    registrosService.criar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 1, conteudo: 'Texto' });
+    const { unmount } = render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Texto');
+    await avancar(10000);
+    await waitFor(() => expect(registrosService.criar).toHaveBeenCalledTimes(1));
+    unmount();
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+    expect(registrosService.atualizar).not.toHaveBeenCalled();
+  });
+});

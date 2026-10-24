@@ -28,6 +28,21 @@ export function ProntuarioPage(props) {
   return <ProntuarioConteudo key={id} {...props} />;
 }
 
+const AUTOSAVE_MS = 10000;
+const AUTOSAVE_NOVA_TENTATIVA_MS = 30000;
+const hora = (d) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+// Linha de estado abaixo da caixa de texto.
+function statusSalvamento({ autoSalvo, pendente, localEm }) {
+  if (autoSalvo.estado === 'salvando') return 'Salvando no prontuário...';
+  if (autoSalvo.estado === 'erro') {
+    return `Sem conexão com o servidor — o texto está guardado só nesta aba${localEm ? ` (às ${hora(localEm)})` : ''}. Nova tentativa em instantes.`;
+  }
+  if (!pendente && autoSalvo.em) return `Salvo no prontuário às ${hora(autoSalvo.em)} (rascunho, ainda não assinado).`;
+  if (autoSalvo.em) return `Alterações desde ${hora(autoSalvo.em)} serão salvas no prontuário em instantes.`;
+  return 'Será salvo no prontuário em instantes.';
+}
+
 function ProntuarioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
@@ -46,6 +61,16 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   const [salvandoEdicao, setSalvandoEdicao] = React.useState(false);
   const [editandoClinicos, setEditandoClinicos] = React.useState(false);
   const [salvandoAtendimento, setSalvandoAtendimento] = React.useState(false);
+  // Salvamento automático no servidor (ver efeito "autosave remoto"):
+  // { estado: 'ocioso' | 'salvando' | 'salvo' | 'erro', em: Date|null }
+  const [autoSalvo, setAutoSalvo] = React.useState({ estado: 'ocioso', em: null });
+  const [tentativaAuto, setTentativaAuto] = React.useState(0);
+  const ultimoTextoServidor = React.useRef(null);
+  // Paciente a quem o texto em digitação pertence. Na troca de paciente
+  // há um render com o paciente novo e o texto antigo — o autosave não
+  // pode gravar nesse intervalo.
+  const pacienteDoTexto = React.useRef(null);
+  const gravando = React.useRef(false);
   const [erroAtendimento, setErroAtendimento] = React.useState('');
   const [erroStorage, setErroStorage] = React.useState('');
   const [erroHistorico, setErroHistorico] = React.useState(false);
@@ -115,6 +140,9 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     setErroAtendimento('');
     setErroClinicos('');
     setEditandoClinicos(false);
+    ultimoTextoServidor.current = null;
+    pacienteDoTexto.current = paciente.id;
+    setAutoSalvo({ estado: 'ocioso', em: null });
   }, [paciente?.id, user?.id]);
 
   const salvarRascunhoLocal = React.useCallback((texto) => {
@@ -207,6 +235,37 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     return () => { cancelado = true; };
   }, [paciente?.id, setPacientes, tentativaHistorico]);
 
+  // Autosave remoto: 10 s depois da última tecla, o texto vira (ou
+  // atualiza) o rascunho no prontuário — antes ele só existia na aba até
+  // alguém clicar em "Salvar rascunho", e fechar a aba, cair a sessão ou
+  // a estação perdia o trabalho. Também grava ao esconder a aba (trocar
+  // de aba, minimizar, fechar) e ao sair da tela. Em falha, tenta de
+  // novo a cada 30 s; o texto segue guardado na aba enquanto isso.
+  const gravarRef = React.useRef(null);
+  const salvarAgora = React.useCallback(() => gravarRef.current?.(false, { automatico: true }), []);
+
+  React.useEffect(() => {
+    if (!paciente?.id || !atendimentoAtual.trim() || conflito) return undefined;
+    if (atendimentoAtual === ultimoTextoServidor.current) return undefined;
+    const atraso = autoSalvo.estado === 'erro' ? AUTOSAVE_NOVA_TENTATIVA_MS : AUTOSAVE_MS;
+    const timer = setTimeout(() => {
+      salvarAgora();
+      if (autoSalvo.estado === 'erro') setTentativaAuto(t => t + 1);
+    }, atraso);
+    return () => clearTimeout(timer);
+  }, [atendimentoAtual, paciente?.id, conflito, autoSalvo.estado, tentativaAuto, salvarAgora]);
+
+  React.useEffect(() => {
+    const aoEsconder = () => { if (document.visibilityState === 'hidden') salvarAgora(); };
+    document.addEventListener('visibilitychange', aoEsconder);
+    window.addEventListener('pagehide', salvarAgora);
+    return () => {
+      document.removeEventListener('visibilitychange', aoEsconder);
+      window.removeEventListener('pagehide', salvarAgora);
+      salvarAgora(); // saindo da tela (ex.: indo para o Receituário)
+    };
+  }, [salvarAgora]);
+
   if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
 
   const registros = paciente.registros || [];
@@ -231,10 +290,20 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
 
   const aplicarRegistroSalvo = salvo => aplicarRegistroConfirmado(setPacientes, paciente.id, salvo);
 
-  const gravarAtendimento = async (assinar) => {
-    if (!atendimentoAtual.trim() || salvandoAtendimento) return;
-    setSalvandoAtendimento(true);
-    setErroAtendimento('');
+  // `automatico`: disparado pelo autosave — não trava a caixa de texto
+  // nem mostra erro em vermelho (o texto continua guardado na aba e a
+  // gravação é tentada de novo). Conflito de versão continua aparecendo:
+  // é um problema real que exige decisão de quem está digitando.
+  const gravarAtendimento = async (assinar, { automatico = false } = {}) => {
+    const texto = atendimentoAtual;
+    if (!texto.trim() || gravando.current) return;
+    if (automatico && (conflito || texto === ultimoTextoServidor.current || pacienteDoTexto.current !== paciente.id)) return;
+    gravando.current = true;
+    if (automatico) setAutoSalvo(a => ({ ...a, estado: 'salvando' }));
+    else {
+      setSalvandoAtendimento(true);
+      setErroAtendimento('');
+    }
     try {
       const salvo = rascunhoRegistroId
         ? await registrosService.atualizar(rascunhoRegistroId, {
@@ -247,6 +316,9 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
         }, paciente.id, user?.id);
       aplicarRegistroSalvo(salvo);
       setConflito(null);
+      ultimoTextoServidor.current = salvo.status === 'Assinado' ? '' : texto;
+      setAutoSalvo({ estado: 'salvo', em: new Date() });
+      if (automatico) setErroAtendimento('');
       if (salvo.status === 'Assinado') {
         if (persistirRascunhoLocal('', null)) confirmarRecebimentoRegistro(salvo);
         setAtendimentoAtual('');
@@ -256,9 +328,10 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       } else {
         setRascunhoRegistroId(salvo.id);
         setRascunhoVersao(salvo.versao);
-        if (persistirRascunhoLocal(atendimentoAtual, salvo.id, salvo.versao)) confirmarRecebimentoRegistro(salvo);
+        if (persistirRascunhoLocal(texto, salvo.id, salvo.versao)) confirmarRecebimentoRegistro(salvo);
       }
     } catch (err) {
+      if (automatico) setAutoSalvo(a => ({ ...a, estado: 'erro' }));
       if (err.registroConfirmado) {
         const confirmado = err.registroConfirmado;
         aplicarRegistroSalvo(confirmado);
@@ -269,11 +342,14 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       } else if (err.code === 'P4090' || (rascunhoRegistroId && !rascunhoVersao)) {
         setConflito({ alvo: 'atendimento', id: rascunhoRegistroId });
       }
-      setErroAtendimento(err.message);
+      if (!automatico || err.code === 'P4090' || err.registroConfirmado) setErroAtendimento(err.message);
     } finally {
-      setSalvandoAtendimento(false);
+      gravando.current = false;
+      if (!automatico) setSalvandoAtendimento(false);
     }
   };
+
+  gravarRef.current = gravarAtendimento;
 
   const salvarComoRascunho = () => gravarAtendimento(false);
   const finalizarEAssinar = () => gravarAtendimento(true);
@@ -630,6 +706,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
               ? 'Evolução de enfermagem: cuidados realizados, resposta do paciente, intercorrências...'
               : 'História clínica, exame físico, hipótese diagnóstica, conduta...'}
             disabled={salvandoAtendimento}
+            aria-label={enfermeiro ? 'Evolução de enfermagem' : 'Atendimento atual'}
             value={atendimentoAtual}
             onChange={(e) => setAtendimentoAtual(e.target.value)}
             rows={18}
@@ -652,7 +729,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
             </button>
           </div>
           <p style={{ marginTop: '3px', fontSize: '11px', color: '#888' }}>
-            Antes de fechar esta aba ou sair da conta, clique em Salvar rascunho para guardar o texto no prontuário.
+            O texto é salvo sozinho no prontuário, como rascunho, alguns segundos depois que você para de digitar.
           </p>
           {(erroStorage || erroRascunhoLocal) && <p role="alert">
             {erroStorage || 'Não foi possível guardar o rascunho nesta aba. Salve no prontuário antes de sair.'}
@@ -665,11 +742,13 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
               ⚠ {erroAtendimento}
             </p>
           )}
-          {atendimentoAtual.trim() && (salvandoRascunhoLocal || rascunhoSalvoEm) && (
-            <p style={{ marginTop: '3px', fontSize: '11px', color: '#888' }}>
-              {salvandoRascunhoLocal
-                ? 'Salvando rascunho nesta aba...'
-                : `Rascunho salvo nesta aba às ${rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — só vira registro do prontuário ao clicar em "Salvar rascunho" ou "Finalizar e Assinar".`}
+          {atendimentoAtual.trim() && (
+            <p role="status" style={{ marginTop: '3px', fontSize: '11px', color: autoSalvo.estado === 'erro' ? '#b45309' : '#888' }}>
+              {statusSalvamento({
+                autoSalvo,
+                pendente: atendimentoAtual !== ultimoTextoServidor.current,
+                localEm: !salvandoRascunhoLocal ? rascunhoSalvoEm : null,
+              })}
             </p>
           )}
           <div className="atalhos-grid">

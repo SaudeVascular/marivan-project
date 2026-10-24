@@ -204,10 +204,13 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
   da aba;
 - sessões abertas encerram após 15 minutos sem atividade e limpam rascunhos
   clínicos locais;
-- rascunhos temporários usam `sessionStorage`, separados por usuário e paciente;
-  recarregar a mesma aba preserva o texto, mas fechar a aba ou sair da conta
-  encerra sua persistência normal. Para guardar o atendimento no servidor,
-  clique em **Salvar rascunho** antes de sair;
+- o atendimento em digitação é salvo sozinho no servidor como rascunho
+  (consulta com status "Rascunho", pela mesma RPC versionada): 10 s depois da
+  última tecla, ao esconder a aba e ao sair da tela; em falha, nova tentativa
+  a cada 30 s. Até a confirmação do servidor, o texto fica também em
+  `sessionStorage` (por usuário e paciente), que sobrevive a recarregar a aba
+  mas não a fechá-la. Cada gravação automática gera uma versão e uma linha de
+  auditoria — por isso a espera de 10 s, e não a cada tecla;
 - ao trocar de usuário ou função, o frontend descarta o cache de pacientes e
   histórico da sessão anterior e ignora respostas atrasadas daquela sessão;
 - senhas novas exigem ao menos 12 caracteres, maiúscula, minúscula e número;
