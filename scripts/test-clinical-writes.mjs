@@ -60,6 +60,8 @@ await executar(await readFile(new URL('../supabase/tests/pacientes_versao.sql', 
 console.log('OK: cadastro e antecedentes do paciente com controle de versão.');
 await executar(await readFile(new URL('../supabase/tests/auditoria_acessos.sql', import.meta.url), 'utf8'));
 console.log('OK: auditoria de leitura — autor fixo, ações fechadas, leitura só por Administrador.');
+await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
+console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

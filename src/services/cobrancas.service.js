@@ -24,15 +24,35 @@ const fromDb = (c) => ({
 });
 
 export const cobrancasService = {
-  // filtros: { de, ate, medicoId } — todos opcionais
-  async listar({ de, ate, medicoId } = {}) {
-    let query = supabase.from('cobrancas').select(CAMPOS).order('data_cobranca', { ascending: false });
+  // filtros: { de, ate, medicoId } — todos opcionais. Paginado: a API
+  // corta em 1000 linhas, e a lista de um período longo passaria disso.
+  async listar({ de, ate, medicoId, limite = 100, offset = 0 } = {}) {
+    let query = supabase.from('cobrancas').select(CAMPOS, { count: 'exact' })
+      .order('data_cobranca', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + limite - 1);
     if (de) query = query.gte('data_cobranca', de);
     if (ate) query = query.lte('data_cobranca', ate);
     if (medicoId) query = query.eq('medico_id', medicoId);
-    const { data, error } = await query;
+    const { data, error, count } = await query;
     if (error) throw error;
-    return (data || []).map(fromDb);
+    return { itens: (data || []).map(fromDb), total: count ?? (data || []).length };
+  },
+
+  // Totais do período somados no banco (migração 40), sob a mesma RLS da
+  // lista — não dependem de quantas cobranças a tela já carregou.
+  async resumo({ de, ate, medicoId } = {}) {
+    const { data, error } = await supabase.rpc('resumo_cobrancas', {
+      p_de: de || null, p_ate: ate || null, p_medico_id: medicoId || null,
+    });
+    if (error) throw error;
+    const linha = Array.isArray(data) ? data[0] : data;
+    return {
+      quantidade: Number(linha?.quantidade || 0),
+      total: Number(linha?.total || 0),
+      totalRepasse: Number(linha?.total_repasse || 0),
+    };
   },
 
   async buscarPorId(id) {

@@ -150,3 +150,44 @@ test('mantém a identidade até a tela confirmar que incorporou o resultado', as
   confirmarRecebimentoRegistro(salvo);
   expect(sessionStorage.length).toBe(0);
 });
+
+describe('histórico do paciente', () => {
+  const linha = (i) => ({ id: `r${i}`, tipo: 'Consulta', data: '2030-01-01', paciente_id: 'p1', versao: 1 });
+
+  test('busca todas as páginas — nada acima de 1000 registros some', async () => {
+    const { PAGINA_HISTORICO } = require('./registros.service');
+    const { criarQueryBuilder } = require('./supabase');
+    const ranges = [];
+    supabase.from.mockImplementation(() => {
+      const builder = criarQueryBuilder();
+      let inicio = 0;
+      builder.range = (a, b) => { inicio = a; ranges.push([a, b]); return builder; };
+      builder.then = (resolve) => {
+        const fim = Math.min(inicio + PAGINA_HISTORICO, 2 * PAGINA_HISTORICO + 5);
+        const data = [];
+        for (let i = inicio; i < fim; i++) data.push(linha(i));
+        return resolve({ data, error: null });
+      };
+      return builder;
+    });
+    const registros = await registrosService.listarPorPaciente('p1');
+    expect(registros).toHaveLength(2 * PAGINA_HISTORICO + 5);
+    expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+    expect(new Set(registros.map(r => r.id)).size).toBe(registros.length);
+  });
+
+  test('erro numa página intermediária falha tudo (não mostra histórico pela metade)', async () => {
+    const { criarQueryBuilder } = require('./supabase');
+    let chamada = 0;
+    supabase.from.mockImplementation(() => {
+      const builder = criarQueryBuilder();
+      builder.then = (resolve) => {
+        chamada += 1;
+        if (chamada === 1) return resolve({ data: Array.from({ length: 1000 }, (_, i) => linha(i)), error: null });
+        return resolve({ data: null, error: new Error('timeout') });
+      };
+      return builder;
+    });
+    await expect(registrosService.listarPorPaciente('p1')).rejects.toThrow('timeout');
+  });
+});

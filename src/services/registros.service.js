@@ -2,6 +2,8 @@ import { supabase } from './supabase';
 import { executarOperacaoClinica } from '../utils/operacaoClinica';
 import { dataLocalISO } from '../utils/formatters';
 
+export const PAGINA_HISTORICO = 1000;
+
 const CAMPOS = 'id, tipo, titulo, conteudo, data, hora, created_by, created_at, status, assinado_em, assinado_por_nome, assinado_por_registro, retificacao_de, motivo_retificacao, paciente_id, versao';
 
 // DB → React
@@ -30,14 +32,25 @@ const fromDb = (c) => ({
 });
 
 export const registrosService = {
+  // Histórico completo, em páginas: a API devolve no máximo 1000 linhas
+  // por consulta, e um histórico cortado em silêncio esconderia registros
+  // antigos (alergias, cirurgias, laudos). O desempate por id deixa a
+  // ordem estável entre as páginas — sem pular nem repetir registro.
   async listarPorPaciente(pacienteId) {
-    const { data, error } = await supabase
-      .from('consultas')
-      .select(CAMPOS)
-      .eq('paciente_id', pacienteId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data || []).map(fromDb);
+    const registros = [];
+    for (let inicio = 0; ; inicio += PAGINA_HISTORICO) {
+      const { data, error } = await supabase
+        .from('consultas')
+        .select(CAMPOS)
+        .eq('paciente_id', pacienteId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(inicio, inicio + PAGINA_HISTORICO - 1);
+      if (error) throw error;
+      registros.push(...(data || []));
+      if (!data || data.length < PAGINA_HISTORICO) break;
+    }
+    return registros.map(fromDb);
   },
 
   async buscarPorId(registroId) {

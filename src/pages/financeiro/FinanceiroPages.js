@@ -437,6 +437,8 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
   );
 }
 
+const PAGINA_COBRANCAS = 100;
+
 export function FinanceiroPage({ pacientes }) {
   const toast = useToast();
   const { user, funcao } = useAuth();
@@ -448,6 +450,9 @@ export function FinanceiroPage({ pacientes }) {
   const [de, setDe] = React.useState(primeiroDiaMes);
   const [ate, setAte] = React.useState(hojeISO);
   const [cobrancas, setCobrancas] = React.useState([]);
+  const [totalCobrancas, setTotalCobrancas] = React.useState(0);
+  const [resumo, setResumo] = React.useState(null);
+  const [carregandoMais, setCarregandoMais] = React.useState(false);
   const [procedimentos, setProcedimentos] = React.useState([]);
   const [convenios, setConvenios] = React.useState([]);
   const [valoresConvenio, setValoresConvenio] = React.useState([]);
@@ -457,14 +462,49 @@ export function FinanceiroPage({ pacientes }) {
   const [mostrarForm, setMostrarForm] = React.useState(false);
   const [processandoId, setProcessandoId] = React.useState(null);
 
+  // Lista em páginas de 100 e totais somados no banco: a soma não pode
+  // depender de quantas cobranças a tela já carregou. O contador descarta
+  // respostas de um filtro de datas que já mudou.
+  const filtro = React.useMemo(
+    () => (podeGerenciar ? { de, ate } : { de, ate, medicoId: user?.id }),
+    [de, ate, podeGerenciar, user?.id]);
+  const consultaAtual = React.useRef(0);
+
+  const carregarResumo = React.useCallback(() => {
+    const consulta = consultaAtual.current;
+    cobrancasService.resumo(filtro)
+      .then(r => { if (consulta === consultaAtual.current) setResumo(r); })
+      .catch(() => { if (consulta === consultaAtual.current) setResumo(null); });
+  }, [filtro]);
+
   const carregar = React.useCallback(() => {
+    const consulta = ++consultaAtual.current;
     setCarregando(true);
-    const filtro = podeGerenciar ? { de, ate } : { de, ate, medicoId: user?.id };
-    cobrancasService.listar(filtro)
-      .then(setCobrancas)
-      .catch(err => setErro(err.message || 'Erro ao carregar cobranças.'))
-      .finally(() => setCarregando(false));
-  }, [de, ate, podeGerenciar, user?.id]);
+    setErro('');
+    setResumo(null);
+    carregarResumo();
+    cobrancasService.listar({ ...filtro, limite: PAGINA_COBRANCAS })
+      .then(({ itens, total }) => {
+        if (consulta !== consultaAtual.current) return;
+        setCobrancas(itens);
+        setTotalCobrancas(total);
+      })
+      .catch(err => { if (consulta === consultaAtual.current) setErro(err.message || 'Erro ao carregar cobranças.'); })
+      .finally(() => { if (consulta === consultaAtual.current) setCarregando(false); });
+  }, [filtro, carregarResumo]);
+
+  const carregarMais = () => {
+    const consulta = consultaAtual.current;
+    setCarregandoMais(true);
+    cobrancasService.listar({ ...filtro, limite: PAGINA_COBRANCAS, offset: cobrancas.length })
+      .then(({ itens, total }) => {
+        if (consulta !== consultaAtual.current) return;
+        setCobrancas(prev => [...prev, ...itens.filter(n => !prev.some(c => c.id === n.id))]);
+        setTotalCobrancas(total);
+      })
+      .catch(err => toast.error('Não foi possível carregar mais cobranças: ' + err.message))
+      .finally(() => setCarregandoMais(false));
+  };
 
   React.useEffect(() => { carregar(); }, [carregar]);
 
@@ -485,6 +525,7 @@ export function FinanceiroPage({ pacientes }) {
     try {
       const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus));
       setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
+      carregarResumo();
     } catch (err) {
       toast.error('Erro ao atualizar status: ' + err.message);
     } finally {
@@ -492,8 +533,6 @@ export function FinanceiroPage({ pacientes }) {
     }
   };
 
-  const totalPeriodo = cobrancas.filter(c => c.status !== 'Cancelado').reduce((s, c) => s + Number(c.valor), 0);
-  const totalRepasse = cobrancas.filter(c => c.status !== 'Cancelado').reduce((s, c) => s + Number(c.valorRepasse || 0), 0);
 
   return (
     <div>
@@ -521,11 +560,11 @@ export function FinanceiroPage({ pacientes }) {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <div style={{ fontSize: '16px', color: '#666' }}>Total no período</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{formatarMoeda(totalPeriodo)}</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.total) : '…'}</div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <div style={{ fontSize: '16px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{formatarMoeda(totalRepasse)}</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.totalRepasse) : '…'}</div>
         </div>
       </div>
 
@@ -538,7 +577,15 @@ export function FinanceiroPage({ pacientes }) {
           medicos={medicos}
           userId={user?.id}
           onCancelar={() => setMostrarForm(false)}
-          onCriado={(nova) => { setMostrarForm(false); setCobrancas(prev => [nova, ...prev]); }}
+          onCriado={(nova) => {
+            setMostrarForm(false);
+            // Fora do período escolhido, a nova cobrança não entra na lista.
+            if ((!de || nova.dataCobranca >= de) && (!ate || nova.dataCobranca <= ate)) {
+              setCobrancas(prev => [nova, ...prev]);
+              setTotalCobrancas(t => t + 1);
+            }
+            carregarResumo();
+          }}
         />
       )}
 
@@ -577,6 +624,16 @@ export function FinanceiroPage({ pacientes }) {
               </div>
             </div>
           ))
+        )}
+        {!carregando && cobrancas.length > 0 && (
+          <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '15px', color: '#666' }}>
+            <span>Mostrando {cobrancas.length} de {totalCobrancas}</span>
+            {cobrancas.length < totalCobrancas && (
+              <button onClick={carregarMais} disabled={carregandoMais} style={{ padding: '6px 12px' }}>
+                {carregandoMais ? 'Carregando...' : 'Carregar mais'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
