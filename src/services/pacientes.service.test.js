@@ -160,3 +160,14 @@ describe('busca no servidor', () => {
     expect(lotes.map(l => l.length)).toEqual([100, 50]);
   });
 });
+
+test('edição envia a versão esperada de cada grupo de campos', async () => {
+  const update = prepararUpdate();
+  await pacientesService.atualizarCadastro('paciente-1', { nome: 'Maria' }, 4);
+  expect(update.mock.calls[0][0]).toMatchObject({ versao_cadastro: 4 });
+  expect(update.mock.calls[0][0]).not.toHaveProperty('versao_clinica');
+
+  await pacientesService.atualizarClinicos('paciente-1', { alergias: 'Dipirona' }, 7);
+  expect(update.mock.calls[1][0]).toMatchObject({ versao_clinica: 7, alergias: 'Dipirona' });
+  expect(update.mock.calls[1][0]).not.toHaveProperty('versao_cadastro');
+});

@@ -56,6 +56,8 @@ await executar(await readFile(new URL('../supabase/tests/profissoes_clinicas.sql
 console.log('OK: psicólogo e fisioterapeuta — acesso clínico, tipos de registro e sigla do conselho.');
 await executar(await readFile(new URL('../supabase/tests/auditoria_mascarada.sql', import.meta.url), 'utf8'));
 console.log('OK: auditoria sem conteúdo clínico para Administrador sem papel clínico e sem assinaturas.');
+await executar(await readFile(new URL('../supabase/tests/pacientes_versao.sql', import.meta.url), 'utf8'));
+console.log('OK: cadastro e antecedentes do paciente com controle de versão.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

@@ -19,6 +19,9 @@ export function PacientesPage({ setPacientes }) {
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
   const [salvandoPaciente, setSalvandoPaciente] = React.useState(false);
   const [processandoId, setProcessandoId] = React.useState(null);
+  // Outra pessoa gravou este cadastro enquanto ele estava aberto aqui:
+  // { atual } = versão que está no banco agora.
+  const [conflitoCadastro, setConflitoCadastro] = React.useState(null);
   const [convenios, setConvenios] = React.useState([]);
 
   React.useEffect(() => {
@@ -94,6 +97,7 @@ export function PacientesPage({ setPacientes }) {
       cns: ''
     });
     setPacienteEditando(null);
+    setConflitoCadastro(null);
   };
 
   const salvarPaciente = async () => {
@@ -125,7 +129,7 @@ export function PacientesPage({ setPacientes }) {
     try {
       const dadosParaSalvar = { ...novoPaciente, nascimento: nascimentoISO };
       if (pacienteEditando) {
-        const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, dadosParaSalvar));
+        const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, dadosParaSalvar, pacienteEditando.versaoCadastro));
         setPacientes(prev => mesclarPacientes(prev, [atualizado]));
       } else {
         const criado = await comTimeout(pacientesService.criar(dadosParaSalvar));
@@ -134,7 +138,15 @@ export function PacientesPage({ setPacientes }) {
       limparFormulario();
       resultado.recarregar();
     } catch (err) {
-      if (err.code === '23505') {
+      if (err.code === 'P4090' && pacienteEditando) {
+        try {
+          const atual = await comTimeout(pacientesService.buscarPorId(pacienteEditando.id));
+          setPacientes(prev => mesclarPacientes(prev, [atual]));
+          setConflitoCadastro({ atual });
+        } catch {
+          toast.error('Outra pessoa alterou este cadastro, e não foi possível carregar a versão atual. Suas alterações continuam no formulário; tente de novo.');
+        }
+      } else if (err.code === '23505') {
         toast.warning('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
       } else if (
         err.code === 'PGRST204'
@@ -168,6 +180,7 @@ export function PacientesPage({ setPacientes }) {
 
   const editarPaciente = (paciente) => {
     setPacienteEditando(paciente);
+    setConflitoCadastro(null);
 
     setNovoPaciente({
       nome: paciente.nome || '',
@@ -322,9 +335,28 @@ export function PacientesPage({ setPacientes }) {
               maxLength={15}
             />
           </label>
+          {conflitoCadastro && (
+            <div role="alert" style={{ gridColumn: 'span 12', backgroundColor: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px', padding: '10px 12px', fontSize: '15px', color: '#92400e' }}>
+              <strong>Outra pessoa alterou este cadastro enquanto você editava.</strong> Suas alterações ainda não foram salvas.
+              <div style={{ margin: '6px 0', color: '#444' }}>
+                Agora no cadastro: {conflitoCadastro.atual.nome}
+                {conflitoCadastro.atual.telefone && ` · ${conflitoCadastro.atual.telefone}`}
+                {conflitoCadastro.atual.endereco && ` · ${conflitoCadastro.atual.endereco}${conflitoCadastro.atual.numero ? ', ' + conflitoCadastro.atual.numero : ''}`}
+                {conflitoCadastro.atual.convenio && ` · ${conflitoCadastro.atual.convenio}`}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => editarPaciente(conflitoCadastro.atual)} style={{ padding: '6px 12px', cursor: 'pointer' }}>
+                  Usar os dados atuais
+                </button>
+                <button type="button" onClick={() => { setPacienteEditando(p => ({ ...p, versaoCadastro: conflitoCadastro.atual.versaoCadastro })); setConflitoCadastro(null); }} style={{ padding: '6px 12px', cursor: 'pointer' }}>
+                  Manter os meus dados (clique em Salvar depois)
+                </button>
+              </div>
+            </div>
+          )}
           <button
             onClick={salvarPaciente}
-            disabled={salvandoPaciente}
+            disabled={salvandoPaciente || Boolean(conflitoCadastro)}
             style={{ padding: '12px', backgroundColor: salvandoPaciente ? '#9ca3af' : (pacienteEditando ? '#f59e0b' : '#28a745'), color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoPaciente ? 'not-allowed' : 'pointer', gridColumn: 'span 12' }}
           >
             {salvandoPaciente ? 'Salvando...' : (pacienteEditando ? 'Salvar Alterações' : 'Salvar Paciente')}

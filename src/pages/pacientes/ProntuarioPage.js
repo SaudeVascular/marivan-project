@@ -8,6 +8,7 @@ import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout
 import { useToast } from '../../components/common/Toast';
 import { registrosService, aplicarRegistroConfirmado, confirmarRecebimentoRegistro } from '../../services/registros.service';
 import { pacientesService } from '../../services/pacientes.service';
+import { mesclarPacientes } from '../../hooks/usePacientesCache';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarData } from '../../utils/mascaras';
@@ -78,6 +79,10 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   const [tentativaHistorico, setTentativaHistorico] = React.useState(0);
   const [salvandoClinicos, setSalvandoClinicos] = React.useState(false);
   const [erroClinicos, setErroClinicos] = React.useState('');
+  // Versão dos antecedentes quando "Editar" foi clicado (migração 37) e,
+  // se outra pessoa gravou antes, a versão atual do banco.
+  const versaoClinicaEdicao = React.useRef(null);
+  const [conflitoClinicos, setConflitoClinicos] = React.useState(null);
   const [processandoAssinaturaId, setProcessandoAssinaturaId] = React.useState(null);
   const [retificando, setRetificando] = React.useState(null); // { original, conteudo, motivo }
   const [salvandoRetificacao, setSalvandoRetificacao] = React.useState(false);
@@ -457,10 +462,22 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     setSalvandoClinicos(true);
     setErroClinicos('');
     try {
-      await comTimeout(pacientesService.atualizarClinicos(paciente.id, novoClinicos));
-      setPacientes(prev => prev.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
+      const atualizado = await comTimeout(pacientesService.atualizarClinicos(paciente.id, novoClinicos, versaoClinicaEdicao.current));
+      setPacientes(prev => mesclarPacientes(prev, [atualizado]));
       setEditandoClinicos(false);
+      setConflitoClinicos(null);
     } catch (err) {
+      if (err?.code === 'P4090') {
+        try {
+          const atual = await comTimeout(pacientesService.buscarPorId(paciente.id));
+          setPacientes(prev => mesclarPacientes(prev, [atual]));
+          setConflitoClinicos({ atual });
+        } catch {
+          setErroClinicos('Outra pessoa alterou os dados clínicos, e não foi possível carregar a versão atual. Suas alterações continuam na tela; tente de novo.');
+        }
+        setSalvandoClinicos(false);
+        return;
+      }
       // Só código/mensagem do erro do banco — nunca o objeto inteiro, que
       // pode carregar o próprio payload clínico enviado (ver Documento
       // Mestre: "não registrar objetos de erro potencialmente sensíveis
@@ -612,21 +629,45 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
             )}
             <div className="prontuario-clinicos-acoes">
               {editandoClinicos && (
-                <button onClick={() => { setEditandoClinicos(false); setErroClinicos(''); }} style={{ padding: '3px 7px', fontSize: '12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
+                <button onClick={() => { setEditandoClinicos(false); setErroClinicos(''); setConflitoClinicos(null); }} style={{ padding: '3px 7px', fontSize: '12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
               )}
               <button
                 onClick={() => {
                   if (editandoClinicos) { salvarClinicos(); return; }
+                  versaoClinicaEdicao.current = paciente.versaoClinica;
+                  setConflitoClinicos(null);
                   setEditandoClinicos(true);
                   setErroClinicos('');
                 }}
-                disabled={salvandoClinicos}
+                disabled={salvandoClinicos || Boolean(conflitoClinicos)}
                 style={{ padding: '3px 9px', fontSize: '12px', backgroundColor: salvandoClinicos ? '#9ca3af' : (editandoClinicos ? '#28a745' : '#6c757d'), color: 'white', border: 'none', borderRadius: '3px', cursor: salvandoClinicos ? 'not-allowed' : 'pointer' }}
               >
                 {salvandoClinicos ? 'Salvando...' : (editandoClinicos ? '✓ Salvar' : 'Editar')}
               </button>
             </div>
           </div>
+
+          {conflitoClinicos && (
+            <div role="alert" style={{ fontSize: '13px', color: '#92400e', backgroundColor: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '4px', padding: '6px 8px', marginBottom: '8px' }}>
+              <strong>Outra pessoa alterou os dados clínicos enquanto você editava.</strong> Suas alterações ainda não foram salvas.
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                <button type="button" onClick={() => {
+                  const a = conflitoClinicos.atual;
+                  setClinicos({
+                    has: a.has || '', dm: a.dm || '', dac: a.dac || '', dislipidemia: a.dislipidemia || '',
+                    tabagismo: a.tabagismo || '', etilismo: a.etilismo || '', cirurgias: a.cirurgias || '',
+                    medicamentosUso: a.medicamentosUso || '', alergias: a.alergias || '', outrasComorbidades: a.outrasComorbidades || '',
+                  });
+                  versaoClinicaEdicao.current = a.versaoClinica;
+                  setConflitoClinicos(null);
+                }} style={{ padding: '3px 9px', fontSize: '12px', cursor: 'pointer' }}>Usar os dados atuais</button>
+                <button type="button" onClick={() => {
+                  versaoClinicaEdicao.current = conflitoClinicos.atual.versaoClinica;
+                  setConflitoClinicos(null);
+                }} style={{ padding: '3px 9px', fontSize: '12px', cursor: 'pointer' }}>Manter os meus (clique em ✓ Salvar depois)</button>
+              </div>
+            </div>
+          )}
 
           {erroClinicos && (
             <div style={{ fontSize: '15px', color: '#b91c1c', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', padding: '6px 8px', marginBottom: '8px' }}>

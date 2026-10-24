@@ -179,3 +179,34 @@ describe('salvamento automático no prontuário', () => {
     expect(registrosService.atualizar).not.toHaveBeenCalled();
   });
 });
+
+test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha explícita', async () => {
+  const { pacientesService } = require('../../services/pacientes.service');
+  registrosService.listarPorPaciente.mockResolvedValue([]);
+  const atualizar = jest.spyOn(pacientesService, 'atualizarClinicos')
+    .mockRejectedValueOnce(Object.assign(new Error('Os dados clínicos deste paciente foram alterados'), { code: 'P4090' }))
+    .mockResolvedValueOnce({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Minha', versaoClinica: 4, registros: [] });
+  jest.spyOn(pacientesService, 'buscarPorId').mockResolvedValue({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Dela', versaoClinica: 3, registros: [] });
+
+  function TelaVersionada() {
+    const [pacientes, setPacientes] = React.useState([{ id: 'p1', nome: 'Paciente Fictício', alergias: '', versaoClinica: 2, registros: [] }]);
+    return <MemoryRouter initialEntries={['/prontuario/p1']}><Routes>
+      <Route path="/prontuario/:id" element={<ProntuarioPage pacientes={pacientes} setPacientes={setPacientes} />} />
+    </Routes></MemoryRouter>;
+  }
+  render(<TelaVersionada />);
+  await screen.findByText('Nenhum registro ainda.');
+  fireEvent.click(screen.getByRole('button', { name: 'Editar' }));
+  fireEvent.change(screen.getByPlaceholderText('Informe medicamentos, substâncias ou alimentos'), { target: { value: 'Minha' } });
+  fireEvent.click(screen.getByRole('button', { name: '✓ Salvar' }));
+
+  expect(await screen.findByText(/Outra pessoa alterou os dados clínicos/)).toBeInTheDocument();
+  expect(atualizar).toHaveBeenLastCalledWith('p1', expect.objectContaining({ alergias: 'Minha' }), 2);
+  expect(screen.getByRole('button', { name: '✓ Salvar' })).toBeDisabled();
+  expect(screen.getByPlaceholderText('Informe medicamentos, substâncias ou alimentos')).toHaveValue('Minha');
+
+  fireEvent.click(screen.getByRole('button', { name: /Manter os meus/ }));
+  fireEvent.click(screen.getByRole('button', { name: '✓ Salvar' }));
+  await waitFor(() => expect(atualizar).toHaveBeenLastCalledWith('p1', expect.objectContaining({ alergias: 'Minha' }), 3));
+  await waitFor(() => expect(screen.queryByText(/Outra pessoa alterou/)).not.toBeInTheDocument());
+});

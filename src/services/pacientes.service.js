@@ -36,6 +36,9 @@ const fromDb = (p) => ({
   medicamentosUso: p.medicamentos_uso || '',
   outrasComorbidades: p.outras_comorbidades || '',
   ativo: p.ativo,
+  // Controle de concorrência (migração 37): enviadas de volta no UPDATE.
+  versaoCadastro: p.versao_cadastro ?? null,
+  versaoClinica: p.versao_clinica ?? null,
   registros: [],
 });
 
@@ -152,19 +155,21 @@ export const pacientesService = {
     return pacientesService.buscarPorId(data.id);
   },
 
-  async atualizarCadastro(id, pacienteData) {
+  // `versaoEsperada`: a versão do cadastro que estava na tela. Se outra
+  // pessoa gravou antes, o banco recusa com código P4090 (migração 37).
+  async atualizarCadastro(id, pacienteData, versaoEsperada) {
     const { error } = await supabase
       .from('pacientes')
-      .update(cadastroToDb(pacienteData))
+      .update({ ...cadastroToDb(pacienteData), ...(versaoEsperada ? { versao_cadastro: versaoEsperada } : {}) })
       .eq('id', id);
     if (error) throw error;
     return pacientesService.buscarPorId(id);
   },
 
-  async atualizarClinicos(id, pacienteData) {
+  async atualizarClinicos(id, pacienteData, versaoEsperada) {
     const { error } = await supabase
       .from('pacientes')
-      .update(clinicosToDb(pacienteData))
+      .update({ ...clinicosToDb(pacienteData), ...(versaoEsperada ? { versao_clinica: versaoEsperada } : {}) })
       .eq('id', id);
     if (error) throw error;
     return pacientesService.buscarPorId(id);
