@@ -168,11 +168,14 @@ export function PacientesPage({ setPacientes }) {
     if (!confirmado) return;
     setProcessandoId(paciente.id);
     try {
-      await comTimeout(pacientesService.deletar(paciente.id));
+      await comTimeout(pacientesService.deletar(paciente.id, paciente.versaoCadastro));
       setPacientes(prev => prev.filter((p) => p.id !== paciente.id));
       resultado.recarregar();
     } catch (err) {
       toast.error('Erro ao desativar paciente: ' + err.message);
+      // Cadastro alterado por outra pessoa: a lista recarrega com a versão
+      // atual, para conferir antes de tentar de novo.
+      if (err.code === 'P4090') resultado.recarregar();
     } finally {
       setProcessandoId(null);
     }

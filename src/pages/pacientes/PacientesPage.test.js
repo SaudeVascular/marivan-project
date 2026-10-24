@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PacientesPage } from './PacientesPage';
 import { pacientesService } from '../../services/pacientes.service';
@@ -47,4 +47,13 @@ test('cadastro alterado por outra pessoa: avisa, não sobrescreve e permite usar
   fireEvent.click(screen.getByRole('button', { name: 'Usar os dados atuais' }));
   expect(await screen.findByDisplayValue('(71) 2222-2222')).toBeInTheDocument();
   expect(screen.queryByText(/Outra pessoa alterou este cadastro/)).not.toBeInTheDocument();
+});
+
+test('desativar envia a versão do cadastro que estava na lista', async () => {
+  pacientesService.buscar.mockResolvedValue({ itens: [maria], total: 1 });
+  pacientesService.deletar.mockResolvedValue();
+  window.confirm = jest.fn(() => true);
+  render(<Tela />);
+  fireEvent.click(await screen.findByRole('button', { name: /Desativar/ }));
+  await waitFor(() => expect(pacientesService.deletar).toHaveBeenCalledWith('p1', 2));
 });

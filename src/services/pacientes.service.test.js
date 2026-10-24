@@ -7,16 +7,17 @@ beforeEach(() => {
   resetSupabaseMockPadrao();
 });
 
+// Edição vai pela função atualizar_paciente: `update.mock.calls[i][0]` é
+// o p_dados enviado e `[i][1]` o resto dos parâmetros.
 function prepararUpdate() {
   const update = jest.fn();
-  const tabela = criarQueryBuilder({ data: null, error: null });
-  update.mockReturnValue(tabela);
-  supabase.from.mockImplementation((nome) => {
-    if (nome === 'pacientes') return { update };
-    return criarQueryBuilder({
-      single: { data: { id: 'paciente-1', nome: 'Maria', ativo: true }, error: null },
-    });
+  supabase.rpc.mockImplementation((nome, { p_dados, ...resto }) => {
+    if (nome === 'atualizar_paciente') update(p_dados, resto);
+    return Promise.resolve({ data: null, error: null });
   });
+  supabase.from.mockImplementation(() => criarQueryBuilder({
+    single: { data: { id: 'paciente-1', nome: 'Maria', ativo: true }, error: null },
+  }));
   return update;
 }
 
@@ -36,7 +37,7 @@ test('atualização cadastral não envia nem apaga campos clínicos', async () =
     // Simula o valor mascarado recebido por uma Recepcionista.
     alergias: '',
     outrasComorbidades: '',
-  });
+  }, 1);
 
   const payload = update.mock.calls[0][0];
   expect(payload).toMatchObject({
@@ -89,7 +90,7 @@ test('atualização clínica envia somente campos clínicos', async () => {
     medicamentosUso: 'Losartana',
     outrasComorbidades: 'Doença renal crônica',
     nome: 'nome que não deve ser alterado',
-  });
+  }, 1);
 
   const payload = update.mock.calls[0][0];
   expect(payload).toMatchObject({
@@ -161,13 +162,36 @@ describe('busca no servidor', () => {
   });
 });
 
-test('edição envia a versão esperada de cada grupo de campos', async () => {
+test('edição envia a versão esperada e o grupo de campos', async () => {
   const update = prepararUpdate();
   await pacientesService.atualizarCadastro('paciente-1', { nome: 'Maria' }, 4);
-  expect(update.mock.calls[0][0]).toMatchObject({ versao_cadastro: 4 });
-  expect(update.mock.calls[0][0]).not.toHaveProperty('versao_clinica');
+  expect(update.mock.calls[0][1]).toEqual({ p_id: 'paciente-1', p_grupo: 'cadastro', p_versao_esperada: 4 });
+  expect(update.mock.calls[0][0]).toHaveProperty('nome', 'Maria');
 
   await pacientesService.atualizarClinicos('paciente-1', { alergias: 'Dipirona' }, 7);
-  expect(update.mock.calls[1][0]).toMatchObject({ versao_clinica: 7, alergias: 'Dipirona' });
-  expect(update.mock.calls[1][0]).not.toHaveProperty('versao_cadastro');
+  expect(update.mock.calls[1][1]).toEqual({ p_id: 'paciente-1', p_grupo: 'clinico', p_versao_esperada: 7 });
+
+  await pacientesService.deletar('paciente-1', 5);
+  expect(update.mock.calls[2]).toEqual([{ ativo: false }, { p_id: 'paciente-1', p_grupo: 'ativo', p_versao_esperada: 5 }]);
+  expect(supabase.from).not.toHaveBeenCalledWith('pacientes');
+});
+
+test('sem a versão da tela, nem tenta gravar', async () => {
+  const update = prepararUpdate();
+  await expect(pacientesService.atualizarCadastro('paciente-1', { nome: 'Maria' })).rejects.toThrow(/Recarregue o paciente/);
+  await expect(pacientesService.atualizarClinicos('paciente-1', {}, null)).rejects.toThrow(/Recarregue o paciente/);
+  await expect(pacientesService.deletar('paciente-1')).rejects.toThrow(/Recarregue o paciente/);
+  expect(update).not.toHaveBeenCalled();
+});
+
+test('conflito do banco chega à tela com o código P4090', async () => {
+  supabase.rpc.mockResolvedValue({ data: null, error: Object.assign(new Error('alterado por outra pessoa'), { code: 'P4090' }) });
+  await expect(pacientesService.atualizarCadastro('paciente-1', { nome: 'Maria' }, 2)).rejects.toMatchObject({ code: 'P4090' });
+});
+
+test('reativar lê a versão atual antes', async () => {
+  const update = prepararUpdate();
+  supabase.from.mockImplementation(() => criarQueryBuilder({ single: { data: { versao_cadastro: 9 }, error: null } }));
+  await pacientesService.reativar('paciente-1');
+  expect(update).toHaveBeenCalledWith({ ativo: true }, { p_id: 'paciente-1', p_grupo: 'ativo', p_versao_esperada: 9 });
 });

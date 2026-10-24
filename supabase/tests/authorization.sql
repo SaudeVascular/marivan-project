@@ -67,7 +67,9 @@ CREATE TEMP TABLE matriz(tabela TEXT, leitura TEXT[], escrita TEXT[], exclusao T
 -- papel_clinico_administrador concedido), que esta tabela não modela por
 -- linha — são testadas à parte, logo abaixo, junto da variável `clinico`.
 INSERT INTO matriz VALUES
- ('pacientes',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY['Médico','Enfermeiro(a)','Recepcionista','Administrador'],ARRAY[]::TEXT[],'nome'),
+ -- pacientes: edição só pela função atualizar_paciente (migrações 41/42),
+ -- testada à parte, logo abaixo; UPDATE direto é recusado para todos.
+ ('pacientes',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY[]::TEXT[],ARRAY[]::TEXT[],'nome'),
  ('agendamentos',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY['Médico','Enfermeiro(a)','Recepcionista','Administrador'],ARRAY['Administrador'],'hora'),
  ('convenios',ARRAY['Médico','Enfermeiro(a)','Recepcionista','Financeiro','Administrador'],ARRAY['Financeiro','Administrador'],ARRAY['Financeiro','Administrador'],'nome'),
  ('procedimentos',ARRAY['Financeiro','Administrador'],ARRAY['Financeiro','Administrador'],ARRAY['Financeiro','Administrador'],'nome'),
@@ -163,6 +165,18 @@ BEGIN
     PERFORM pg_temp.tentar(format('DELETE FROM public.modelos_receita WHERE user_id=%L',a.id),prescritor,'exclusão de modelo próprio');
     PERFORM pg_temp.tentar('SELECT * FROM public.operacoes_registro',false,'recibos sem acesso direto');
     PERFORM pg_temp.tentar(format('INSERT INTO public.cobrancas(paciente_id,valor) VALUES (%L,1)',alvo),a.ativo AND a.funcao IN ('Financeiro','Administrador'),'criação financeira');
+    -- Versão propositalmente errada: quem pode editar chega ao gatilho e
+    -- recebe conflito (P4090); quem não pode nem encontra a linha (42501).
+    -- Nenhum dos dois altera o paciente.
+    BEGIN
+      PERFORM public.atualizar_paciente(alvo::UUID, 'ativo', 999999, '{"ativo": true}');
+      PERFORM pg_temp.assert_ok(false, a.funcao || '/' || a.ativo || ' edição pela função sem conferir versão');
+    EXCEPTION
+      WHEN SQLSTATE 'P4090' THEN
+        PERFORM pg_temp.assert_ok(a.ativo AND a.funcao IN ('Médico','Enfermeiro(a)','Recepcionista','Administrador'), a.funcao || '/' || a.ativo || ' edição pacientes pela função');
+      WHEN insufficient_privilege THEN
+        PERFORM pg_temp.assert_ok(NOT (a.ativo AND a.funcao IN ('Médico','Enfermeiro(a)','Recepcionista','Administrador')), a.funcao || '/' || a.ativo || ' edição pacientes pela função negada');
+    END;
     PERFORM pg_temp.tentar('INSERT INTO public.pacientes(nome) VALUES (''Fictício'')',a.ativo AND a.funcao IN ('Médico','Enfermeiro(a)','Recepcionista','Administrador'),'criação de paciente');
     PERFORM pg_temp.tentar(format('INSERT INTO public.consultas(paciente_id,tipo) VALUES (%L,''Consulta'')',alvo),false,'consulta exige RPC');
     PERFORM pg_temp.tentar(format('INSERT INTO public.medicamentos_receita(consulta_id,nome) VALUES (%L,''Fictício'')',alvo),false,'receita assinada não ganha itens');

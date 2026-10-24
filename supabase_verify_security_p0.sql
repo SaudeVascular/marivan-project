@@ -34,6 +34,17 @@ BEGIN
     RAISE EXCEPTION 'P0 inseguro: auditoria legível diretamente (aplique a migração 36)';
   END IF;
 
+  -- Migrações 41/42: paciente só é editado pela função, que precisa
+  -- obedecer à RLS de quem chama (SECURITY DEFINER a contornaria).
+  IF to_regprocedure('public.atualizar_paciente(uuid,text,integer,jsonb)') IS NULL
+     OR (SELECT prosecdef FROM pg_proc WHERE oid = to_regprocedure('public.atualizar_paciente(uuid,text,integer,jsonb)'))
+     OR has_function_privilege('anon', 'public.atualizar_paciente(uuid,text,integer,jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'P0 inseguro: atualizar_paciente ausente, SECURITY DEFINER ou aberta a anon (aplique a migração 41)';
+  END IF;
+  IF position('pep.atualizar_paciente' IN pg_get_functiondef('public.versionar_paciente()'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: UPDATE direto em pacientes sem conferência de versão (aplique a migração 42)';
+  END IF;
+
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';
   END IF;

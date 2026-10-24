@@ -94,6 +94,16 @@ export function montarFiltroBusca(termo) {
 
 export const TAMANHO_PAGINA_PACIENTES = 50;
 
+async function atualizar(id, grupo, versaoEsperada, dados) {
+  if (!Number.isInteger(versaoEsperada) || versaoEsperada < 1) {
+    throw new Error('Recarregue o paciente antes de editar: a versão que estava na tela não foi carregada.');
+  }
+  const { error } = await supabase.rpc('atualizar_paciente', {
+    p_id: id, p_grupo: grupo, p_versao_esperada: versaoEsperada, p_dados: dados,
+  });
+  if (error) throw error;
+}
+
 export const pacientesService = {
   // Busca paginada no servidor (o banco limita cada resposta a 1000
   // linhas — carregar todos de uma vez deixava pacientes de fora sem
@@ -155,43 +165,28 @@ export const pacientesService = {
     return pacientesService.buscarPorId(data.id);
   },
 
-  // `versaoEsperada`: a versão do cadastro que estava na tela. Se outra
-  // pessoa gravou antes, o banco recusa com código P4090 (migração 37).
+  // Edição só pela função atualizar_paciente (migrações 41/42), sempre com
+  // a versão que estava na tela: se outra pessoa gravou antes, o banco
+  // recusa com P4090. Sem versão, nem tenta — o banco recusaria também.
   async atualizarCadastro(id, pacienteData, versaoEsperada) {
-    const { error } = await supabase
-      .from('pacientes')
-      .update({ ...cadastroToDb(pacienteData), ...(versaoEsperada ? { versao_cadastro: versaoEsperada } : {}) })
-      .eq('id', id);
-    if (error) throw error;
+    await atualizar(id, 'cadastro', versaoEsperada, cadastroToDb(pacienteData));
     return pacientesService.buscarPorId(id);
   },
 
   async atualizarClinicos(id, pacienteData, versaoEsperada) {
-    const { error } = await supabase
-      .from('pacientes')
-      .update({ ...clinicosToDb(pacienteData), ...(versaoEsperada ? { versao_clinica: versaoEsperada } : {}) })
-      .eq('id', id);
-    if (error) throw error;
+    await atualizar(id, 'clinico', versaoEsperada, clinicosToDb(pacienteData));
     return pacientesService.buscarPorId(id);
   },
 
-  async deletar(id) {
-    const { error } = await supabase
-      .from('pacientes')
-      .update({ ativo: false })
-      .eq('id', id);
-    if (error) throw error;
+  async deletar(id, versaoEsperada) {
+    await atualizar(id, 'ativo', versaoEsperada, { ativo: false });
   },
 
-  // Reverte a exclusão lógica. Sem tela própria ainda — reative rodando
-  // `update pacientes set ativo = true where id = '...'` no SQL Editor,
-  // ou chame este método diretamente se/quando houver uma tela de
-  // "pacientes desativados".
+  // Reverte a exclusão lógica. Sem tela própria ainda; lê a versão atual
+  // antes, porque quem reativa não estava com o cadastro aberto.
   async reativar(id) {
-    const { error } = await supabase
-      .from('pacientes')
-      .update({ ativo: true })
-      .eq('id', id);
+    const { data, error } = await supabase.from('pacientes_view').select('versao_cadastro').eq('id', id).single();
     if (error) throw error;
+    await atualizar(id, 'ativo', data.versao_cadastro, { ativo: true });
   },
 };

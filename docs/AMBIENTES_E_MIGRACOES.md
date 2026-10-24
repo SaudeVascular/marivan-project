@@ -126,8 +126,8 @@ e faça os testes de interface com dados fictícios.
 
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
-| Homologação | `snhmydckyypgucwbsaus` | 01–40 | OK (24/10) |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–38 | OK (24/10); **39 e 40 pendentes** (confirmar 39) |
+| Homologação | `snhmydckyypgucwbsaus` | 01–42 | OK (24/10) |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–38 | OK (24/10); **39–42 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
@@ -143,6 +143,18 @@ pooler `aws-0-sa-east-1` não conhece esse projeto.
 bash scripts/supabase-push-producao.sh                   # dry-run, para
 CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 ```
+
+### Publicação de 39–42 (site e banco juntos)
+
+As migrações 41 e 42 trocam a edição de paciente por uma função com versão
+obrigatória: o site antigo (que grava direto) para de editar pacientes
+depois da 42, e o site novo precisa da 41. A 40 dá os totais do
+Financeiro. Por isso, num horário sem ninguém editando:
+
+1. publicar o site novo (merge na `main`);
+2. logo em seguida, `bash scripts/supabase-push-producao.sh` (ensaio) e
+   `CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh`;
+3. pedir a quem estiver com o PEP aberto que recarregue a página.
 
 ## Adotar o histórico na produção existente — uma única vez (já feito)
 
