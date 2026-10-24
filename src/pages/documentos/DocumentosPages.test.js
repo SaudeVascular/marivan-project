@@ -94,7 +94,12 @@ test('imprimir depois de já ter salvo não grava o registro de novo', async () 
 
   fireEvent.click(screen.getByRole('button', { name: /🖨️ Imprimir/ }));
   await waitFor(() => expect(concluirJanelaImpressao).toHaveBeenCalledWith('janela-fictícia', 'pdf-fictício'));
-  expect(supabase.rpc).toHaveBeenCalledTimes(1);
+  const chamadas = nome => supabase.rpc.mock.calls.filter(([fn]) => fn === nome);
+  expect(chamadas('salvar_registro_clinico')).toHaveLength(1);
+  // A impressão fica registrada na auditoria de leitura (migração 38).
+  expect(chamadas('registrar_acesso')).toEqual([['registrar_acesso', expect.objectContaining({
+    p_paciente_id: 'paciente-1', p_acao: 'imprimir_documento', p_detalhe: 'Receituário',
+  })]]);
 });
 
 test('falha dos modelos de receita avisa o profissional', async () => {

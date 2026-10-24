@@ -59,6 +59,7 @@ INSERT INTO public.configuracoes_clinica(id,nome) VALUES ('a9000000-0000-4000-80
 INSERT INTO public.filiais(id,nome) VALUES ('a9000000-0000-4000-8000-000000000010','Filial fictícia');
 INSERT INTO public.auditoria(id,tabela,operacao) VALUES ('a9000000-0000-4000-8000-000000000010','teste','INSERT');
 INSERT INTO public.exames(id,nome,tipo) VALUES ('a9000000-0000-4000-8000-000000000010','Exame fictício','Laboratorial');
+INSERT INTO public.acessos(id,usuario_id,paciente_id,acao) VALUES ('a9000000-0000-4000-8000-000000000010','a9000000-0000-4000-8000-000000000001','a9000000-0000-4000-8000-000000000010','abrir_prontuario');
 
 CREATE TEMP TABLE matriz(tabela TEXT, leitura TEXT[], escrita TEXT[], exclusao TEXT[], campo TEXT);
 -- consultas e medicamentos_receita saíram desta matriz genérica: leitura
@@ -77,6 +78,9 @@ INSERT INTO matriz VALUES
  -- Auditoria: ninguém lê a tabela base (migração 36); Administrador lê
  -- pela auditoria_view mascarada — ver supabase/tests/auditoria_mascarada.sql.
  ('auditoria',ARRAY[]::TEXT[],ARRAY[]::TEXT[],ARRAY[]::TEXT[],'tabela'),
+ -- Acessos (migração 38): só pela função registrar_acesso e pela
+ -- acessos_view — ver supabase/tests/auditoria_acessos.sql.
+ ('acessos',ARRAY[]::TEXT[],ARRAY[]::TEXT[],ARRAY[]::TEXT[],'detalhe'),
  -- Catálogo de exames: leitura por quem usa no Pedido de Exames (papel
  -- clínico direto) mais Administrador (gerencia o catálogo, mesmo sem
  -- papel_clinico_administrador concedido — não é dado clínico de
@@ -88,7 +92,7 @@ GRANT SELECT ON atores, matriz TO authenticated;
 DO $$
 DECLARE t RECORD; papel TEXT;
 BEGIN
-  PERFORM pg_temp.assert_ok((SELECT count(*)=15 FROM pg_tables WHERE schemaname='public'), 'inventário de 15 tabelas públicas');
+  PERFORM pg_temp.assert_ok((SELECT count(*)=16 FROM pg_tables WHERE schemaname='public'), 'inventário de 16 tabelas públicas');
   FOR t IN SELECT c.oid,c.relname,c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' LOOP
     PERFORM pg_temp.assert_ok(t.relrowsecurity, 'RLS habilitada: ' || t.relname);
     FOREACH papel IN ARRAY ARRAY['anon','authenticated'] LOOP

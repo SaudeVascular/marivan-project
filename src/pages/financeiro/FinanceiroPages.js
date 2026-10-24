@@ -11,6 +11,7 @@ import { procedimentosService } from '../../services/procedimentos.service';
 import { conveniosService } from '../../services/convenios.service';
 import { cobrancasService } from '../../services/cobrancas.service';
 import { comTimeout } from '../../utils/comTimeout';
+import { registrarImpressao } from '../../services/acessos.service';
 import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
 import { FUNCOES_FINANCEIRO } from '../../constants/roles';
 
@@ -614,7 +615,7 @@ export function ImprimirReciboPage() {
   return (
     <div>
       <div className="no-print" style={{ padding: '12px 24px', backgroundColor: '#f3f4f6', borderBottom: '1px solid #ddd', display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button onClick={() => window.print()} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+        <button onClick={() => { registrarImpressao(paciente.id, 'Recibo'); window.print(); }} style={{ padding: '9px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
           🖨️ Imprimir
         </button>
         <Link to="/financeiro" style={{ padding: '9px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', textDecoration: 'none' }}>

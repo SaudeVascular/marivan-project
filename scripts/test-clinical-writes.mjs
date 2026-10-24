@@ -51,13 +51,15 @@ const rpc = (op, acao, id, versao, dados) => `SELECT public.salvar_registro_clin
 await executar(await readFile(new URL('../supabase/tests/clinical_writes.sql', import.meta.url), 'utf8'));
 console.log('OK: testes transacionais de integridade e autorização.');
 await executar(await readFile(new URL('../supabase/tests/authorization.sql', import.meta.url), 'utf8'));
-console.log('OK: matriz de autorização das 15 tabelas, contas inativas e privilégios mínimos.');
+console.log('OK: matriz de autorização das 16 tabelas, contas inativas e privilégios mínimos.');
 await executar(await readFile(new URL('../supabase/tests/profissoes_clinicas.sql', import.meta.url), 'utf8'));
 console.log('OK: psicólogo e fisioterapeuta — acesso clínico, tipos de registro e sigla do conselho.');
 await executar(await readFile(new URL('../supabase/tests/auditoria_mascarada.sql', import.meta.url), 'utf8'));
 console.log('OK: auditoria sem conteúdo clínico para Administrador sem papel clínico e sem assinaturas.');
 await executar(await readFile(new URL('../supabase/tests/pacientes_versao.sql', import.meta.url), 'utf8'));
 console.log('OK: cadastro e antecedentes do paciente com controle de versão.');
+await executar(await readFile(new URL('../supabase/tests/auditoria_acessos.sql', import.meta.url), 'utf8'));
+console.log('OK: auditoria de leitura — autor fixo, ações fechadas, leitura só por Administrador.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

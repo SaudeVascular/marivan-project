@@ -210,3 +210,16 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   await waitFor(() => expect(atualizar).toHaveBeenLastCalledWith('p1', expect.objectContaining({ alergias: 'Minha' }), 3));
   await waitFor(() => expect(screen.queryByText(/Outra pessoa alterou/)).not.toBeInTheDocument());
 });
+
+test('abrir o prontuário registra um acesso, uma única vez', async () => {
+  const { supabase } = require('../../services/supabase');
+  supabase.rpc.mockResolvedValue({ error: null });
+  registrosService.listarPorPaciente.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+  render(<Tela />);
+  await screen.findByText('Nenhum registro ainda.');
+  const chamadas = () => supabase.rpc.mock.calls.filter(([nome]) => nome === 'registrar_acesso');
+  expect(chamadas()).toEqual([['registrar_acesso', expect.objectContaining({ p_paciente_id: 'p1', p_acao: 'abrir_prontuario' })]]);
+  fireEvent.click(screen.getByRole('button', { name: 'Atualizar histórico' }));
+  await screen.findByText('Nenhum registro ainda.');
+  expect(chamadas()).toHaveLength(1);
+});

@@ -6,6 +6,7 @@ import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { usuariosService } from '../../services/usuarios.service';
 import { auditoriaService } from '../../services/auditoria.service';
+import { acessosService } from '../../services/acessos.service';
 import { configuracoesService } from '../../services/configuracoes.service';
 import { filiaisService } from '../../services/filiais.service';
 import { examesService } from '../../services/exames.service';
@@ -410,7 +411,67 @@ const ROTULOS_OPERACAO = {
   DELETE: 'Exclusão',
 };
 
+const ROTULOS_ACAO = {
+  abrir_prontuario: 'Abriu o prontuário',
+  imprimir_documento: 'Gerou documento',
+};
+
+// Aba "Acessos" (migração 38): leitura de prontuários e documentos
+// gerados — quem, quando e de qual paciente. Nada clínico.
+function AcessosAuditoria() {
+  const [acessos, setAcessos] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(true);
+  const [erro, setErro] = React.useState('');
+  const [filtro, setFiltro] = React.useState('');
+
+  React.useEffect(() => {
+    acessosService.listar({ limite: 500 })
+      .then(setAcessos)
+      .catch(err => setErro(err.message || 'Erro ao carregar os acessos.'))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  const termo = filtro.trim().toLowerCase();
+  const filtrados = termo
+    ? acessos.filter(a => `${a.usuario_nome || ''} ${a.paciente_nome || ''} ${a.detalhe || ''}`.toLowerCase().includes(termo))
+    : acessos;
+
+  return (
+    <>
+      <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>
+        Últimos {acessos.length} acessos: prontuários abertos e documentos gerados.
+      </p>
+      <input
+        placeholder="Filtrar por profissional, paciente ou documento..."
+        value={filtro}
+        onChange={e => setFiltro(e.target.value)}
+        style={{ width: '100%', maxWidth: '480px', padding: '8px', marginBottom: '16px', boxSizing: 'border-box' }}
+      />
+      {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {carregando ? (
+          <p style={{ padding: '20px', color: '#666' }}>Carregando...</p>
+        ) : filtrados.length === 0 ? (
+          <p style={{ padding: '20px', color: '#666' }}>Nenhum acesso encontrado.</p>
+        ) : filtrados.map(a => (
+          <div key={a.id} style={{ borderBottom: '1px solid #eee', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', fontSize: '15px' }}>
+            <div>
+              <strong>{a.usuario_nome || a.usuario_id}</strong>
+              {a.usuario_funcao && <span style={{ color: '#888' }}> ({a.usuario_funcao})</span>}
+              {' — '}{ROTULOS_ACAO[a.acao] || a.acao}
+              {a.detalhe && <span>: {a.detalhe}</span>}
+              {' · '}<span style={{ color: '#1d4ed8' }}>{a.paciente_nome || a.paciente_id}</span>
+            </div>
+            <div style={{ color: '#666' }}>{new Date(a.em).toLocaleString('pt-BR')}</div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function AuditoriaPage() {
+  const [aba, setAba] = React.useState('alteracoes');
   const [eventos, setEventos] = React.useState([]);
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
@@ -443,6 +504,18 @@ export function AuditoriaPage() {
       <Link to="/painel">← Voltar ao Painel</Link>
 
       <h2 style={{ marginTop: '20px' }}>Auditoria</h2>
+      <div role="tablist" style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+        {[['alteracoes', 'Alterações'], ['acessos', 'Acessos']].map(([valor, rotulo]) => (
+          <button key={valor} role="tab" aria-selected={aba === valor} onClick={() => setAba(valor)}
+            style={{ padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', border: '1px solid #1d4ed8',
+              backgroundColor: aba === valor ? '#1d4ed8' : 'white', color: aba === valor ? 'white' : '#1d4ed8' }}>
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'acessos' ? <AcessosAuditoria /> : (
+      <>
       <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>
         Últimos {eventos.length} eventos de criação, alteração e exclusão registrados no banco.
       </p>
@@ -500,6 +573,8 @@ export function AuditoriaPage() {
           ))
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

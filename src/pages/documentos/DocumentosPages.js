@@ -14,6 +14,7 @@ import { pontuarCorrespondencia } from '../../utils/buscaExames';
 import { comTimeout } from '../../utils/comTimeout';
 import { dataLocalISO } from '../../utils/formatters';
 import { iniciarJanelaImpressao, concluirJanelaImpressao } from '../../utils/janelaImpressao';
+import { registrarImpressao } from '../../services/acessos.service';
 // Import dinâmico (não estático) de propósito: pdfmake sozinho soma mais
 // de 800kB ao pacote inicial (fontes embutidas em base64) — carregado à
 // toa em toda tela do app, inclusive quem nunca abre um documento.
@@ -107,6 +108,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
       if (!ok) { janela?.close(); return; }
     }
     const criarPdfDocumento = await carregarCriarPdfDocumento();
+    registrarImpressao(paciente.id, tituloAtestado);
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
@@ -342,6 +344,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
     });
 
     const criarPdfDocumento = await carregarCriarPdfDocumento();
+    registrarImpressao(paciente.id, 'Receituário');
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
@@ -639,6 +642,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
       ],
     } : null;
     const criarPdfDocumento = await carregarCriarPdfDocumento();
+    registrarImpressao(paciente.id, 'Relatório');
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
@@ -900,6 +904,7 @@ export function ImprimirAtendimentoPage() {
     ].filter(Boolean) : [];
 
     const criarPdfDocumento = await carregarCriarPdfDocumento();
+    registrarImpressao(paciente.id, `Reimpressão: ${registro.tipo}`, registro.id);
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
@@ -1114,6 +1119,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
       ],
     } : null;
     const criarPdfDocumento = await carregarCriarPdfDocumento();
+    registrarImpressao(paciente.id, 'Laudo');
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
@@ -1413,11 +1419,13 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
     }
     if (modo === 'tiss') {
       const criarPdfGuiaSadt = await carregarCriarPdfGuiaSadt();
+      registrarImpressao(paciente.id, 'Guia SP/SADT');
       concluirJanelaImpressao(janela, criarPdfGuiaSadt(dadosGuia, itens));
       return;
     }
     const criarPdfDocumento = await carregarCriarPdfDocumento();
     const gruposImpressao = agruparPorTipo(itens);
+    registrarImpressao(paciente.id, 'Pedido de Exames');
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,

@@ -8,6 +8,7 @@ import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout
 import { useToast } from '../../components/common/Toast';
 import { registrosService, aplicarRegistroConfirmado, confirmarRecebimentoRegistro } from '../../services/registros.service';
 import { pacientesService } from '../../services/pacientes.service';
+import { acessosService } from '../../services/acessos.service';
 import { mesclarPacientes } from '../../hooks/usePacientesCache';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
@@ -223,6 +224,16 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       });
     }
   }, [paciente?.id, setPacientes]);
+
+  // Auditoria de leitura: uma vez por paciente aberto nesta tela (não a
+  // cada recarga do histórico; a ref evita o registro em dobro do
+  // StrictMode em desenvolvimento).
+  const acessoRegistrado = React.useRef(null);
+  React.useEffect(() => {
+    if (!paciente?.id || acessoRegistrado.current === paciente.id) return;
+    acessoRegistrado.current = paciente.id;
+    acessosService.registrar(paciente.id, 'abrir_prontuario');
+  }, [paciente?.id]);
 
   React.useEffect(() => {
     if (!paciente?.id) return;
