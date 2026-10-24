@@ -1,28 +1,10 @@
-import { supabase } from './supabase';
-
-console.log("authService.js carregado!");
+import { obterTipoRedirecionamentoAuth, supabase } from './supabase';
 
 const authService = {
   async login(email, password) {
-    console.log("1. Tentando login direto");
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
-      
-      console.log("2. Resposta recebida:", data ? "SUCESSO" : "FALHA", error?.message || "");
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      return data;
-    } catch (error) {
-      console.error("3. Erro capturado:", error.message);
-      throw error;
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
+    return data;
   },
 
   async logout() {
@@ -33,7 +15,53 @@ const authService = {
   async getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
-  }
+  },
+
+  // Envia o e-mail de recuperação de senha; o link leva o usuário de volta
+  // para /redefinir-senha, já autenticado numa sessão de recuperação.
+  async resetPassword(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/redefinir-senha`,
+    });
+    if (error) throw error;
+  },
+
+  async getLinkSession(tipoEsperado) {
+    // `initialize` aguarda o cliente consumir access_token/refresh_token da
+    // URL antes de consultarmos a sessão criada pelo link. Uma sessão comum
+    // não pode ser usada nas páginas de convite ou recuperação.
+    const { error: initializeError } = await supabase.auth.initialize();
+    if (initializeError) throw initializeError;
+
+    if (obterTipoRedirecionamentoAuth() !== tipoEsperado) return null;
+
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  },
+
+  async changePassword(senhaAtual, novaSenha) {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user?.email) throw new Error('Sessão inválida. Entre novamente.');
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: userData.user.email,
+      password: senhaAtual,
+    });
+    if (loginError) throw new Error('A senha atual está incorreta.');
+
+    await authService.updatePassword(novaSenha);
+  },
+
+  // Usado na tela /redefinir-senha, após o usuário clicar no link do e-mail.
+  async updatePassword(novaSenha) {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) throw error;
+    // Revoga os refresh tokens existentes depois da recuperação. Assim uma
+    // sessão que tenha sido copiada antes da troca não continua renovável.
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
+    if (signOutError) throw signOutError;
+  },
 };
 
 export { authService };

@@ -1,0 +1,3 @@
+-- Dados fictícios de desenvolvimento podem ser adicionados aqui no futuro.
+-- Este arquivo fica intencionalmente vazio: nunca copiar dados de pacientes
+-- reais de produção para ambientes local ou de homologação.

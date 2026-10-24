@@ -1,70 +1,199 @@
-# Getting Started with Create React App
+# PEP — Prontuário Eletrônico de Pacientes
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> **Aplicação oficial do workspace:** este diretório (`prontuario-eletronico`).
+> O diretório vizinho `EMRS` é um protótipo histórico inseguro, está bloqueado
+> contra execução acidental e nunca deve ser publicado.
 
-## Available Scripts
+Sistema de prontuário eletrônico em nuvem para uso em clínica médica, com acesso por
+login, perfis de usuário (médico, enfermagem, recepção, administrador) e prontuário
+clínico completo (evoluções, receituários, atestados, relatórios, pedidos de exame,
+laudos).
 
-In the project directory, you can run:
+> **Antes de mexer no código ou no banco, leia [`DOCUMENTO_MESTRE_PEP.md`](./DOCUMENTO_MESTRE_PEP.md).**
+> É a fonte de verdade sobre objetivo do sistema, perfis de usuário, regras de negócio,
+> situação atual e roadmap. Este README cobre só a parte prática de rodar o projeto.
 
-### `npm start`
+## Status
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Protótipo funcional em desenvolvimento, **ainda não liberado para dados reais de
+pacientes** — ver seção 7 do Documento Mestre. Use apenas dados fictícios ou
+anonimizados até a revisão de segurança ser concluída.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Stack
 
-### `npm test`
+- React 19 + Create React App
+- React Router (rotas reais, não troca de tela por estado)
+- Supabase (Postgres + Auth + Row Level Security)
+- Lucide React (ícones)
+- CSS próprio (sem framework de UI)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Rodando localmente
 
-### `npm run build`
+1. Instale as dependências:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+   ```bash
+   npm install
+   ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+2. Copie `.env.example` para `.env.local` e preencha com as credenciais do projeto Supabase:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-### `npm run eject`
+   ```
+   REACT_APP_SUPABASE_URL=
+   REACT_APP_SUPABASE_ANON_KEY=
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+   Use sempre a chave `anon`, **nunca** a `service_role`, no front-end. `.env.local` nunca
+   é commitado (está no `.gitignore`) — se for empacotar o projeto pra enviar a alguém
+   (zip, IA de revisão etc.), confira que `.env.local`, `node_modules`, `build` e `.git`
+   não foram incluídos manualmente por fora do Git.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+3. Suba o servidor de desenvolvimento:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+   ```bash
+   npm start
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+   Abre em [http://localhost:3000](http://localhost:3000).
 
-## Learn More
+### Testar em celular/tablet na mesma rede
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Com o `npm start` rodando, descubra o IP local do computador (`ipconfig getifaddr en0`
+no Mac) e acesse `http://SEU-IP:3000` pelo navegador do celular, desde que os dois
+estejam na mesma rede Wi-Fi. Isso não é acesso público — só funciona dentro da mesma
+rede local. Acesso de qualquer lugar exige hospedar o app de verdade (Fase 4 do
+Documento Mestre, ainda não feita).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Outros scripts
 
-### Code Splitting
+```bash
+npm run build   # build de produção em build/
+npm test        # roda os testes
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+O banco agora usa migrações versionadas pelo Supabase CLI. O fluxo completo de
+desenvolvimento local, homologação e produção está em
+[`docs/AMBIENTES_E_MIGRACOES.md`](./docs/AMBIENTES_E_MIGRACOES.md).
 
-### Analyzing the Bundle Size
+O `moduleNameMapper` no `jest` de `package.json` não é sobra de configuração — o Jest
+do `react-scripts` 5 não resolve os pacotes `react-router-dom`/`react-router` (que só
+publicam ESM/`exports` map, sem `main` funcional) sem esse contorno. `src/setupTests.js`
+também poliflena `TextEncoder`/`TextDecoder`, que o `react-router` espera encontrar no
+ambiente e o `jsdom` do Jest não expõe. Se atualizar essas dependências e os testes
+voltarem a quebrar com "Cannot find module", comece por aí.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Testes que renderizam qualquer coisa sob `<App>` precisam de
+`jest.mock('.../services/supabase')` — sem isso, o `useAuth` real tenta abrir sessão
+pela rede de verdade no mount. O mock mora em `src/services/__mocks__/supabase.js` e
+exporta `resetSupabaseMockPadrao()` (chame num `beforeEach`) e `criarQueryBuilder()`
+(pra simular um `.from(...).select(...).single()` específico). Duas pegadinhas desse
+mock, já resolvidas mas fáceis de reintroduzir sem querer:
+- o `react-scripts` liga `resetMocks: true` por padrão, que apaga a implementação de
+  qualquer `jest.fn()` — inclusive as do mock — antes de cada teste. Por isso a
+  implementação-padrão não fica presa no `jest.fn()` na criação do mock; ela só existe
+  dentro de `resetSupabaseMockPadrao()`, chamada de novo a cada teste.
+- importar direto de `services/__mocks__/supabase.js` num teste cria uma **segunda
+  cópia** do objeto mockado, diferente da que o resto do app enxerga — sempre importe
+  de `services/supabase` (o caminho real); o `jest.mock()` troca isso pelo mock por
+  baixo dos panos pra qualquer importador, este arquivo de teste incluído.
 
-### Making a Progressive Web App
+## Banco de dados (Supabase)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+O histórico canônico do banco está em `supabase/migrations/` e é aplicado em ordem
+pelo Supabase CLI. Os arquivos `supabase_*.sql` na raiz foram mantidos apenas como
+cópias históricas para conferência; não os execute manualmente em um projeto novo.
+A sequência versionada contém:
 
-### Advanced Configuration
+1. `supabase_schema.sql` — tabelas base: `pacientes`, `consultas`, `medicamentos_receita`
+2. `supabase_usuarios.sql` — tabela `perfis` + trigger que cria o perfil no cadastro
+3. `supabase_fix_trigger.sql` — corrige esse trigger para não travar o cadastro em caso de erro
+4. `supabase_perfis_extra.sql` — colunas extras em `perfis` (nascimento, sexo, cpf, especialidade, área de atuação)
+5. `supabase_crm.sql` — coluna `crm` em `perfis`
+6. `supabase_modelos_receita.sql` — tabela `modelos_receita` (modelos de prescrição por usuário)
+7. `supabase_pedido_exames.sql` — adiciona os tipos "Pedido de Exames" e "Laudo" em `consultas`
+8. `supabase_rls_rbac.sql` — substitui as políticas de RLS por controle de acesso por função (perfis.funcao)
+9. `supabase_auditoria.sql` — tabela de auditoria + triggers de registro automático
+10. `supabase_perfis_uf.sql` — coluna `uf` em `perfis` (estado do conselho que emitiu o CRM)
+11. `supabase_agenda.sql` — tabela `agendamentos` (Fase 3: agenda, confirmação, status de chegada)
+12. `supabase_financeiro.sql` — tabelas de procedimentos, convênios e cobranças (Fase 3: módulo Financeiro)
+13. `supabase_pacientes_convenio.sql` — liga `pacientes.convenio_id` ao catálogo de convênios do Financeiro
+14. `supabase_pacientes_mascara_clinica.sql` — view `pacientes_view` que mascara alergias/antecedentes clínicos para quem não é perfil clínico (o app passa a ler pacientes por essa view)
+15. `supabase_perfis_equipe.sql` — permite que a equipe ativa se veja (roster) e cria a view `perfis_view`, mascarando cpf/nascimento/sexo de quem não é o dono do perfil nem Administrador (o app passa a ler perfis por essa view)
+16. `supabase_enfermagem.sql` — adiciona os tipos "Sinais Vitais" e "Evolução de Enfermagem" em `consultas`, e restringe por RLS que só Médico/Administrador criem Receituário/Prescrição/Atestado
+17. `supabase_configuracoes_clinica.sql` — cria a tabela `configuracoes_clinica` (nome, endereço, telefone da clínica usados nos documentos impressos), antes fixos no código
+18. `supabase_configuracoes_clinica_extra.sql` — Nome Fantasia (renomeia de "subtitulo"), CNPJ, CEP separado do endereço, e bucket de Storage público para a logomarca
+19. `supabase_configuracoes_clinica_endereco.sql` — número e complemento do endereço, e auditoria de alterações em `configuracoes_clinica`
+20. `supabase_filiais.sql` — tabela `filiais` (cadastro de outras unidades, mesmo formato de dados da clínica principal, cada uma com sua própria logomarca)
+21. `supabase_prontuario_assinatura.sql` — status (Rascunho/Assinado/Cancelado), retificação e trigger que bloqueia edição de registro assinado em `consultas`; restringe a policy de UPDATE ao autor (ou Administrador)
+22. `supabase_security_p0.sql` — fecha autoelevação de privilégio, impede bypass das views mascaradas, separa escrita clínica e torna autoria/assinatura fatos controlados pelo banco
+23. `supabase_security_p0_hotfix_recepcao.sql` — preserva dados clínicos quando a Recepção altera somente informações cadastrais, inclusive com clientes antigos em cache
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Para recriar um banco local, use `npm run db:reset`. Para configurar homologação e
+adotar esse histórico na produção já existente, siga
+[`docs/AMBIENTES_E_MIGRACOES.md`](./docs/AMBIENTES_E_MIGRACOES.md). Não reaplique as
+23 migrações iniciais na produção: nela, as versões devem ser registradas como já
+aplicadas pelo procedimento de adoção documentado.
 
-### Deployment
+Depois de aplicar as migrações em local ou homologação, execute
+`supabase_verify_security_p0.sql`. Ele é somente-leitura e falha se detectar views,
+privilégios, policies, triggers ou funções P0 ausentes/inseguras.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Perfis de usuário e permissões
 
-### `npm run build` fails to minify
+Resumo — regras completas na seção 2 e 8.3 do Documento Mestre:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+| Função | Acesso |
+|---|---|
+| Médico / Enfermeiro(a) | Cadastro de pacientes + prontuário clínico completo |
+| Recepcionista | Só cadastro de pacientes (telas clínicas ficam bloqueadas, no app e no banco) |
+| Administrador | Tudo, mais gestão de usuários (`/usuarios`) e auditoria (`/auditoria`) |
+
+O controle é feito em duas camadas: no app (rotas escondidas/redirecionadas por
+função) e no banco (Row Level Security em `supabase_rls_rbac.sql`) — a segunda é a
+que realmente importa para segurança, a primeira é só experiência de uso.
+
+## Estrutura do projeto
+
+```
+src/
+├── App.js                    # só providers (Auth/Clinica) e rotas — ~300 linhas
+├── constants/roles.js        # UFS e FUNCOES_* (quem pode acessar o quê)
+├── components/
+│   ├── Login.js
+│   ├── guards.js             # SomenteAdmin/SomenteClinico/SomenteMedico/...
+│   └── common/
+│       ├── Layout.js         # Header, LogoClinica, Cabecalho/RodapeImpresso
+│       ├── SaveStatus.js
+│       └── Toast.js          # ToastProvider/useToast — notificação não-bloqueante (substitui alert())
+├── pages/                    # uma pasta por domínio, uma tela (ou telas afins) por arquivo
+│   ├── pacientes/            # PacientesPage, ProntuarioPage
+│   ├── enfermagem/           # SinaisVitaisPage, EnfermagemPage
+│   ├── documentos/           # Atestado, Receituário, Relatório, Laudo, Pedido de Exames...
+│   ├── agenda/                # AgendaPage, NovoAgendamentoForm
+│   ├── recepcao/              # RecepcaoPage (check-in do dia)
+│   ├── financeiro/            # Financeiro, Catálogo, Recibo
+│   ├── administracao/         # Painel, Usuários, Auditoria, Configurações da Clínica, Filiais
+│   └── auth/                  # RedefinirSenhaPage
+├── hooks/
+│   ├── useAuth.js            # sessão + perfil/função do usuário logado
+│   ├── useClinica.js         # dados da clínica (nome, logo, endereço) via Context
+│   ├── useMedicoPerfil.js    # autofill de médico/CRM/especialidade nos documentos
+│   ├── usePacienteAtual.js   # paciente atual a partir da URL
+│   └── useAutoSave.js        # debounce de autosave
+├── services/                 # um arquivo por entidade, todos falando com o Supabase
+└── utils/
+    ├── formatters.js         # formatação de data, CPF, telefone etc.
+    ├── mascaras.js           # formatarData/CPF/CNPJ usados nas telas
+    ├── comTimeout.js
+    └── rascunhoAtendimento.js # chave de rascunho local + limpeza no logout
+```
+
+## Convenções
+
+Ver seção 11 do Documento Mestre (código, git, testes). Resumo rápido:
+- Não guardar dados clínicos fixos no código, nem logar dados sensíveis no console.
+- Mensagens de commit com prefixo (`feat:`, `fix:`, `refactor:`, `security:`, `chore:`).
+- Testar sempre em largura de desktop, tablet e celular antes de considerar uma tela pronta.
