@@ -130,9 +130,46 @@ BEGIN
 END;
 $$;
 RESET ROLE;
+
+-- Administrador sem papel clínico concedido (migração 30) não grava nada
+-- clínico; com papel_clinico_administrador = 'Médico' tem exatamente a
+-- mesma capacidade de um Médico, inclusive assinando com CRM próprio.
+INSERT INTO auth.users (id, email) VALUES
+ ('e2000000-0000-4000-8000-000000000006', 'admin-sem-papel-estabilidade@example.invalid'),
+ ('e2000000-0000-4000-8000-000000000007', 'admin-medico-estabilidade@example.invalid');
+SET LOCAL session_replication_role = replica;
+UPDATE public.perfis SET ativo = true, funcao = 'Administrador', nome = 'Administrador fictício'
+ WHERE id = 'e2000000-0000-4000-8000-000000000006';
+UPDATE public.perfis SET ativo = true, funcao = 'Administrador', papel_clinico_administrador = 'Médico',
+ nome = 'Administrador-médico fictício', crm = '456', uf = 'SP'
+ WHERE id = 'e2000000-0000-4000-8000-000000000007';
+SET LOCAL session_replication_role = origin;
+
+SET LOCAL ROLE authenticated;
+DO $$
+DECLARE
+  paciente UUID := 'e2000000-0000-4000-8000-000000000010';
+  bloqueou BOOLEAN;
+  r JSONB;
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', 'e2000000-0000-4000-8000-000000000006', true);
+  PERFORM set_config('request.jwt.claims', '{"sub":"e2000000-0000-4000-8000-000000000006","role":"authenticated"}', true);
+  bloqueou := false;
+  BEGIN PERFORM public.salvar_registro_clinico(gen_random_uuid(), 'criar', paciente, NULL, NULL, '{"tipo":"Consulta","conteudo":"Vedado"}');
+  EXCEPTION WHEN insufficient_privilege THEN bloqueou := true; END;
+  PERFORM pg_temp.assert_ok(bloqueou, 'administrador sem papel clínico concedido não grava nada clínico');
+
+  PERFORM set_config('request.jwt.claim.sub', 'e2000000-0000-4000-8000-000000000007', true);
+  PERFORM set_config('request.jwt.claims', '{"sub":"e2000000-0000-4000-8000-000000000007","role":"authenticated"}', true);
+  r := public.salvar_registro_clinico(gen_random_uuid(), 'criar', paciente, NULL, NULL, '{"tipo":"Atestado","conteudo":"Permitido"}');
+  PERFORM pg_temp.assert_ok(r->>'assinado_por_registro' = 'CRM 456/SP', 'administrador com papel clínico Médico assina atestado como médico');
+END;
+$$;
+RESET ROLE;
+
 DO $$ BEGIN
-  PERFORM pg_temp.assert_ok((SELECT count(*) = 5 FROM public.operacoes_registro WHERE autor_id::TEXT LIKE 'e2000000-%'), 'somente operações confirmadas produzem recibo');
-  PERFORM pg_temp.assert_ok((SELECT count(*) = 5 FROM public.auditoria WHERE tabela = 'consultas' AND alterado_por::TEXT LIKE 'e2000000-%'), 'repetições e falhas não duplicam auditoria');
+  PERFORM pg_temp.assert_ok((SELECT count(*) = 6 FROM public.operacoes_registro WHERE autor_id::TEXT LIKE 'e2000000-%'), 'somente operações confirmadas produzem recibo');
+  PERFORM pg_temp.assert_ok((SELECT count(*) = 6 FROM public.auditoria WHERE tabela = 'consultas' AND alterado_por::TEXT LIKE 'e2000000-%'), 'repetições e falhas não duplicam auditoria');
 END; $$;
 ROLLBACK;
 SELECT 'OK: idempotência, versões, assinatura atômica, retificação, auditoria e permissões';

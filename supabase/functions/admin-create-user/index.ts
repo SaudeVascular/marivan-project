@@ -9,7 +9,8 @@ const origensPermitidas = new Set([
     .filter(Boolean),
 ]);
 const funcoesPermitidas = new Set([
-  'Administrador', 'Médico', 'Enfermeiro(a)', 'Recepcionista', 'Financeiro',
+  'Administrador', 'Médico', 'Enfermeiro(a)', 'Psicólogo(a)', 'Fisioterapeuta',
+  'Recepcionista', 'Financeiro',
 ]);
 
 function headers(req: Request) {
@@ -95,6 +96,8 @@ Deno.serve(async (req: Request) => {
     cpf: String(entrada.cpf || ''),
     especialidade: String(entrada.especialidade || ''),
     area_atuacao: String(entrada.area_atuacao || ''),
+    // RQE só existe para médico (registro de especialista no CRM).
+    rqe: funcao === 'Médico' ? (String(entrada.rqe || '').replace(/\D/g, '') || null) : null,
   };
   // A atualização usa o JWT do Administrador solicitante, não a service_role.
   // Assim RLS e o trigger de auditoria registram o ator humano correto.

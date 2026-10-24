@@ -76,7 +76,7 @@ jobs:
       - name: Verificar proteções P0
         run: npm run db:verify:p0
 
-      - name: Testar idempotência, concorrência e permissões clínicas
+      - name: Testar integridade, concorrência e matriz de autorização
         run: npm run db:test:clinical
 
       - name: Encerrar banco descartável

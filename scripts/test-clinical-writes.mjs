@@ -50,6 +50,10 @@ const rpc = (op, acao, id, versao, dados) => `SELECT public.salvar_registro_clin
 
 await executar(await readFile(new URL('../supabase/tests/clinical_writes.sql', import.meta.url), 'utf8'));
 console.log('OK: testes transacionais de integridade e autorização.');
+await executar(await readFile(new URL('../supabase/tests/authorization.sql', import.meta.url), 'utf8'));
+console.log('OK: matriz de autorização das 15 tabelas, contas inativas e privilégios mínimos.');
+await executar(await readFile(new URL('../supabase/tests/profissoes_clinicas.sql', import.meta.url), 'utf8'));
+console.log('OK: psicólogo e fisioterapeuta — acesso clínico, tipos de registro e sigla do conselho.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

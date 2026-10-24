@@ -3,7 +3,10 @@ set -euo pipefail
 
 readonly PRODUCAO_REF="vhaadfzdvhdztfrilohf"
 readonly HOMOLOGACAO_REF="snhmydckyypgucwbsaus"
-readonly PRODUCAO_POOLER="postgresql://postgres.${PRODUCAO_REF}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+# Conexão direta (o pooler aws-0-sa-east-1 não conhece este projeto).
+# Em rede sem IPv6, sobrescreva com a URL "Session pooler" do painel
+# (Connect), sem senha: SUPABASE_PRODUCTION_DB_URL=postgresql://...
+readonly PRODUCAO_POOLER="${SUPABASE_PRODUCTION_DB_URL:-postgresql://postgres@db.${PRODUCAO_REF}.supabase.co:5432/postgres?sslmode=require}"
 readonly ARQUIVO_REF="supabase/.temp/project-ref"
 
 if [[ -f "$ARQUIVO_REF" ]]; then
