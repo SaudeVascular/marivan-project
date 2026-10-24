@@ -804,13 +804,13 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
             </p>
           )}
           <div className="atalhos-grid">
-            <Link to={`/sinais-vitais/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#16a34a' }}>🩺 Sinais Vitais</Link>
+            {emite('Sinais Vitais') && <Link to={`/sinais-vitais/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#16a34a' }}>🩺 Sinais Vitais</Link>}
             {emite('Receituário') && <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>}
             {emite('Atestado') && <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>}
             {emite('Prescrição') && <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>}
-            <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>🩺 Relatório</Link>
-            <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
-            <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudo de Exames</Link>
+            {emite('Relatório') && <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>🩺 Relatório</Link>}
+            {emite('Pedido de Exames') && <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>}
+            {emite('Laudo') && <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudo de Exames</Link>}
           </div>
         </div>
 

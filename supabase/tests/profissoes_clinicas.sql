@@ -1,6 +1,7 @@
 -- Somente banco descartável: fixtures e verificações são revertidas no final.
 -- Psicólogo(a) e Fisioterapeuta (migração 35): acesso clínico como
 -- Enfermeiro(a), mas emitem Atestado; Receituário/Prescrição só Médico.
+-- Migração 39: cada profissão não médica só registra a própria lista.
 BEGIN;
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
@@ -15,9 +16,17 @@ INSERT INTO atores VALUES
 CREATE TEMP TABLE esperado(funcao TEXT, tipo TEXT, permitido BOOLEAN);
 INSERT INTO esperado VALUES
  ('Médico', 'Consulta', true), ('Médico', 'Atestado', true), ('Médico', 'Receituário', true), ('Médico', 'Prescrição', true),
- ('Enfermeiro(a)', 'Consulta', true), ('Enfermeiro(a)', 'Atestado', false), ('Enfermeiro(a)', 'Receituário', false), ('Enfermeiro(a)', 'Prescrição', false),
- ('Psicólogo(a)', 'Consulta', true), ('Psicólogo(a)', 'Atestado', true), ('Psicólogo(a)', 'Receituário', false), ('Psicólogo(a)', 'Prescrição', false),
- ('Fisioterapeuta', 'Consulta', true), ('Fisioterapeuta', 'Atestado', true), ('Fisioterapeuta', 'Receituário', false), ('Fisioterapeuta', 'Prescrição', false);
+ ('Médico', 'Relatório', true), ('Médico', 'Pedido de Exames', true), ('Médico', 'Laudo', true), ('Médico', 'Sinais Vitais', true),
+ -- Migração 39: listas do que cada profissão não médica PODE registrar.
+ ('Enfermeiro(a)', 'Consulta', true), ('Enfermeiro(a)', 'Evolução de Enfermagem', true), ('Enfermeiro(a)', 'Sinais Vitais', true),
+ ('Enfermeiro(a)', 'Atestado', false), ('Enfermeiro(a)', 'Receituário', false), ('Enfermeiro(a)', 'Prescrição', false),
+ ('Enfermeiro(a)', 'Relatório', false), ('Enfermeiro(a)', 'Pedido de Exames', false), ('Enfermeiro(a)', 'Laudo', false),
+ ('Psicólogo(a)', 'Consulta', true), ('Psicólogo(a)', 'Atestado', true), ('Psicólogo(a)', 'Relatório', true),
+ ('Psicólogo(a)', 'Receituário', false), ('Psicólogo(a)', 'Prescrição', false), ('Psicólogo(a)', 'Pedido de Exames', false),
+ ('Psicólogo(a)', 'Laudo', false), ('Psicólogo(a)', 'Sinais Vitais', false), ('Psicólogo(a)', 'Evolução de Enfermagem', false),
+ ('Fisioterapeuta', 'Consulta', true), ('Fisioterapeuta', 'Atestado', true), ('Fisioterapeuta', 'Relatório', true),
+ ('Fisioterapeuta', 'Receituário', false), ('Fisioterapeuta', 'Prescrição', false), ('Fisioterapeuta', 'Pedido de Exames', false),
+ ('Fisioterapeuta', 'Laudo', false), ('Fisioterapeuta', 'Sinais Vitais', false), ('Fisioterapeuta', 'Evolução de Enfermagem', false);
 GRANT SELECT ON atores, esperado TO authenticated;
 
 INSERT INTO auth.users (id, email) SELECT id, id::TEXT || '@example.invalid' FROM atores;

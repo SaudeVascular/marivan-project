@@ -19,19 +19,19 @@ export const CONSELHO_POR_FUNCAO = {
   'Fisioterapeuta': 'CREFITO',
 };
 
-// Documentos que cada papel clínico NÃO emite. Espelha a função
-// papel_clinico_pode_registrar (migração 35), que é quem de fato barra
-// no banco; aqui só decide que botões/telas aparecem. Mantenha as duas
-// em sincronia.
-const TIPOS_BLOQUEADOS = {
-  'Médico': [],
-  'Enfermeiro(a)': ['Receituário', 'Prescrição', 'Atestado'],
-  'Psicólogo(a)': ['Receituário', 'Prescrição'],
-  'Fisioterapeuta': ['Receituário', 'Prescrição'],
+// Registros/documentos que cada papel clínico pode emitir. Espelha a
+// função papel_clinico_pode_registrar (migração 39), que é quem de fato
+// barra no banco; aqui só decide que botões/telas aparecem. Mantenha as
+// duas em sincronia. Médico emite tudo; as demais profissões, só o que é
+// ato da profissão (tipo novo nasce bloqueado).
+const TIPOS_PERMITIDOS = {
+  'Enfermeiro(a)': ['Consulta', 'Evolução de Enfermagem', 'Sinais Vitais'],
+  'Psicólogo(a)': ['Consulta', 'Atestado', 'Relatório'],
+  'Fisioterapeuta': ['Consulta', 'Atestado', 'Relatório'],
 };
 export function podeEmitir(papelClinico, tipo) {
-  const bloqueados = TIPOS_BLOQUEADOS[papelClinico];
-  return Boolean(bloqueados) && !bloqueados.includes(tipo);
+  if (papelClinico === 'Médico') return true;
+  return (TIPOS_PERMITIDOS[papelClinico] || []).includes(tipo);
 }
 
 // Acesso clínico (Médico/Enfermeiro(a), e Administrador só com papel

@@ -89,9 +89,9 @@ function AppContent() {
         path="/laudos/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteQuemEmite tipo="Laudo">
               <LaudoPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteClinico>
+            </SomenteQuemEmite>
           </ProtectedLayout>
         }
       />
@@ -99,9 +99,9 @@ function AppContent() {
         path="/pedido-exames/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteQuemEmite tipo="Pedido de Exames">
               <PedidoExamesPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteClinico>
+            </SomenteQuemEmite>
           </ProtectedLayout>
         }
       />
@@ -285,9 +285,9 @@ function AppContent() {
         path="/sinais-vitais/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteQuemEmite tipo="Sinais Vitais">
               <SinaisVitaisPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteClinico>
+            </SomenteQuemEmite>
           </ProtectedLayout>
         }
       />
@@ -295,9 +295,9 @@ function AppContent() {
         path="/relatorios/:id"
         element={
           <ProtectedLayout>
-            <SomenteClinico>
+            <SomenteQuemEmite tipo="Relatório">
               <RelatorioPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteClinico>
+            </SomenteQuemEmite>
           </ProtectedLayout>
         }
       />

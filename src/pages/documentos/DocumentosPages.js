@@ -37,6 +37,14 @@ const TEXTO_ATESTADO = {
   'Fisioterapeuta': { titulo: 'Atestado Fisioterapêutico', cuidados: 'fisioterapêuticos' },
 };
 
+// Relatório: título conforme a profissão de quem assina.
+const TITULO_RELATORIO = {
+  'Médico': 'Relatório Médico',
+  'Psicólogo(a)': 'Relatório Psicológico',
+  'Fisioterapeuta': 'Relatório Fisioterapêutico',
+  'Enfermeiro(a)': 'Relatório de Enfermagem',
+};
+
 export function AtestadoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
@@ -77,7 +85,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
 
     const registro = {
       tipo: 'Atestado',
-      titulo: `Atestado — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
+      titulo: `${tituloAtestado} — ${dias} ${Number(dias) === 1 ? 'dia' : 'dias'} de afastamento`,
       conteudo,
     };
     setSalvando(true);
@@ -556,7 +564,8 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
 
 export function RelatorioPage({ pacientes, setPacientes }) {
   const toast = useToast();
-  const { user } = useAuth();
+  const { user, funcaoClinicaEfetiva } = useAuth();
+  const tituloRelatorio = TITULO_RELATORIO[funcaoClinicaEfetiva] || TITULO_RELATORIO['Médico'];
   const { clinica } = useClinica();
   const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
@@ -607,7 +616,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
 
     const registro = {
       tipo: 'Relatório',
-      titulo: `Relatório Médico${finalidade ? ' — ' + finalidade : ''}`,
+      titulo: `${tituloRelatorio}${finalidade ? ' — ' + finalidade : ''}`,
       conteudo,
     };
     setSalvando(true);
@@ -646,7 +655,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
     concluirJanelaImpressao(janela, criarPdfDocumento({
       clinica,
       paciente,
-      tituloDocumento: 'RELATÓRIO MÉDICO',
+      tituloDocumento: tituloRelatorio.toUpperCase(),
       subtitulo: finalidade || null,
       corpo: modo === 'livre'
         ? [{ text: textoLivre, alignment: 'justify', lineHeight: 1.6 }]
@@ -685,7 +694,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
 
         {/* Formulário */}
         <div className="no-print" style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Relatório Médico</h3>
+          <h3 style={{ marginTop: 0 }}>{tituloRelatorio}</h3>
           <div style={{ marginBottom: '14px' }}>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Data</label>
             <input type="date" value={dataRelatorio} onChange={(e) => setDataRelatorio(e.target.value)} style={{ padding: '8px', fontSize: '16px' }} />
@@ -743,7 +752,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
         <div className="doc-preview">
           <div className="doc-cabecalho-grupo">
             <CabecalhoImpresso paciente={paciente} />
-            <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>RELATÓRIO MÉDICO</h2>
+            <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>{tituloRelatorio.toUpperCase()}</h2>
             {/* Dados do paciente já aparecem no CabecalhoImpresso acima —
                 repeti-los aqui duplicava a informação no documento impresso. */}
             {finalidade && <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 24px' }}>{finalidade}</p>}
@@ -868,9 +877,18 @@ export function ImprimirAtendimentoPage() {
     'Laudo': 'LAUDO',
     'Pedido de Exames': 'PEDIDO DE EXAMES',
   };
+  // Atestado e relatório guardam no título a profissão de quem assinou
+  // ("Atestado Psicológico", "Relatório Psicológico — finalidade"): a 2ª
+  // via repete esse título, não o de médico.
+  const tituloSalvo = (registro.titulo || '').split(' — ')[0];
+  // Registros antigos ("Atestado — 2 dias") não têm a profissão: caem no
+  // título padrão abaixo.
+  const tituloPorProfissao = ['Atestado', 'Relatório'].includes(registro.tipo)
+    && tituloSalvo.startsWith(registro.tipo) && tituloSalvo !== registro.tipo
+    ? tituloSalvo.toUpperCase() : null;
   const titulo = ehAtendimento
     ? (registro.retificacaoDe ? 'RETIFICAÇÃO DE REGISTRO' : 'REGISTRO DE ATENDIMENTO')
-    : (TITULO_DOCUMENTO[registro.tipo] || registro.tipo.toUpperCase());
+    : (tituloPorProfissao || TITULO_DOCUMENTO[registro.tipo] || registro.tipo.toUpperCase());
 
   const comorbidades = [
     { label: 'HAS',          valor: paciente.has },
