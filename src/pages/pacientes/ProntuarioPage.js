@@ -73,6 +73,21 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   // pode gravar nesse intervalo.
   const pacienteDoTexto = React.useRef(null);
   const gravando = React.useRef(false);
+  // Pedido de gravação que chegou com outra em andamento (ex.: sair da
+  // tela ou clicar em Finalizar enquanto o autosave grava): roda logo
+  // depois, em vez de ser descartado em silêncio.
+  const pendente = React.useRef(null);
+  // Lidos na hora de gravar, não do fechamento da função: uma gravação
+  // disparada logo depois de outra (ou depois de sair da tela) precisa do
+  // rascunho que a anterior acabou de criar e do texto mais recente.
+  const rascunho = React.useRef({ id: null, versao: null });
+  const textoAtual = React.useRef('');
+  textoAtual.current = atendimentoAtual;
+  const definirRascunho = (id, versao) => {
+    rascunho.current = { id, versao };
+    setRascunhoRegistroId(id);
+    setRascunhoVersao(versao);
+  };
   const [erroAtendimento, setErroAtendimento] = React.useState('');
   const [erroStorage, setErroStorage] = React.useState('');
   const [erroHistorico, setErroHistorico] = React.useState(false);
@@ -134,13 +149,11 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       const { texto, registroId, versao } = lerRascunhoAtendimento(paciente.id, user?.id);
       setAtendimentoAtual(texto);
       setRascunhoRestaurado(!!texto);
-      setRascunhoRegistroId(registroId);
-      setRascunhoVersao(versao);
+      definirRascunho(registroId, versao);
     } catch {
       setAtendimentoAtual('');
       setRascunhoRestaurado(false);
-      setRascunhoRegistroId(null);
-      setRascunhoVersao(null);
+      definirRascunho(null, null);
       setErroStorage('Não foi possível recuperar o rascunho temporário desta aba. Confira os rascunhos salvos no histórico.');
     }
     setErroAtendimento('');
@@ -312,56 +325,76 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   // é um problema real que exige decisão de quem está digitando.
   const gravarAtendimento = async (assinar, { automatico = false } = {}) => {
     const texto = atendimentoAtual;
-    if (!texto.trim() || gravando.current) return;
+    if (!texto.trim()) return;
+    if (gravando.current) {
+      // Pedido manual tem prioridade sobre o automático; assinar, sobre
+      // salvar rascunho.
+      const anterior = pendente.current;
+      if (!automatico) {
+        pendente.current = { assinar: Boolean(assinar || (anterior && !anterior.automatico && anterior.assinar)), automatico: false };
+        setSalvandoAtendimento(true);
+      } else if (!anterior) pendente.current = { assinar: false, automatico: true };
+      return;
+    }
     if (automatico && (conflito || texto === ultimoTextoServidor.current || pacienteDoTexto.current !== paciente.id)) return;
     gravando.current = true;
+    const { id: rascunhoId, versao: rascunhoVer } = rascunho.current;
     if (automatico) setAutoSalvo(a => ({ ...a, estado: 'salvando' }));
     else {
       setSalvandoAtendimento(true);
       setErroAtendimento('');
     }
     try {
-      const salvo = rascunhoRegistroId
-        ? await registrosService.atualizar(rascunhoRegistroId, {
-          titulo: tituloAtendimento, conteudo: atendimentoAtual,
-          pacienteId: paciente.id, versao: rascunhoVersao,
+      const salvo = rascunhoId
+        ? await registrosService.atualizar(rascunhoId, {
+          titulo: tituloAtendimento, conteudo: texto,
+          pacienteId: paciente.id, versao: rascunhoVer,
         }, user?.id, assinar)
         : await registrosService.criar({
-          tipo: tipoAtendimento, titulo: tituloAtendimento, conteudo: atendimentoAtual,
+          tipo: tipoAtendimento, titulo: tituloAtendimento, conteudo: texto,
           status: assinar ? 'Assinado' : 'Rascunho',
         }, paciente.id, user?.id);
       aplicarRegistroSalvo(salvo);
       setConflito(null);
-      ultimoTextoServidor.current = salvo.status === 'Assinado' ? '' : texto;
+      // Também depois de assinar: um pedido pendente com este mesmo texto
+      // não pode recriá-lo como rascunho novo.
+      ultimoTextoServidor.current = texto;
       setAutoSalvo({ estado: 'salvo', em: new Date() });
       if (automatico) setErroAtendimento('');
       if (salvo.status === 'Assinado') {
         if (persistirRascunhoLocal('', null)) confirmarRecebimentoRegistro(salvo);
         setAtendimentoAtual('');
-        setRascunhoRegistroId(null);
-        setRascunhoVersao(null);
+        definirRascunho(null, null);
         setRascunhoRestaurado(false);
       } else {
-        setRascunhoRegistroId(salvo.id);
-        setRascunhoVersao(salvo.versao);
-        if (persistirRascunhoLocal(texto, salvo.id, salvo.versao)) confirmarRecebimentoRegistro(salvo);
+        definirRascunho(salvo.id, salvo.versao);
+        // O texto mais recente, não o enviado: o que foi digitado durante a
+        // gravação continua guardado na aba até a próxima.
+        if (persistirRascunhoLocal(textoAtual.current, salvo.id, salvo.versao)) confirmarRecebimentoRegistro(salvo);
       }
     } catch (err) {
       if (automatico) setAutoSalvo(a => ({ ...a, estado: 'erro' }));
       if (err.registroConfirmado) {
         const confirmado = err.registroConfirmado;
         aplicarRegistroSalvo(confirmado);
-        setRascunhoRegistroId(confirmado.id);
-        setRascunhoVersao(confirmado.versao);
-        if (persistirRascunhoLocal(atendimentoAtual, confirmado.id, confirmado.versao)) confirmarRecebimentoRegistro(confirmado);
+        definirRascunho(confirmado.id, confirmado.versao);
+        if (persistirRascunhoLocal(textoAtual.current, confirmado.id, confirmado.versao)) confirmarRecebimentoRegistro(confirmado);
         setConflito({ alvo: 'atendimento', id: confirmado.id, atual: confirmado });
-      } else if (err.code === 'P4090' || (rascunhoRegistroId && !rascunhoVersao)) {
-        setConflito({ alvo: 'atendimento', id: rascunhoRegistroId });
+      } else if (err.code === 'P4090' || (rascunhoId && !rascunhoVer)) {
+        setConflito({ alvo: 'atendimento', id: rascunhoId });
       }
       if (!automatico || err.code === 'P4090' || err.registroConfirmado) setErroAtendimento(err.message);
     } finally {
       gravando.current = false;
-      if (!automatico) setSalvandoAtendimento(false);
+      const proximo = pendente.current;
+      pendente.current = null;
+      if (proximo) {
+        // Depois de a tela redesenhar com o resultado desta gravação (ou,
+        // se ela já saiu, com o último texto que teve).
+        setTimeout(() => gravarRef.current?.(proximo.assinar, { automatico: proximo.automatico }), 0);
+      }
+      // Um pedido manual na fila mantém o botão em "Salvando...".
+      if (!automatico && (!proximo || proximo.automatico)) setSalvandoAtendimento(false);
     }
   };
 
@@ -389,8 +422,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     if (conflito.alvo === 'atendimento') {
       const texto = manterTexto ? atendimentoAtual : atual.conteudo;
       setAtendimentoAtual(texto);
-      setRascunhoRegistroId(atual.id);
-      setRascunhoVersao(atual.versao);
+      definirRascunho(atual.id, atual.versao);
       persistirRascunhoLocal(texto, atual.id, atual.versao);
       setErroAtendimento('');
     } else {
@@ -412,8 +444,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       const atualizado = await registrosService.assinar(registro, user?.id);
       aplicarRegistroSalvo(atualizado);
       if (registro.id === rascunhoRegistroId) {
-        setRascunhoRegistroId(null);
-        setRascunhoVersao(null);
+        definirRascunho(null, null);
         setAtendimentoAtual('');
         if (persistirRascunhoLocal('', null)) confirmarRecebimentoRegistro(atualizado);
       } else confirmarRecebimentoRegistro(atualizado);
@@ -739,8 +770,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
                   persistirRascunhoLocal('', null);
                   setAtendimentoAtual('');
                   setRascunhoRestaurado(false);
-                  setRascunhoRegistroId(null);
-        setRascunhoVersao(null);
+                  definirRascunho(null, null);
                 }}
                 style={{ padding: '4px 8px', backgroundColor: 'transparent', border: '1px solid #92400e', color: '#92400e', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}
               >
@@ -845,8 +875,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
                   setRetificando({ original: conflito.atual, conteudo: conflito.alvo === 'atendimento' ? atendimentoAtual : registroEditando?.conteudo || '', motivo: '' });
                   if (conflito.alvo === 'atendimento') {
                     setAtendimentoAtual('');
-                    setRascunhoRegistroId(null);
-                    setRascunhoVersao(null);
+                    definirRascunho(null, null);
                     persistirRascunhoLocal('', null);
                     setErroAtendimento('');
                   } else setRegistroEditando(null);

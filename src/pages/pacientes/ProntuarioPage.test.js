@@ -178,6 +178,93 @@ describe('salvamento automático no prontuário', () => {
     expect(registrosService.criar).toHaveBeenCalledTimes(1);
     expect(registrosService.atualizar).not.toHaveBeenCalled();
   });
+
+  // Gravação em andamento: a resposta do servidor ainda não chegou.
+  const criarPendente = () => {
+    let resolver;
+    registrosService.criar.mockImplementationOnce(() => new Promise(r => { resolver = r; }));
+    return (dados) => act(async () => { resolver({ id: 'r1', status: 'Rascunho', versao: 1, ...dados }); });
+  };
+
+  test('sair da tela durante uma gravação: o texto digitado depois é gravado em seguida, no mesmo rascunho', async () => {
+    const responder = criarPendente();
+    registrosService.atualizar.mockResolvedValue({ id: 'r1', status: 'Rascunho', versao: 2 });
+    const { unmount } = render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Parte 1');
+    await avancar(10000);
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+    digitar('Parte 1 e parte 2');
+    unmount();
+    await responder({ conteudo: 'Parte 1' });
+    await avancar(0);
+    expect(registrosService.atualizar).toHaveBeenCalledWith('r1',
+      expect.objectContaining({ conteudo: 'Parte 1 e parte 2', versao: 1 }), 'medico-1', false);
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+  });
+
+  test('Finalizar durante uma gravação automática não é ignorado: assina o mesmo rascunho logo depois', async () => {
+    const responder = criarPendente();
+    registrosService.atualizar.mockResolvedValue({ id: 'r1', status: 'Assinado', versao: 2 });
+    render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Texto final');
+    await avancar(10000);
+    fireEvent.click(screen.getByRole('button', { name: /Finalizar e Assinar/ }));
+    expect(screen.getAllByRole('button', { name: 'Salvando...' }).length).toBeGreaterThan(0);
+    await responder({ conteudo: 'Texto final' });
+    await avancar(0);
+    await waitFor(() => expect(registrosService.atualizar).toHaveBeenCalledWith('r1',
+      expect.objectContaining({ conteudo: 'Texto final', versao: 1 }), 'medico-1', true));
+    await waitFor(() => expect(caixa()).toHaveValue(''));
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+    // Assinado: nada de rascunho novo com o mesmo texto.
+    await avancar(20000);
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+    expect(registrosService.atualizar).toHaveBeenCalledTimes(1);
+  });
+
+  test('digitar durante uma gravação: a cópia da aba guarda o texto novo, não o enviado', async () => {
+    const { lerRascunhoAtendimento } = require('../../utils/rascunhoAtendimento');
+    const responder = criarPendente();
+    render(<Tela />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Antes');
+    await avancar(10000);
+    digitar('Antes e depois');
+    await avancar(2000); // cópia local (1,5 s) já tem o texto novo
+    await responder({ conteudo: 'Antes' });
+    expect(lerRascunhoAtendimento('p1', 'medico-1')).toEqual({ texto: 'Antes e depois', registroId: 'r1', versao: 1 });
+    expect(screen.getByRole('status')).toHaveTextContent(/serão salvas no prontuário em instantes/);
+  });
+
+  test('trocar de paciente com gravação em andamento: a resposta atrasada não aparece no paciente novo', async () => {
+    const { lerRascunhoAtendimento } = require('../../utils/rascunhoAtendimento');
+    const { useNavigate } = require('react-router-dom');
+    const responder = criarPendente();
+    function Ir() { const navegar = useNavigate(); return <button onClick={() => navegar('/prontuario/p2')}>ir p2</button>; }
+    function DoisPacientes() {
+      const [pacientes, setPacientes] = React.useState([
+        { id: 'p1', nome: 'Paciente Um', registros: [] }, { id: 'p2', nome: 'Paciente Dois', registros: [] }]);
+      return <MemoryRouter initialEntries={['/prontuario/p1']}><Ir /><Routes>
+        <Route path="/prontuario/:id" element={<ProntuarioPage pacientes={pacientes} setPacientes={setPacientes} />} />
+      </Routes></MemoryRouter>;
+    }
+    render(<DoisPacientes />);
+    await screen.findByText('Nenhum registro ainda.');
+    digitar('Texto do paciente um');
+    await avancar(10000);
+    fireEvent.click(screen.getByText('ir p2'));
+    await screen.findByText('Paciente Dois');
+    await responder({ conteudo: 'Texto do paciente um', paciente_id: 'p1' });
+    await avancar(0);
+    expect(caixa()).toHaveValue('');
+    expect(screen.queryByText(/Salvo no prontuário/)).not.toBeInTheDocument();
+    expect(lerRascunhoAtendimento('p2', 'medico-1').texto).toBe('');
+    expect(lerRascunhoAtendimento('p1', 'medico-1')).toEqual({ texto: 'Texto do paciente um', registroId: 'r1', versao: 1 });
+    expect(registrosService.criar).toHaveBeenCalledTimes(1);
+    expect(registrosService.atualizar).not.toHaveBeenCalled();
+  });
 });
 
 test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha explícita', async () => {
