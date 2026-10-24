@@ -210,7 +210,11 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
   a cada 30 s. Até a confirmação do servidor, o texto fica também em
   `sessionStorage` (por usuário e paciente), que sobrevive a recarregar a aba
   mas não a fechá-la. Cada gravação automática gera uma versão e uma linha de
-  auditoria — por isso a espera de 10 s, e não a cada tecla;
+  auditoria — por isso a espera de 10 s, e não a cada tecla. Um pedido que
+  chega com outra gravação em andamento (sair da tela, Finalizar e Assinar)
+  entra na fila e roda logo em seguida, no mesmo rascunho, com o texto mais
+  recente. A gravação ao fechar a aba é tentativa, não garantia (o navegador
+  pode cortar a requisição); a garantia é a gravação a cada 10 s;
 - ao trocar de usuário ou função, o frontend descarta o cache de pacientes e
   histórico da sessão anterior e ignora respostas atrasadas daquela sessão;
 - senhas novas exigem ao menos 12 caracteres, maiúscula, minúscula e número;
