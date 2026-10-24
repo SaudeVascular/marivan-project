@@ -3,7 +3,8 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Navigate
+  Navigate,
+  useLocation
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ClinicaProvider } from './hooks/useClinica';
@@ -307,9 +308,22 @@ function AppContent() {
 
 // Remontar também ao mudar de função elimina todo o cache da sessão
 // anterior, inclusive respostas tardias e conteúdo clínico já carregado.
+//
+// Exceto nas telas abertas pelo link do e-mail (convite e recuperação):
+// elas próprias entram com a sessão do link e, ao gravar a senha,
+// encerram essa sessão. Remontar nesse momento apagava a confirmação de
+// sucesso e a tela, recriada, procurava de novo a sessão já encerrada —
+// mostrava "convite inválido" com a senha já gravada. Não há cache de
+// pacientes nessas telas.
+const ROTAS_DO_LINK_DE_EMAIL = ['/ativar-conta', '/redefinir-senha'];
+
 export function ConteudoDaSessao() {
   const { user, funcao } = useAuth();
-  return <AppContent key={`${user?.id || 'anonimo'}:${funcao || ''}`} />;
+  const { pathname } = useLocation();
+  const chave = ROTAS_DO_LINK_DE_EMAIL.includes(pathname)
+    ? `link:${pathname}`
+    : `${user?.id || 'anonimo'}:${funcao || ''}`;
+  return <AppContent key={chave} />;
 }
 
 function App() {

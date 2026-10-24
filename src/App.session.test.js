@@ -25,6 +25,16 @@ function MockPacientesFicticia() {
   );
 }
 jest.mock('./pages/pacientes/PacientesPage', () => ({ PacientesPage: () => <MockPacientesFicticia /> }));
+// Conta quantas vezes a tela de ativação foi montada: se o app a recriar
+// na troca de sessão, a confirmação de "senha definida" se perde.
+const mockMontagensAtivacao = { total: 0 };
+jest.mock('./pages/auth/AtivarContaPage', () => {
+  const React = require('react');
+  return { AtivarContaPage: () => {
+    React.useEffect(() => { mockMontagensAtivacao.total += 1; }, []);
+    return <p>Tela de ativação</p>;
+  } };
+});
 
 function tela() {
   return <MemoryRouter initialEntries={['/pacientes']}><ConteudoDaSessao /></MemoryRouter>;
@@ -70,4 +80,16 @@ test('cache já carregado não sobrevive à troca de identidade', async () => {
   rerender(tela());
   expect(screen.queryByText('Dados A', { selector: 'p' })).not.toBeInTheDocument();
   expect(screen.getByTestId('cache').textContent).toBe('');
+});
+
+test('ativar conta: encerrar a sessão do convite não recria a tela (a confirmação não se perde)', () => {
+  mockMontagensAtivacao.total = 0;
+  useAuth.mockReturnValue({ user: { id: 'convidado' }, funcao: 'Psicólogo(a)' });
+  const tela = () => <MemoryRouter initialEntries={['/ativar-conta']}><ConteudoDaSessao /></MemoryRouter>;
+  const { rerender } = render(tela());
+  expect(screen.getByText('Tela de ativação')).toBeInTheDocument();
+  // updatePassword grava a senha e faz signOut global: o usuário vira null.
+  useAuth.mockReturnValue({ user: null, funcao: null });
+  rerender(tela());
+  expect(mockMontagensAtivacao.total).toBe(1);
 });
