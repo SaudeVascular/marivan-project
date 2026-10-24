@@ -47,14 +47,14 @@ button {
 .pep-outer {
   min-height: 100vh;
   background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #dbeafe 100%);
-  padding: 25px;
+  padding: 14px 10px;
 }
 
 .pep-header {
   background-color: #007bff;
   color: white;
   padding: 15px 20px;
-  margin-bottom: 25px;
+  margin-bottom: 16px;
   border-radius: 8px;
   display: flex;
   justify-content: space-between;
@@ -121,7 +121,7 @@ button {
 .atalhos-grid {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -136,15 +136,30 @@ button {
 
 .prontuario-cabecalhos-fixos {
   background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 70%);
-  left: 25px;
+  left: 10px;
   position: fixed;
-  right: 25px;
+  right: 10px;
   top: 0;
   z-index: 200;
 }
 
 .prontuario-cabecalhos-espaco {
-  margin-top: -25px;
+  margin-top: -14px;
+}
+
+/* Atendimento atual e Histórico rolam cada um por si: a área ocupa o
+   que sobra da tela abaixo dos cabeçalhos fixos (altura medida em
+   ProntuarioPage → --altura-cabecalhos; 20px = espaço acima + padding
+   inferior de .pep-outer). No celular os painéis empilham e a página
+   volta a rolar inteira (ver @media abaixo). */
+.prontuario-split {
+  height: calc(100vh - var(--altura-cabecalhos, 0px) - 20px);
+  min-height: 320px;
+}
+
+.prontuario-split-left,
+.prontuario-split-right {
+  overscroll-behavior: contain;
 }
 
 .prontuario-page .pep-header {
@@ -188,10 +203,11 @@ button {
 .prontuario-secao-label {
   color: #475569;
   display: inline-block;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .prontuario-paciente-nome {
@@ -203,14 +219,16 @@ button {
 }
 
 .prontuario-cadastro-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 3px 10px;
-  font-size: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 18px;
+  font-size: 13px;
 }
 
+/* Cada dado (inclusive "Nascimento: … · NN anos") nunca quebra no meio. */
 .prontuario-dado-cadastro {
   min-width: 0;
+  white-space: nowrap;
 }
 
 .prontuario-dado-cadastro span,
@@ -235,6 +253,7 @@ button {
 
 .prontuario-clinicos-cabecalho {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
@@ -253,6 +272,14 @@ button {
   font-size: 10px;
 }
 
+.prontuario-comorbidades {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
 .prontuario-clinicos-acoes {
   display: flex;
   gap: 5px;
@@ -263,7 +290,7 @@ button {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 5px;
-  font-size: 15px;
+  font-size: 13px;
   min-width: 0;
 }
 
@@ -315,9 +342,9 @@ button {
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   display: block;
-  font-size: 15px;
+  font-size: 13px;
   min-width: 0;
-  padding: 6px 8px;
+  padding: 4px 6px;
   text-align: left;
   width: 100%;
 }
@@ -456,6 +483,7 @@ button {
   .prontuario-split {
     flex-direction: column;
     gap: 12px !important;
+    height: auto;
   }
 
   .prontuario-split-left,
@@ -543,6 +571,16 @@ button {
 }
 
 /* ===== PRINT ===== */
+
+/* Margem física da página — cabeçalho começa o mais alto possível (só a
+   margem física abaixo, sem o padding grande de tela do .doc-preview
+   somado por cima). O espaço pro rodapé/assinatura repetidos em toda
+   página é reservado pelo próprio navegador (ver display:table abaixo). */
+@page {
+  size: A4;
+  margin: 10mm 14mm;
+}
+
 @media print {
   .no-print {
     display: none !important;
@@ -557,5 +595,66 @@ button {
   div[style*="background"] {
     background: white !important;
     box-shadow: none !important;
+  }
+
+  /* O padding de tela (50px 60px) empurrava o cabeçalho pra baixo à toa —
+     a margem física já vem do @page acima. */
+  .doc-preview {
+    padding: 0 !important;
+    box-shadow: none !important;
+    /* Truque clássico de impressão: um container "display: table" com
+       filhos table-header-group/table-row-group/table-footer-group faz o
+       navegador repetir cabeçalho e rodapé em TODA página de uma tabela
+       longa — funciona mesmo sem nenhuma <table>/<tr>/<td> por baixo, e
+       tem suporte mais consistente entre navegadores no print do que
+       position:fixed (que no Safari cortava o rodapé/assinatura em vez
+       de repetir, regressão corrigida aqui). O navegador já reserva o
+       espaço do rodapé/assinatura sozinho — não precisa de padding extra. */
+    display: table;
+    width: 100%;
+  }
+
+  .doc-cabecalho-grupo {
+    display: table-header-group;
+  }
+
+  .doc-corpo-grupo {
+    display: table-row-group;
+  }
+
+  .doc-rodape-grupo {
+    display: table-footer-group;
+  }
+
+  /* Tamanho de tela (16px e vizinhos) é grande demais pro espaço físico
+     da folha — "Paciente / Idade / CPF" que cabe numa linha na tela
+     quebra em duas no papel com o mesmo tamanho, por exemplo. Reduzido
+     pro equivalente a corpo 10-11. Os seletores de atributo pegam o
+     inline style dos componentes sem precisar editar cada um, e os
+     tamanhos de título/rodapé/legendas escalam junto, proporcionalmente. */
+  .doc-preview [style*="font-size: 20px"] { font-size: 14pt !important; }
+  .doc-preview [style*="font-size: 18px"] { font-size: 13pt !important; }
+  .doc-preview [style*="font-size: 17px"] { font-size: 12.5pt !important; }
+  .doc-preview [style*="font-size: 16px"],
+  .doc-preview [style*="font-size: 15px"] { font-size: 10.5pt !important; }
+  .doc-preview [style*="font-size: 11px"] { font-size: 8.5pt !important; }
+  .doc-preview [style*="font-size: 10px"],
+  .doc-preview [style*="font-size: 9px"] { font-size: 7.5pt !important; }
+
+  /* Parágrafo comprido não deixa só 1 linha sozinha antes/depois da
+     quebra de página — se não cabem pelo menos 3, o texto quebra antes. */
+  .doc-preview p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Assinatura e rodapé não quebram no meio: como um bloco inteiro, ou
+     vão pra próxima página inteiros, ou ficam na atual — nunca "sozinhos"
+     cortados ao meio, e por estarem dentro de .doc-rodape-grupo (acima),
+     repetem no fim de toda página do documento. */
+  .assinatura-documento,
+  .rodape-impresso {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

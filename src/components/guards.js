@@ -1,11 +1,9 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
-  FUNCOES_CLINICAS,
-  FUNCOES_MEDICO,
   FUNCOES_FINANCEIRO,
   FUNCOES_RECEPCAO,
-  FUNCOES_ENFERMAGEM,
+  podeEmitir,
 } from '../constants/roles';
 
 export function ProtectedLayout({ children }) {
@@ -40,14 +38,22 @@ export function SomenteAdmin({ children }) {
 }
 
 export function SomenteClinico({ children }) {
-  const { funcao } = useAuth();
-  if (!FUNCOES_CLINICAS.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  const { temAcessoClinico } = useAuth();
+  if (!temAcessoClinico) return <Navigate to="/pacientes" replace />;
   return children;
 }
 
 export function SomenteMedico({ children }) {
-  const { funcao } = useAuth();
-  if (!FUNCOES_MEDICO.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  const { funcaoClinicaEfetiva } = useAuth();
+  if (funcaoClinicaEfetiva !== 'Médico') return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
+// Telas de um tipo de documento (ex. Atestado): abre para quem o banco
+// deixa registrar esse tipo — ver podeEmitir em constants/roles.
+export function SomenteQuemEmite({ tipo, children }) {
+  const { funcaoClinicaEfetiva } = useAuth();
+  if (!podeEmitir(funcaoClinicaEfetiva, tipo)) return <Navigate to="/pacientes" replace />;
   return children;
 }
 
@@ -70,7 +76,12 @@ export function SomenteRecepcao({ children }) {
 }
 
 export function SomenteEnfermagem({ children }) {
-  const { funcao } = useAuth();
-  if (!FUNCOES_ENFERMAGEM.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  const { funcao, temAcessoClinico } = useAuth();
+  // Enfermeiro(a) real, ou Administrador com qualquer papel clínico
+  // concedido (suporte/teste — igual já valia antes da migração 30, só
+  // que agora exige concessão explícita em vez de ser automático).
+  if (!(funcao === 'Enfermeiro(a)' || (funcao === 'Administrador' && temAcessoClinico))) {
+    return <Navigate to="/pacientes" replace />;
+  }
   return children;
 }

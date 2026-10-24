@@ -8,7 +8,10 @@ import { resetSupabaseMockPadrao } from '../../services/supabase';
 jest.mock('../../services/supabase');
 jest.mock('../../services/registros.service');
 jest.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'medico-1' }, funcao: 'Médico' }) }));
-jest.mock('../../components/common/Toast', () => ({ useToast: () => ({ error: jest.fn(), warning: jest.fn() }) }));
+jest.mock('../../components/common/Toast', () => {
+  const toast = { error: jest.fn(), warning: jest.fn() };
+  return { useToast: () => toast };
+});
 jest.mock('../../components/common/Layout', () => ({ Header: () => null, painelStyle: {}, atalhoStyle: {} }));
 
 function Tela() {

@@ -134,12 +134,17 @@ export function CatalogoFinanceiroPage() {
 
   const salvarEdicaoConvenio = async () => {
     if (!editandoConvenio?.nome.trim()) return;
+    if (editandoConvenio.registroAns && editandoConvenio.registroAns.length !== 6) {
+      toast.warning('O Registro ANS tem 6 dígitos.');
+      return;
+    }
     setSalvando(true);
     try {
       const atual = convenios.find(c => c.id === editandoConvenio.id);
       const atualizado = await comTimeout(conveniosService.atualizar(editandoConvenio.id, {
         nome: editandoConvenio.nome.trim(),
         ativo: atual?.ativo ?? true,
+        registroAns: editandoConvenio.registroAns,
       }));
       setConvenios(prev => prev.map(c => c.id === atualizado.id ? atualizado : c).sort((a, b) => a.nome.localeCompare(b.nome)));
       setEditandoConvenio(null);
@@ -231,14 +236,18 @@ export function CatalogoFinanceiroPage() {
               {editandoConvenio?.id === c.id ? (
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <input value={editandoConvenio.nome} onChange={e => setEditandoConvenio({ ...editandoConvenio, nome: e.target.value })} style={{ flex: 1, padding: '6px', fontSize: '16px' }} />
+                  <input value={editandoConvenio.registroAns} onChange={e => setEditandoConvenio({ ...editandoConvenio, registroAns: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Registro ANS" title="Registro ANS da operadora (6 dígitos) — sai na guia SP/SADT" inputMode="numeric" style={{ width: '120px', padding: '6px', fontSize: '16px' }} />
                   <button onClick={salvarEdicaoConvenio} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
                   <button onClick={() => setEditandoConvenio(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>{c.nome}</strong>
+                  <span>
+                    <strong>{c.nome}</strong>
+                    {c.registroAns && <span style={{ color: '#6b7280', marginLeft: '8px' }}>ANS {c.registroAns}</span>}
+                  </span>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome, registroAns: c.registroAns || '' })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
                       Editar
                     </button>
                     <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -462,8 +471,8 @@ export function FinanceiroPage({ pacientes }) {
     if (!podeGerenciar) return;
     Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores(), usuariosService.listar()])
       .then(([p, c, v, u]) => { setProcedimentos(p); setConvenios(c); setValoresConvenio(v); setUsuarios(u); })
-      .catch(() => {});
-  }, [podeGerenciar]);
+      .catch(() => toast.error('Não foi possível carregar os dados para cobrança. Recarregue a página antes de criar uma cobrança'));
+  }, [podeGerenciar, toast]);
 
   const medicos = usuarios.filter(u => u.ativo && u.funcao === 'Médico');
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || '(paciente não encontrado)';
@@ -588,7 +597,7 @@ export function ImprimirReciboPage() {
         const p = await pacientesService.buscarPorId(c.pacienteId);
         setPaciente(p);
         if (c.medicoId) {
-          const perfil = await usuariosService.buscarPerfil(c.medicoId).catch(() => null);
+          const perfil = await usuariosService.buscarPerfil(c.medicoId);
           if (perfil) setNomeMedico(perfil.nome);
         }
       })

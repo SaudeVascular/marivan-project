@@ -1,6 +1,7 @@
 import { dataLocalISO } from '../../utils/formatters';
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { FUNCOES_CLINICAS } from '../../constants/roles';
 import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
@@ -35,10 +36,10 @@ export function RecepcaoPage({ pacientes }) {
   React.useEffect(() => { carregar(); }, [carregar]);
 
   React.useEffect(() => {
-    usuariosService.listar().then(setUsuarios).catch(() => {});
-  }, []);
+    usuariosService.listar().then(setUsuarios).catch(() => toast.error('Não foi possível carregar os profissionais. Recarregue a página para tentar novamente.'));
+  }, [toast]);
 
-  const profissionais = usuarios.filter(u => u.ativo && ['Médico', 'Enfermeiro(a)'].includes(u.funcao));
+  const profissionais = usuarios.filter(u => u.ativo && FUNCOES_CLINICAS.includes(u.funcao));
 
   const pacientePor = (id) => pacientes.find(p => p.id === id);
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';

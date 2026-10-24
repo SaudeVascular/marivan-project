@@ -13,9 +13,21 @@ jest.mock('../hooks/useAuth');
 
 // Guards redirecionam pra /pacientes quando a função não tem acesso —
 // renderiza as duas rotas pra conseguir enxergar tanto o conteúdo
-// protegido quanto o redirecionamento.
-function renderComFuncao(Guard, funcao) {
-  useAuth.mockReturnValue({ funcao });
+// protegido quanto o redirecionamento. `funcaoClinicaEfetiva`/
+// `temAcessoClinico` são os valores que useAuth calcula de verdade
+// (migração 30: Administrador só tem os dois se outro administrador
+// concedeu papel_clinico_administrador) — por padrão aqui simula
+// Médico/Enfermeiro(a) com acesso próprio e qualquer outra função,
+// inclusive Administrador puro, sem nenhum. Passe `overrides` pra
+// simular um Administrador com papel concedido.
+function renderComFuncao(Guard, funcao, overrides = {}) {
+  const funcaoClinicaEfetiva = funcao === 'Médico' || funcao === 'Enfermeiro(a)' ? funcao : null;
+  useAuth.mockReturnValue({
+    funcao,
+    funcaoClinicaEfetiva,
+    temAcessoClinico: funcaoClinicaEfetiva !== null,
+    ...overrides,
+  });
   render(
     <MemoryRouter initialEntries={['/protegido']}>
       <Routes>
@@ -32,8 +44,15 @@ describe('SomenteMedico — restringe receituário/prescrição/atestado a quem 
     expect(screen.getByText('Conteúdo protegido')).toBeInTheDocument();
   });
 
-  test('libera Administrador', () => {
+  // Migração 30: Administrador deixou de ter acesso clínico automático.
+  test('bloqueia Administrador sem papel clínico concedido', () => {
     renderComFuncao(SomenteMedico, 'Administrador');
+    expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument();
+    expect(screen.getByText('Redirecionado para pacientes')).toBeInTheDocument();
+  });
+
+  test('libera Administrador com papel clínico Médico concedido por outro administrador', () => {
+    renderComFuncao(SomenteMedico, 'Administrador', { funcaoClinicaEfetiva: 'Médico', temAcessoClinico: true });
     expect(screen.getByText('Conteúdo protegido')).toBeInTheDocument();
   });
 
@@ -58,6 +77,18 @@ describe('SomenteEnfermagem — aba de evolução de enfermagem', () => {
   test('bloqueia Recepcionista', () => {
     renderComFuncao(SomenteEnfermagem, 'Recepcionista');
     expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument();
+  });
+
+  // Migração 30: Administrador só entra (mesmo pra dar suporte/testar) com
+  // algum papel clínico concedido — deixou de ser automático.
+  test('bloqueia Administrador sem papel clínico concedido', () => {
+    renderComFuncao(SomenteEnfermagem, 'Administrador');
+    expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument();
+  });
+
+  test('libera Administrador com papel clínico concedido por outro administrador', () => {
+    renderComFuncao(SomenteEnfermagem, 'Administrador', { temAcessoClinico: true });
+    expect(screen.getByText('Conteúdo protegido')).toBeInTheDocument();
   });
 });
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
@@ -7,9 +8,11 @@ import { usuariosService } from '../../services/usuarios.service';
 import { auditoriaService } from '../../services/auditoria.service';
 import { configuracoesService } from '../../services/configuracoes.service';
 import { filiaisService } from '../../services/filiais.service';
+import { examesService } from '../../services/exames.service';
+import { pontuarCorrespondencia } from '../../utils/buscaExames';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarCPF, formatarCNPJ } from '../../utils/mascaras';
-import { UFS } from '../../constants/roles';
+import { UFS, FUNCOES_USUARIO, CONSELHO_POR_FUNCAO } from '../../constants/roles';
 
 // Painel administrativo (seção 2.5 do Documento Mestre) — hub com acesso
 // a Usuários, Auditoria e Configurações da Clínica, no lugar de três
@@ -58,38 +61,57 @@ export function PainelAdministrativoPage() {
           <h3 style={{ margin: '0 0 6px' }}>Convênios e Procedimentos</h3>
           <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Cadastro de convênios, procedimentos e valores praticados por cada um.</p>
         </Link>
+        <Link to="/catalogo-exames" style={cardStyle}>
+          <div style={{ fontSize: '28px', marginBottom: '8px' }}>🧪</div>
+          <h3 style={{ margin: '0 0 6px' }}>Catálogo de Exames</h3>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Exames laboratoriais e de imagem, com código TUSS, usados na busca do Pedido de Exames.</p>
+        </Link>
       </div>
     </div>
   );
 }
 
+const PAPEL_CLINICO_OPCOES = ['', 'Médico', 'Enfermeiro(a)'];
+
+// Sigla do conselho ao lado do número, pela função escolhida — o número
+// é o mesmo campo para todos (CRM, COREN, CRP, CREFITO).
+function SiglaConselho({ funcao }) {
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', padding: '0 8px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '15px', color: '#374151', whiteSpace: 'nowrap' }}>
+      {CONSELHO_POR_FUNCAO[funcao] || '—'}
+    </span>
+  );
+}
+
 export function UsuariosPage() {
   const toast = useToast();
+  const { user } = useAuth();
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
-  const [form, setForm] = React.useState({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
+  const [form, setForm] = React.useState({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '', rqe: '' });
   const [salvando, setSalvando] = React.useState(false);
   const [msg, setMsg] = React.useState(null);
   const [editando, setEditando] = React.useState(null); // { id, nome, funcao, crm }
   const [salvandoEdicaoUsuario, setSalvandoEdicaoUsuario] = React.useState(false);
   const [processandoStatusId, setProcessandoStatusId] = React.useState(null);
+  const [processandoPapelClinicoId, setProcessandoPapelClinicoId] = React.useState(null);
 
   React.useEffect(() => {
     usuariosService.listar()
       .then(setUsuarios)
-      .catch(err => console.error(err))
+      .catch(() => toast.error('Não foi possível carregar os usuários. Recarregue a página para tentar novamente.'))
       .finally(() => setCarregando(false));
-  }, []);
+  }, [toast]);
 
   const criarUsuario = async (e) => {
     e.preventDefault();
     setMsg(null);
     setSalvando(true);
     try {
-      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, funcao: form.funcao, crm: form.crm, uf: form.uf, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao }));
+      await comTimeout(usuariosService.criar({ nome: form.nome, email: form.email, funcao: form.funcao, crm: form.crm, uf: form.uf, sexo: form.sexo, nascimento: form.nascimento, cpf: form.cpf, especialidade: form.especialidade, area_atuacao: form.area_atuacao, rqe: form.rqe }));
       const lista = await comTimeout(usuariosService.listar());
       setUsuarios(lista);
-      setForm({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '' });
+      setForm({ nome: '', email: '', funcao: 'Médico', crm: '', uf: '', sexo: '', nascimento: '', cpf: '', especialidade: '', area_atuacao: '', rqe: '' });
       setMsg({ tipo: 'sucesso', texto: `Convite enviado para ${form.email}. O usuário definirá a própria senha pelo link de uso único.` });
     } catch (err) {
       setMsg({ tipo: 'erro', texto: err.message });
@@ -124,7 +146,22 @@ export function UsuariosPage() {
     }
   };
 
-  const funcaoIcone = { 'Médico': '👨‍⚕️', 'Enfermeiro(a)': '👩‍⚕️', 'Recepcionista': '💼', 'Financeiro': '💰', 'Administrador': '⚙️' };
+  // Só existe para conta Administrador que não é a própria: o banco
+  // recusa autoconcessão mesmo vinda de um Administrador (migração 30) —
+  // conceder um papel clínico aqui é decisão de outra pessoa, deliberada.
+  const alterarPapelClinico = async (id, papel) => {
+    setProcessandoPapelClinicoId(id);
+    try {
+      await comTimeout(usuariosService.concederPapelClinico(id, papel || null));
+      setUsuarios(prev => prev.map(u => u.id === id ? { ...u, papel_clinico_administrador: papel || null } : u));
+    } catch (err) {
+      toast.error('Erro ao alterar papel clínico: ' + err.message);
+    } finally {
+      setProcessandoPapelClinicoId(null);
+    }
+  };
+
+  const funcaoIcone = { 'Médico': '👨‍⚕️', 'Enfermeiro(a)': '👩‍⚕️', 'Psicólogo(a)': '🧠', 'Fisioterapeuta': '🦴', 'Recepcionista': '💼', 'Financeiro': '💰', 'Administrador': '⚙️' };
 
   return (
     <div>
@@ -149,16 +186,13 @@ export function UsuariosPage() {
             <div>
               <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Função</label>
               <select value={form.funcao} onChange={e => setForm({ ...form, funcao: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '16px' }}>
-                <option>Médico</option>
-                <option>Enfermeiro(a)</option>
-                <option>Recepcionista</option>
-                <option>Financeiro</option>
-                <option>Administrador</option>
+                {FUNCOES_USUARIO.map(f => <option key={f}>{f}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>CRM <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(médicos)</span></label>
+              <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Conselho Profissional <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(profissionais de saúde)</span></label>
               <div style={{ display: 'flex', gap: '4px' }}>
+                <SiglaConselho funcao={form.funcao} />
                 <input value={form.crm} onChange={e => setForm({ ...form, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '8px' }} />
                 <select value={form.uf} onChange={e => setForm({ ...form, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '8px', fontSize: '16px' }}>
                   <option value="">UF</option>
@@ -166,6 +200,12 @@ export function UsuariosPage() {
                 </select>
               </div>
             </div>
+            {form.funcao === 'Médico' && (
+              <div>
+                <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>RQE <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(se especialista)</span></label>
+                <input value={form.rqe} onChange={e => setForm({ ...form, rqe: e.target.value.replace(/\D/g, '') })} placeholder="Número do RQE" inputMode="numeric" style={{ width: '100%', padding: '8px' }} />
+              </div>
+            )}
             <div>
               <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Sexo</label>
               <select value={form.sexo} onChange={e => setForm({ ...form, sexo: e.target.value })} style={{ width: '100%', padding: '8px', fontSize: '16px' }}>
@@ -234,14 +274,28 @@ export function UsuariosPage() {
                       <div style={{ fontWeight: '600', fontSize: '16px', color: '#111' }}>{u.nome}</div>
                       <div style={{ fontSize: '16px', color: '#6b7280' }}>{u.email}</div>
                       <div style={{ fontSize: '16px', color: '#9ca3af', marginTop: '2px' }}>
-                        {u.funcao}{u.crm ? ` · CRM ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}
+                        {u.funcao}{u.crm ? ` · ${CONSELHO_POR_FUNCAO[u.papel_clinico_administrador || u.funcao] || 'Conselho'} ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}{u.rqe ? ` · RQE ${u.rqe}` : ''}
+                        {u.funcao === 'Administrador' && u.papel_clinico_administrador ? ` · atua como ${u.papel_clinico_administrador}` : ''}
                       </div>
+                      {u.funcao === 'Administrador' && u.id !== user?.id && (
+                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <label style={{ fontSize: '15px', color: '#6b7280' }}>Papel clínico adicional:</label>
+                          <select
+                            value={u.papel_clinico_administrador || ''}
+                            disabled={processandoPapelClinicoId === u.id}
+                            onChange={e => alterarPapelClinico(u.id, e.target.value)}
+                            style={{ padding: '4px 6px', fontSize: '15px' }}
+                          >
+                            {PAPEL_CLINICO_OPCOES.map(p => <option key={p} value={p}>{p || 'Nenhum'}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                       <span style={{ fontSize: '16px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '' })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '', cbo: u.cbo || '', rqe: u.rqe || '' })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button
@@ -266,16 +320,13 @@ export function UsuariosPage() {
                       <div>
                         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Função</label>
                         <select value={editando.funcao} onChange={e => setEditando({ ...editando, funcao: e.target.value })} style={{ width: '100%', padding: '7px', fontSize: '16px' }}>
-                          <option>Médico</option>
-                          <option>Enfermeiro(a)</option>
-                          <option>Recepcionista</option>
-                          <option>Financeiro</option>
-                          <option>Administrador</option>
+                          {FUNCOES_USUARIO.map(f => <option key={f}>{f}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>CRM</label>
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Conselho Profissional</label>
                         <div style={{ display: 'flex', gap: '4px' }}>
+                          <SiglaConselho funcao={editando.funcao} />
                           <input value={editando.crm || ''} onChange={e => setEditando({ ...editando, crm: e.target.value.replace(/\D/g, '') })} placeholder="Número" inputMode="numeric" style={{ flex: 2, minWidth: 0, padding: '7px', fontSize: '16px' }} />
                           <select value={editando.uf || ''} onChange={e => setEditando({ ...editando, uf: e.target.value })} style={{ flex: 1, minWidth: 0, padding: '7px', fontSize: '16px' }}>
                             <option value="">UF</option>
@@ -302,7 +353,7 @@ export function UsuariosPage() {
                         <input value={editando.cpf || ''} onChange={e => setEditando({ ...editando, cpf: formatarCPF(e.target.value) })} placeholder="000.000.000-00" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', marginBottom: '10px' }}>
                       <div>
                         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Especialidade médica</label>
                         <input value={editando.especialidade || ''} onChange={e => setEditando({ ...editando, especialidade: e.target.value })} placeholder="Ex: Cardiologia" list="lista-especialidades" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
@@ -310,6 +361,16 @@ export function UsuariosPage() {
                       <div>
                         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Área de atuação</label>
                         <input value={editando.area_atuacao || ''} onChange={e => setEditando({ ...editando, area_atuacao: e.target.value })} placeholder="Ex: Cardiologia Intervencionista" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
+                      </div>
+                      {editando.funcao === 'Médico' && (
+                        <div>
+                          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>RQE</label>
+                          <input value={editando.rqe || ''} onChange={e => setEditando({ ...editando, rqe: e.target.value.replace(/\D/g, '') })} placeholder="Número do RQE" inputMode="numeric" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
+                        </div>
+                      )}
+                      <div>
+                        <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '3px' }}>Código CBO</label>
+                        <input value={editando.cbo || ''} onChange={e => setEditando({ ...editando, cbo: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Ex: 225125 — sai na guia SP/SADT" inputMode="numeric" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                     </div>
                     <div style={{ fontSize: '16px', color: '#6b7280', marginBottom: '10px' }}>
@@ -944,6 +1005,252 @@ export function FiliaisPage() {
               </div>
             </div>
           ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+const EXAME_VAZIO = { nome: '', tuss: '', tipo: 'Laboratorial', categoria: '' };
+
+// Tipos vindos da própria estrutura de capítulos da TUSS (2 primeiros
+// dígitos do código) — ver migração 20261014000033. Laboratorial/Imagem
+// são os dois relevantes pro Pedido de Exames; os demais (toda a Tabela
+// 22 oficial) ficam disponíveis pra buscas e uso futuro.
+const TIPOS_EXAME = [
+  { valor: 'Laboratorial', rotulo: 'Laboratoriais', icone: '🧪' },
+  { valor: 'Imagem', rotulo: 'Imagem', icone: '🩻' },
+  { valor: 'Diagnóstico', rotulo: 'Diagnóstico (não classificado)', icone: '🔬' },
+  { valor: 'Consulta', rotulo: 'Consultas', icone: '🩺' },
+  { valor: 'Terapia', rotulo: 'Terapias', icone: '💉' },
+  { valor: 'Cirurgia', rotulo: 'Cirurgia', icone: '🔪' },
+  { valor: 'Atendimento', rotulo: 'Atendimento', icone: '🏥' },
+  { valor: 'Odontologia', rotulo: 'Odontologia', icone: '🦷' },
+];
+
+// Catálogo de exames do Pedido de Exames (seção 4 do Documento Mestre,
+// item pedido pelo médico responsável) — importado da Tabela 22 da TUSS
+// na íntegra (~5.970 procedimentos; ver migração
+// 20261014000033_importar_tabela_tuss_completa.sql). No Pedido de
+// Exames o médico busca por nome/código TUSS em vez de escolher de uma
+// lista; esta tela é só pra cadastrar/corrigir/desativar itens.
+export function CatalogoExamesPage() {
+  const toast = useToast();
+  const [exames, setExames] = React.useState([]);
+  const [carregando, setCarregando] = React.useState(true);
+  const [erro, setErro] = React.useState('');
+  const [filtroTexto, setFiltroTexto] = React.useState('');
+  const [filtroTipo, setFiltroTipo] = React.useState('Laboratorial');
+
+  const [mostrarForm, setMostrarForm] = React.useState(false);
+  const [editandoId, setEditandoId] = React.useState(null);
+  const [form, setForm] = React.useState(EXAME_VAZIO);
+  const [salvando, setSalvando] = React.useState(false);
+  const [processandoId, setProcessandoId] = React.useState(null);
+
+  const carregar = React.useCallback(() => {
+    setCarregando(true);
+    examesService.listar()
+      .then(setExames)
+      .catch(err => setErro(err.message || 'Erro ao carregar catálogo de exames.'))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  React.useEffect(() => { carregar(); }, [carregar]);
+
+  const campoStyle = { width: '100%', padding: '8px' };
+  const labelStyle = { fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
+
+  const novoExame = () => {
+    setForm(EXAME_VAZIO);
+    setEditandoId(null);
+    setMostrarForm(true);
+  };
+
+  const editarExame = (exame) => {
+    setForm({ nome: exame.nome, tuss: exame.tuss, tipo: exame.tipo, categoria: exame.categoria });
+    setEditandoId(exame.id);
+    setMostrarForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelar = () => {
+    setMostrarForm(false);
+    setEditandoId(null);
+    setForm(EXAME_VAZIO);
+    setErro('');
+  };
+
+  const salvarExame = async (e) => {
+    e.preventDefault();
+    setErro('');
+    if (!form.nome.trim()) {
+      setErro('Informe o nome do exame.');
+      return;
+    }
+    setSalvando(true);
+    try {
+      if (editandoId) {
+        const atual = exames.find(ex => ex.id === editandoId);
+        const atualizado = await comTimeout(examesService.atualizar(editandoId, { ...form, ativo: atual?.ativo ?? true }));
+        setExames(prev => prev.map(ex => ex.id === editandoId ? atualizado : ex));
+      } else {
+        const criado = await comTimeout(examesService.criar(form));
+        setExames(prev => [...prev, criado]);
+      }
+      cancelar();
+    } catch (err) {
+      setErro('Erro ao salvar: ' + err.message);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const alternarAtivoExame = async (exame) => {
+    setProcessandoId(exame.id);
+    try {
+      await comTimeout(examesService.alterarStatus(exame.id, !exame.ativo));
+      setExames(prev => prev.map(ex => ex.id === exame.id ? { ...ex, ativo: !exame.ativo } : ex));
+    } catch (err) {
+      toast.error('Erro ao alterar status: ' + err.message);
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
+  // Catálogo tem ~5.970 itens (Tabela 22 completa da TUSS) — listar tudo
+  // de uma vez travaria a tela. Exige tipo selecionado e, acima de
+  // LIMITE_LISTA resultados, também um texto de busca.
+  const LIMITE_LISTA = 300;
+  const contagemPorTipo = TIPOS_EXAME.map(t => ({ ...t, total: exames.filter(ex => ex.tipo === t.valor).length }));
+  const doTipo = exames.filter(ex => ex.tipo === filtroTipo);
+  // Com busca, ordena por relevância (ver pontuarCorrespondencia) antes
+  // do corte de LIMITE_LISTA — senão um termo curto como "rm" some
+  // atrás de centenas de itens que só contêm essas letras no meio de
+  // outra palavra, mesmo com o limite alto.
+  const filtrados = filtroTexto.trim()
+    ? doTipo
+        .map(ex => ({ exame: ex, pontuacao: pontuarCorrespondencia(ex, filtroTexto) }))
+        .filter(x => x.pontuacao !== null)
+        .sort((a, b) => a.pontuacao - b.pontuacao || a.exame.nome.localeCompare(b.exame.nome))
+        .map(x => x.exame)
+    : doTipo.slice().sort((a, b) => a.nome.localeCompare(b.nome));
+  const precisaBuscarMais = !filtroTexto.trim() && filtrados.length > LIMITE_LISTA;
+  const listaExibida = precisaBuscarMais ? [] : filtrados.slice(0, LIMITE_LISTA);
+
+  return (
+    <div>
+      <Header />
+      <Link to="/painel">← Voltar ao Painel Administrativo</Link>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '20px' }}>
+        <h2 style={{ margin: 0 }}>Catálogo de Exames</h2>
+        {!mostrarForm && (
+          <button onClick={novoExame} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            + Novo Exame
+          </button>
+        )}
+      </div>
+
+      {erro && <p style={{ color: '#dc2626', fontSize: '16px' }}>{erro}</p>}
+
+      {mostrarForm && (
+        <form onSubmit={salvarExame} style={{ marginTop: '16px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+          <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={labelStyle}>Nome do exame *</label>
+              <input required value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} style={campoStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Código TUSS</label>
+              <input value={form.tuss} onChange={e => setForm({ ...form, tuss: e.target.value })} style={campoStyle} />
+            </div>
+          </div>
+          <div className="form-grid-3col" style={{ marginBottom: '16px' }}>
+            <div>
+              <label style={labelStyle}>Tipo *</label>
+              <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })} style={campoStyle}>
+                {TIPOS_EXAME.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={labelStyle}>Categoria <span style={{ fontWeight: 'normal', color: '#9ca3af' }}>(agrupa a lista, ex. "Rotina", "Cardiologia")</span></label>
+              <input value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} style={campoStyle} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button type="submit" disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+              {salvando ? 'Salvando...' : (editandoId ? '✓ Salvar Alterações' : '✓ Cadastrar Exame')}
+            </button>
+            <button type="button" onClick={cancelar} style={{ padding: '10px 18px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div style={{ marginTop: '20px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        {contagemPorTipo.map(t => (
+          <button
+            key={t.valor}
+            onClick={() => setFiltroTipo(t.valor)}
+            style={{ padding: '7px 14px', fontSize: '16px', backgroundColor: filtroTipo === t.valor ? '#1d4ed8' : '#e5e7eb', color: filtroTipo === t.valor ? 'white' : '#374151', border: 'none', borderRadius: '999px', cursor: 'pointer', fontWeight: filtroTipo === t.valor ? 'bold' : 'normal' }}
+          >
+            {t.icone} {t.rotulo} ({t.total})
+          </button>
+        ))}
+      </div>
+
+      <div style={{ marginTop: '12px' }}>
+        <input
+          value={filtroTexto}
+          onChange={e => setFiltroTexto(e.target.value)}
+          placeholder="Buscar por nome ou código TUSS dentro deste tipo..."
+          name="filtro-catalogo-exames-tuss"
+          autoComplete="off"
+          style={{ width: '100%', maxWidth: '420px', padding: '9px', fontSize: '16px', boxSizing: 'border-box' }}
+        />
+      </div>
+
+      <div style={{ marginTop: '16px' }}>
+        {carregando ? (
+          <p style={{ color: '#666' }}>Carregando...</p>
+        ) : precisaBuscarMais ? (
+          <p style={{ color: '#666', fontSize: '16px' }}>
+            {filtrados.length} itens em "{TIPOS_EXAME.find(t => t.valor === filtroTipo)?.rotulo}" — digite um nome ou código TUSS acima pra encontrar o que precisa (mostra até {LIMITE_LISTA} de uma vez).
+          </p>
+        ) : filtrados.length === 0 ? (
+          <p style={{ color: '#666', fontSize: '16px' }}>Nenhum exame encontrado.</p>
+        ) : (
+          <>
+            {filtrados.length > LIMITE_LISTA && (
+              <p style={{ color: '#9ca3af', fontSize: '16px', marginBottom: '8px' }}>Mostrando {LIMITE_LISTA} de {filtrados.length} resultados — refine a busca pra ver outros.</p>
+            )}
+            <div style={{ display: 'grid', gap: '8px' }}>
+              {listaExibida.map(exame => (
+                <div key={exame.id} style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '14px', opacity: exame.ativo ? 1 : 0.5 }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <strong>{exame.nome}</strong>{!exame.ativo && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#dc2626' }}>(inativo)</span>}
+                    <div style={{ fontSize: '16px', color: '#666' }}>
+                      {[exame.categoria, exame.tuss ? `TUSS ${exame.tuss}` : null].filter(Boolean).join(' · ') || 'Sem categoria/TUSS'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => editarExame(exame)} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => alternarAtivoExame(exame)}
+                      disabled={processandoId === exame.id}
+                      style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: exame.ativo ? '#fee2e2' : '#d1fae5', color: exame.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: processandoId === exame.id ? 'not-allowed' : 'pointer' }}
+                    >
+                      {exame.ativo ? 'Desativar' : 'Reativar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

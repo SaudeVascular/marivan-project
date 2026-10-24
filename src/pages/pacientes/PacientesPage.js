@@ -7,13 +7,12 @@ import { pacientesService } from '../../services/pacientes.service';
 import { conveniosService } from '../../services/convenios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { dataBrasileiraParaISO, formatarData, formatarDataDigitada, formatarCPF } from '../../utils/mascaras';
-import { FUNCOES_CLINICAS } from '../../constants/roles';
 
 export function PacientesPage({ pacientes, setPacientes }) {
   const navigate = useNavigate();
   const toast = useToast();
-  const { funcao } = useAuth();
-  const podeVerProntuario = FUNCOES_CLINICAS.includes(funcao);
+  const { temAcessoClinico } = useAuth();
+  const podeVerProntuario = temAcessoClinico;
 
   const [busca, setBusca] = React.useState('');
   const [pacienteEditando, setPacienteEditando] = React.useState(null);
@@ -22,8 +21,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
   const [convenios, setConvenios] = React.useState([]);
 
   React.useEffect(() => {
-    conveniosService.listar().then(setConvenios).catch(() => {});
-  }, []);
+    conveniosService.listar().then(setConvenios).catch(() => toast.error('Não foi possível carregar os convênios. Recarregue a página antes de editar o cadastro.'));
+  }, [toast]);
 
   const limparCPF = (cpf) => (cpf || '').replace(/\D/g, '');
 
@@ -73,7 +72,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
     cep: '',
     endereco: '',
     numero: '',
-    complemento: ''
+    complemento: '',
+    cns: ''
   });
 
   const pacientesFiltrados = pacientes
@@ -96,7 +96,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
       cep: '',
       endereco: '',
       numero: '',
-      complemento: ''
+      complemento: '',
+      cns: ''
     });
     setPacienteEditando(null);
   };
@@ -119,6 +120,10 @@ export function PacientesPage({ pacientes, setPacientes }) {
     }
 
     const cpfAtual = limparCPF(novoPaciente.cpf);
+    if (novoPaciente.cns && novoPaciente.cns.length !== 15) {
+      toast.warning('O Cartão Nacional de Saúde tem 15 dígitos.');
+      return;
+    }
     if (cpfAtual) {
       const cpfDuplicado = pacientes.some((p) =>
         limparCPF(p.cpf) === cpfAtual && p.id !== pacienteEditando?.id
@@ -147,9 +152,9 @@ export function PacientesPage({ pacientes, setPacientes }) {
         toast.warning('Já existe um paciente cadastrado com este CPF (inclusive entre os desativados).');
       } else if (
         err.code === 'PGRST204'
-        && /'(numero|complemento)' column of 'pacientes'/.test(err.message || '')
+        && /'(numero|complemento|cns)' column of 'pacientes'/.test(err.message || '')
       ) {
-        toast.error('O banco de dados ainda não recebeu a atualização dos campos Número e Complemento. Aplique a migração pendente e tente novamente.');
+        toast.error('O banco de dados ainda não recebeu a atualização dos campos novos do cadastro. Aplique a migração pendente e tente novamente.');
       } else {
         toast.error('Erro ao salvar paciente: ' + err.message);
       }
@@ -187,7 +192,8 @@ export function PacientesPage({ pacientes, setPacientes }) {
       cep: paciente.cep || '',
       endereco: paciente.endereco || '',
       numero: paciente.numero || '',
-      complemento: paciente.complemento || ''
+      complemento: paciente.complemento || '',
+      cns: paciente.cns || ''
     });
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -307,7 +313,7 @@ export function PacientesPage({ pacientes, setPacientes }) {
               onChange={(e) => setNovoPaciente({ ...novoPaciente, complemento: e.target.value })}
             />
           </label>
-          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 12' }}>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 8' }}>
             <span>Convênio</span>
             <select
               value={novoPaciente.convenioId}
@@ -318,6 +324,16 @@ export function PacientesPage({ pacientes, setPacientes }) {
                 <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
+          </label>
+          <label className="campo-cadastro-paciente" style={{ gridColumn: 'span 4' }}>
+            <span>Cartão Nacional de Saúde (CNS)</span>
+            <input
+              inputMode="numeric"
+              placeholder="15 dígitos"
+              value={novoPaciente.cns}
+              onChange={(e) => setNovoPaciente({ ...novoPaciente, cns: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+              maxLength={15}
+            />
           </label>
           <button
             onClick={salvarPaciente}

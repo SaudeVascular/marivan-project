@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const fromDb = (c) => ({ id: c.id, nome: c.nome, ativo: c.ativo });
+const fromDb = (c) => ({ id: c.id, nome: c.nome, ativo: c.ativo, registroAns: c.registro_ans || '' });
 
 const valorFromDb = (v) => ({
   id: v.id,
@@ -16,14 +16,18 @@ export const conveniosService = {
     return (data || []).map(fromDb);
   },
 
-  async criar({ nome }) {
-    const { data, error } = await supabase.from('convenios').insert([{ nome }]).select().single();
+  async criar({ nome, registroAns }) {
+    const { data, error } = await supabase.from('convenios').insert([{ nome, registro_ans: registroAns || null }]).select().single();
     if (error) throw error;
     return fromDb(data);
   },
 
-  async atualizar(id, { nome, ativo }) {
-    const { data, error } = await supabase.from('convenios').update({ nome, ativo }).eq('id', id).select().single();
+  // registroAns só vai no update quando informado — Desativar/Reativar
+  // chama sem ele e não pode apagar o registro já salvo.
+  async atualizar(id, { nome, ativo, registroAns }) {
+    const campos = { nome, ativo };
+    if (registroAns !== undefined) campos.registro_ans = registroAns || null;
+    const { data, error } = await supabase.from('convenios').update(campos).eq('id', id).select().single();
     if (error) throw error;
     return fromDb(data);
   },

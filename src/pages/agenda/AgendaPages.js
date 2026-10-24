@@ -2,12 +2,12 @@ import { dataLocalISO } from '../../utils/formatters';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { FUNCOES_CLINICAS } from '../../constants/roles';
 import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
-import { FUNCOES_CLINICAS } from '../../constants/roles';
 
 export const STATUS_CORES = {
   'Agendado': '#3b82f6',
@@ -156,8 +156,11 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
 
 export function AgendaPage({ pacientes }) {
   const toast = useToast();
-  const { user, funcao } = useAuth();
-  const podeAtender = FUNCOES_CLINICAS.includes(funcao);
+  const { user, funcao, temAcessoClinico } = useAuth();
+  const podeAtender = temAcessoClinico;
+  // Financeiro passa a só ler a agenda (migração 30) — sem criar, sem
+  // mudar status. A tela evita mostrar um botão que a RLS vai recusar.
+  const podeEditarAgenda = funcao !== 'Financeiro';
 
   const hojeISO = dataLocalISO();
   const [dataSelecionada, setDataSelecionada] = React.useState(hojeISO);
@@ -179,10 +182,10 @@ export function AgendaPage({ pacientes }) {
   React.useEffect(() => { carregar(); }, [carregar]);
 
   React.useEffect(() => {
-    usuariosService.listar().then(setUsuarios).catch(() => {});
-  }, []);
+    usuariosService.listar().then(setUsuarios).catch(() => toast.error('Não foi possível carregar os profissionais. Recarregue a página para tentar novamente.'));
+  }, [toast]);
 
-  const profissionais = usuarios.filter(u => u.ativo && ['Médico', 'Enfermeiro(a)'].includes(u.funcao));
+  const profissionais = usuarios.filter(u => u.ativo && FUNCOES_CLINICAS.includes(u.funcao));
 
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || '(paciente não encontrado)';
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
@@ -217,14 +220,14 @@ export function AgendaPage({ pacientes }) {
         <input type="date" value={dataSelecionada} onChange={e => setDataSelecionada(e.target.value)} style={{ padding: '8px' }} />
         <button onClick={() => mudarDia(1)} style={{ padding: '8px 12px', cursor: 'pointer' }}>Dia seguinte →</button>
         <button onClick={() => setDataSelecionada(hojeISO)} style={{ padding: '8px 12px', cursor: 'pointer' }}>Hoje</button>
-        {!mostrarForm && (
+        {!mostrarForm && podeEditarAgenda && (
           <button onClick={() => setMostrarForm(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             + Novo agendamento
           </button>
         )}
       </div>
 
-      {mostrarForm && (
+      {mostrarForm && podeEditarAgenda && (
         <NovoAgendamentoForm
           pacientes={pacientes}
           profissionais={profissionais}
@@ -261,7 +264,7 @@ export function AgendaPage({ pacientes }) {
                 <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
                   {ag.status}
                 </span>
-                {(PROXIMOS_STATUS[ag.status] || []).map(s => (
+                {podeEditarAgenda && (PROXIMOS_STATUS[ag.status] || []).map(s => (
                   <button
                     key={s}
                     onClick={() => mudarStatus(ag, s)}

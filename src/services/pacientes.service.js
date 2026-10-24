@@ -19,6 +19,8 @@ const fromDb = (p) => ({
   telefone: p.telefone || '',
   convenioId: p.convenio_id || '',
   convenio: p.convenio_nome || '',
+  convenioRegistroAns: p.convenio_registro_ans || '',
+  cns: p.cns || '',
   cep: p.cep || '',
   endereco: capitalizarTexto(p.endereco),
   numero: p.numero || '',
@@ -51,6 +53,7 @@ const cadastroToDb = (p) => ({
   endereco: p.endereco ? capitalizarTexto(p.endereco) : null,
   numero: p.numero || null,
   complemento: p.complemento ? capitalizarTexto(p.complemento) : null,
+  cns: (p.cns || '').replace(/\D/g, '') || null,
 });
 
 const clinicosToDb = (p) => ({

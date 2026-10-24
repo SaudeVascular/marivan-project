@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { CONSELHO_POR_FUNCAO, podeEmitir } from '../../constants/roles';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout';
@@ -29,8 +30,12 @@ export function ProntuarioPage(props) {
 
 function ProntuarioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
-  const { user, funcao } = useAuth();
-  const enfermeiro = funcao === 'Enfermeiro(a)';
+  const { user, funcaoClinicaEfetiva } = useAuth();
+  // Papel efetivo (migração 30): também vale para Administrador com
+  // papel_clinico_administrador='Enfermeiro(a)' concedido — sem isso, essa
+  // conta veria a tela de Médico e teria a gravação recusada pelo banco.
+  const enfermeiro = funcaoClinicaEfetiva === 'Enfermeiro(a)';
+  const emite = (tipo) => podeEmitir(funcaoClinicaEfetiva, tipo);
   const { paciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [rascunhoRegistroId, setRascunhoRegistroId] = React.useState(null);
@@ -83,8 +88,8 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   }, [dadosClinicosAbertos, editandoClinicos, erroClinicos]);
 
   React.useEffect(() => {
-    usuariosService.listar().then(setUsuarios).catch(() => {});
-  }, []);
+    usuariosService.listar().then(setUsuarios).catch(() => toast.error('Não foi possível carregar os profissionais. Recarregue a página para tentar novamente.'));
+  }, [toast]);
 
   React.useEffect(() => { localStorage.setItem(SPLIT_KEY, String(splitPct)); }, [splitPct]);
 
@@ -212,12 +217,16 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     }
     const autor = usuarios.find(u => u.id === registro.createdBy);
     if (!autor) return '';
-    const rotulo = autor.funcao === 'Enfermeiro(a)' ? 'COREN' : 'CRM';
+    const rotulo = CONSELHO_POR_FUNCAO[autor.papel_clinico_administrador || autor.funcao] || 'CRM';
     const registroProf = autor.crm ? ` — ${rotulo}${autor.uf ? '/' + autor.uf : ''} ${autor.crm}` : '';
     return `${autor.nome}${registroProf}`;
   };
 
-  const tituloAtendimento = enfermeiro ? 'Evolução de enfermagem' : 'Atendimento médico';
+  const tituloAtendimento = {
+    'Enfermeiro(a)': 'Evolução de enfermagem',
+    'Psicólogo(a)': 'Atendimento psicológico',
+    'Fisioterapeuta': 'Atendimento de fisioterapia',
+  }[funcaoClinicaEfetiva] || 'Atendimento médico';
   const tipoAtendimento = enfermeiro ? 'Evolução de Enfermagem' : 'Consulta';
 
   const aplicarRegistroSalvo = salvo => aplicarRegistroConfirmado(setPacientes, paciente.id, salvo);
@@ -376,7 +385,11 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       setPacientes(pacientes.map((p) => p.id === paciente.id ? { ...p, ...novoClinicos } : p));
       setEditandoClinicos(false);
     } catch (err) {
-      console.error('Erro ao salvar dados clínicos:', err);
+      // Só código/mensagem do erro do banco — nunca o objeto inteiro, que
+      // pode carregar o próprio payload clínico enviado (ver Documento
+      // Mestre: "não registrar objetos de erro potencialmente sensíveis
+      // no console").
+      console.error('Erro ao salvar dados clínicos:', err?.code, err?.message);
       const detalhe = `${err?.code || ''} ${err?.message || ''} ${err?.details || ''}`.toLowerCase();
       const bancoDesatualizado = detalhe.includes('outras_comorbidades')
         || detalhe.includes('schema cache')
@@ -475,6 +488,52 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
               <span className="prontuario-secao-label">Dados clínicos e comorbidades</span>
               <span className="prontuario-toggle-icone" aria-hidden="true">{dadosClinicosAbertos ? '▲' : '▼'}</span>
             </button>
+            {dadosClinicosAbertos && (
+              <>
+              {/* Botões de comorbidade na mesma linha do título — clique para ativar/desativar */}
+              <div className="prontuario-comorbidades">
+                {[
+                  { key: 'has',          label: 'HAS',         ciclo: ['', 'Sim', 'Não'] },
+                  { key: 'dm',           label: 'DM',          ciclo: ['', 'Sim', 'Não'] },
+                  { key: 'dac',          label: 'DAC',         ciclo: ['', 'Sim', 'Não'] },
+                  { key: 'dislipidemia', label: 'Dislipidemia',ciclo: ['', 'Sim', 'Não'] },
+                  { key: 'tabagismo',    label: 'Tabagismo',   ciclo: ['', 'Sim', 'Ex-tabagista'] },
+                  { key: 'etilismo',     label: 'Etilismo',    ciclo: ['', 'Sim', 'Ocasional'] },
+                ].map(({ key, label, ciclo }) => {
+                  const valor = clinicos[key];
+                  const ativo   = valor === 'Sim';
+                  const especial = valor === 'Ex-tabagista' || valor === 'Ocasional';
+                  const bg    = ativo ? '#dc2626' : especial ? '#f59e0b' : '#f1f5f9';
+                  const color = (ativo || especial) ? 'white' : '#64748b';
+                  const border = ativo ? '#b91c1c' : especial ? '#d97706' : '#e2e8f0';
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => toggleComorbidade(key, ciclo)}
+                      disabled={!editandoClinicos}
+                      title={!editandoClinicos ? 'Clique em Editar para alterar' : especial ? valor : ativo ? 'Clique para alterar' : 'Clique para ativar'}
+                      style={{
+                        padding: '1px 8px',
+                        backgroundColor: bg,
+                        color,
+                        border: `1px solid ${border}`,
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: ativo || especial ? '700' : '400',
+                        cursor: editandoClinicos ? 'pointer' : 'default',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                        opacity: editandoClinicos ? 1 : 0.85,
+                      }}
+                    >
+                      {especial ? `${label} · ${valor}` : label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              </>
+            )}
             <div className="prontuario-clinicos-acoes">
               {editandoClinicos && (
                 <button onClick={() => { setEditandoClinicos(false); setErroClinicos(''); }} style={{ padding: '3px 7px', fontSize: '12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
@@ -501,48 +560,6 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
 
           {dadosClinicosAbertos && (
             <>
-              {/* Botões de comorbidade — clique para ativar/desativar */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '6px' }}>
-                {[
-                  { key: 'has',          label: 'HAS',         ciclo: ['', 'Sim', 'Não'] },
-                  { key: 'dm',           label: 'DM',          ciclo: ['', 'Sim', 'Não'] },
-                  { key: 'dac',          label: 'DAC',         ciclo: ['', 'Sim', 'Não'] },
-                  { key: 'dislipidemia', label: 'Dislipidemia',ciclo: ['', 'Sim', 'Não'] },
-                  { key: 'tabagismo',    label: 'Tabagismo',   ciclo: ['', 'Sim', 'Ex-tabagista'] },
-                  { key: 'etilismo',     label: 'Etilismo',    ciclo: ['', 'Sim', 'Ocasional'] },
-                ].map(({ key, label, ciclo }) => {
-                  const valor = clinicos[key];
-                  const ativo   = valor === 'Sim';
-                  const especial = valor === 'Ex-tabagista' || valor === 'Ocasional';
-                  const bg    = ativo ? '#dc2626' : especial ? '#f59e0b' : '#f1f5f9';
-                  const color = (ativo || especial) ? 'white' : '#64748b';
-                  const border = ativo ? '#b91c1c' : especial ? '#d97706' : '#e2e8f0';
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => toggleComorbidade(key, ciclo)}
-                      disabled={!editandoClinicos}
-                      title={!editandoClinicos ? 'Clique em Editar para alterar' : especial ? valor : ativo ? 'Clique para alterar' : 'Clique para ativar'}
-                      style={{
-                        padding: '3px 10px',
-                        backgroundColor: bg,
-                        color,
-                        border: `1px solid ${border}`,
-                        borderRadius: '20px',
-                        fontSize: '15px',
-                        fontWeight: ativo || especial ? '700' : '400',
-                        cursor: editandoClinicos ? 'pointer' : 'default',
-                        transition: 'all 0.15s',
-                        whiteSpace: 'nowrap',
-                        opacity: editandoClinicos ? 1 : 0.85,
-                      }}
-                    >
-                      {especial ? `${label} · ${valor}` : label}
-                    </button>
-                  );
-                })}
-              </div>
-
               {/* Informações de texto em cartões responsivos */}
               <div className="prontuario-clinicos-grid">
                 <div className="prontuario-clinico-card">
@@ -581,11 +598,11 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
       </div>
       <div className="prontuario-cabecalhos-espaco" aria-hidden="true" style={{ height: `${alturaCabecalhosFixos}px` }} />
 
-      <div ref={splitContainerRef} className="prontuario-split" style={{ marginTop: '16px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
+      <div ref={splitContainerRef} className="prontuario-split" style={{ '--altura-cabecalhos': `${alturaCabecalhosFixos}px`, marginTop: '6px', display: 'flex', alignItems: 'stretch', gap: '0', userSelect: isDragging.current ? 'none' : 'auto' }}>
 
         {/* Painel esquerdo — atendimento atual */}
         <div className="prontuario-split-left" style={{ ...painelStyle, width: splitPct + '%', borderRadius: '10px 0 0 10px', flexShrink: 0, overflow: 'auto' }}>
-          <h2 style={{ marginTop: 0 }}>{enfermeiro ? 'Evolução de Enfermagem' : 'Atendimento Atual'}</h2>
+          <h2 style={{ marginTop: 0, marginBottom: '6px', fontSize: '17px' }}>{enfermeiro ? 'Evolução de Enfermagem' : 'Atendimento Atual'}</h2>
           {rascunhoRestaurado && !rascunhoRegistroId && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '8px 12px', marginBottom: '8px', fontSize: '16px', color: '#92400e' }}>
               <span>📝 Rascunho recuperado automaticamente (não salvo no prontuário ainda).</span>
@@ -622,25 +639,25 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
             <button
               onClick={salvarComoRascunho}
               disabled={salvandoAtendimento || !atendimentoAtual.trim()}
-              style={{ padding: '12px 18px', backgroundColor: (salvandoAtendimento || !atendimentoAtual.trim()) ? '#9ca3af' : '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoAtendimento || !atendimentoAtual.trim()) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+              style={{ padding: '7px 14px', fontSize: '14px', backgroundColor: (salvandoAtendimento || !atendimentoAtual.trim()) ? '#9ca3af' : '#d97706', color: 'white', border: 'none', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,.25)', cursor: (salvandoAtendimento || !atendimentoAtual.trim()) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
             >
               {salvandoAtendimento ? 'Salvando...' : '💾 Salvar rascunho'}
             </button>
             <button
               onClick={finalizarEAssinar}
               disabled={salvandoAtendimento || !atendimentoAtual.trim()}
-              style={{ padding: '12px 20px', backgroundColor: (salvandoAtendimento || !atendimentoAtual.trim()) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoAtendimento || !atendimentoAtual.trim()) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+              style={{ padding: '7px 14px', fontSize: '14px', backgroundColor: (salvandoAtendimento || !atendimentoAtual.trim()) ? '#9ca3af' : '#047857', color: 'white', border: 'none', borderRadius: '6px', boxShadow: '0 1px 3px rgba(0,0,0,.25)', cursor: (salvandoAtendimento || !atendimentoAtual.trim()) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
             >
               {salvandoAtendimento ? 'Salvando...' : '🔒 Finalizar e Assinar'}
             </button>
           </div>
-          <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
+          <p style={{ marginTop: '3px', fontSize: '11px', color: '#888' }}>
             Antes de fechar esta aba ou sair da conta, clique em Salvar rascunho para guardar o texto no prontuário.
           </p>
           {(erroStorage || erroRascunhoLocal) && <p role="alert">
             {erroStorage || 'Não foi possível guardar o rascunho nesta aba. Salve no prontuário antes de sair.'}
           </p>}
-          <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
+          <p style={{ marginTop: '3px', fontSize: '11px', color: '#888' }}>
             Depois de assinado, o conteúdo não pode mais ser editado — uma correção posterior vira uma retificação, mantendo o texto original.
           </p>
           {erroAtendimento && (
@@ -649,7 +666,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
             </p>
           )}
           {atendimentoAtual.trim() && (salvandoRascunhoLocal || rascunhoSalvoEm) && (
-            <p style={{ marginTop: '6px', fontSize: '16px', color: '#888' }}>
+            <p style={{ marginTop: '3px', fontSize: '11px', color: '#888' }}>
               {salvandoRascunhoLocal
                 ? 'Salvando rascunho nesta aba...'
                 : `Rascunho salvo nesta aba às ${rascunhoSalvoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — só vira registro do prontuário ao clicar em "Salvar rascunho" ou "Finalizar e Assinar".`}
@@ -657,16 +674,12 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
           )}
           <div className="atalhos-grid">
             <Link to={`/sinais-vitais/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#16a34a' }}>🩺 Sinais Vitais</Link>
-            {!enfermeiro && (
-              <>
-                <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>
-                <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>
-                <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>
-              </>
-            )}
+            {emite('Receituário') && <Link to={`/receituario/${paciente.id}`} style={atalhoStyle}>📋 Receituário</Link>}
+            {emite('Atestado') && <Link to={`/atestados/${paciente.id}`} style={atalhoStyle}>📄 Atestado</Link>}
+            {emite('Prescrição') && <Link to={`/prescricao/${paciente.id}`} style={atalhoStyle}>💊 Prescrição</Link>}
             <Link to={`/relatorios/${paciente.id}`} style={atalhoStyle}>🩺 Relatório</Link>
             <Link to={`/pedido-exames/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#0891b2' }}>🔬 Pedido de Exames</Link>
-            <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudos</Link>
+            <Link to={`/laudos/${paciente.id}`} style={{ ...atalhoStyle, backgroundColor: '#7c3aed' }}>📝 Laudo de Exames</Link>
           </div>
         </div>
 
@@ -685,7 +698,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
 
         {/* Painel direito — histórico */}
         <div className="prontuario-split-right prontuario-historico" style={{ ...painelStyle, flex: 1, borderRadius: '0 10px 10px 0', overflow: 'auto' }}>
-          <h2 style={{ marginTop: 0 }}>Histórico</h2>
+          <h2 style={{ marginTop: 0, marginBottom: '6px', fontSize: '17px' }}>Histórico</h2>
           {conflito && <section role="alert" style={{ border: '1px solid #d97706', padding: '12px', marginBottom: '12px' }}>
             <p>Seu texto foi preservado. Compare com o registro atual antes de continuar.</p>
             <button onClick={carregarVersaoAtual}>Consultar versão atual</button>

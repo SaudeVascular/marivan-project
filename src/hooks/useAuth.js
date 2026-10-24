@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { supabase } from '../services/supabase';
 import { usuariosService } from '../services/usuarios.service';
+import { FUNCOES_CLINICAS } from '../constants/roles';
 import { comTimeout } from '../utils/comTimeout';
 import { limparRascunhosAtendimento, limparRascunhosLegados } from '../utils/rascunhoAtendimento';
 import { iniciarMonitorInatividade, registrarLogoutPorInatividade } from '../utils/sessionSecurity';
@@ -85,7 +86,7 @@ export const AuthProvider = ({ children }) => {
         setUser(session?.user ?? null);
         await carregarPerfil(session?.user ?? null);
       } catch (err) {
-        console.error('Erro ao recuperar sessão:', err);
+        console.error('Erro ao recuperar sessão:', err?.message || err);
         setUser(null);
         setPerfil(null);
         setPerfilPronto(true);
@@ -138,8 +139,21 @@ export const AuthProvider = ({ children }) => {
     limparRascunhosAtendimento();
   };
 
+  const funcao = perfil?.funcao ?? null;
+  // Papel clínico EFETIVO (migrações 30 e 35): função clínica direta
+  // (Médico/Enfermeiro(a)/Psicólogo(a)/Fisioterapeuta), ou,
+  // se Administrador, só o que outro administrador concedeu em
+  // `papel_clinico_administrador` — nunca automático. `null` = nenhum
+  // acesso clínico. Guards e telas devem usar isto (ou `temAcessoClinico`
+  // abaixo), não mais `FUNCOES_CLINICAS.includes(funcao)` sozinho, que
+  // deixou de incluir Administrador de propósito.
+  const funcaoClinicaEfetiva = FUNCOES_CLINICAS.includes(funcao)
+    ? funcao
+    : (funcao === 'Administrador' ? perfil?.papel_clinico_administrador ?? null : null);
+  const temAcessoClinico = funcaoClinicaEfetiva !== null;
+
   return (
-    <AuthContext.Provider value={{ user, perfil, funcao: perfil?.funcao ?? null, login, logout, loading, perfilPronto }}>
+    <AuthContext.Provider value={{ user, perfil, funcao, funcaoClinicaEfetiva, temAcessoClinico, login, logout, loading, perfilPronto }}>
       {children}
     </AuthContext.Provider>
   );

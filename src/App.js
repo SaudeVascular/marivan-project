@@ -16,6 +16,7 @@ import {
   SomenteAdmin,
   SomenteClinico,
   SomenteMedico,
+  SomenteQuemEmite,
   SomenteFinanceiro,
   SomenteFinanceiroOuMedico,
   SomenteRecepcao,
@@ -46,6 +47,7 @@ import {
   AuditoriaPage,
   ConfiguracoesClinicaPage,
   FiliaisPage,
+  CatalogoExamesPage,
 } from './pages/administracao/AdministracaoPages';
 import { RedefinirSenhaPage } from './pages/auth/RedefinirSenhaPage';
 import { AtivarContaPage } from './pages/auth/AtivarContaPage';
@@ -189,6 +191,16 @@ function AppContent() {
         }
       />
       <Route
+        path="/catalogo-exames"
+        element={
+          <ProtectedLayout>
+            <SomenteAdmin>
+              <CatalogoExamesPage />
+            </SomenteAdmin>
+          </ProtectedLayout>
+        }
+      />
+      <Route
         path="/pacientes"
         element={
           <ProtectedLayout>
@@ -288,9 +300,9 @@ function AppContent() {
         path="/atestados/:id"
         element={
           <ProtectedLayout>
-            <SomenteMedico>
+            <SomenteQuemEmite tipo="Atestado">
               <AtestadoPage pacientes={pacientes} setPacientes={setPacientes} />
-            </SomenteMedico>
+            </SomenteQuemEmite>
           </ProtectedLayout>
         }
       />

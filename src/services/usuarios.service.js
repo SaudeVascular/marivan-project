@@ -18,18 +18,40 @@ export const usuariosService = {
   async buscarPerfil(userId) {
     const { data, error } = await supabase
       .from('perfis_view')
-      .select('nome, crm, uf, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo')
+      .select('nome, crm, uf, funcao, email, sexo, nascimento, cpf, especialidade, area_atuacao, ativo, papel_clinico_administrador, assinatura_imagem, cbo, rqe')
       .eq('id', userId)
       .maybeSingle();
     if (error) throw error;
     return data;
   },
 
-  async criar({ nome, email, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao }) {
+  // Assinatura digitalizada (desenhada na tela ou enviada como arquivo):
+  // a própria migração 31 garante que só o dono lê a de volta.
+  async salvarAssinatura(id, dataUri) {
+    const { error } = await supabase.from('perfis').update({ assinatura_imagem: dataUri }).eq('id', id);
+    if (error) throw error;
+  },
+
+  async removerAssinatura(id) {
+    const { error } = await supabase.from('perfis').update({ assinatura_imagem: null }).eq('id', id);
+    if (error) throw error;
+  },
+
+  // Só outro Administrador ativo pode chamar — RLS/trigger da migração 30
+  // recusam autoconcessão mesmo vindo de um Administrador.
+  async concederPapelClinico(id, papel) {
+    const { error } = await supabase
+      .from('perfis')
+      .update({ papel_clinico_administrador: papel || null })
+      .eq('id', id);
+    if (error) throw error;
+  },
+
+  async criar({ nome, email, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao, rqe }) {
     const { data, error } = await supabase.functions.invoke('admin-create-user', {
       body: {
         nome, email, funcao, crm, uf, sexo, nascimento, cpf,
-        especialidade, area_atuacao,
+        especialidade, area_atuacao, rqe,
       },
     });
     if (error) {
@@ -46,7 +68,7 @@ export const usuariosService = {
     return data.user;
   },
 
-  async atualizar(id, { nome, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao }) {
+  async atualizar(id, { nome, funcao, crm, uf, sexo, nascimento, cpf, especialidade, area_atuacao, cbo, rqe }) {
     const { error } = await supabase
       .from('perfis')
       .update({
@@ -58,6 +80,9 @@ export const usuariosService = {
         cpf: cpf || '',
         especialidade: especialidade || '',
         area_atuacao: area_atuacao || '',
+        cbo: (cbo || '').replace(/\D/g, '') || null,
+        // RQE só existe para médico — trocar a função apaga o que sobrou.
+        rqe: funcao === 'Médico' ? ((rqe || '').replace(/\D/g, '') || null) : null,
       })
       .eq('id', id);
     if (error) throw error;
