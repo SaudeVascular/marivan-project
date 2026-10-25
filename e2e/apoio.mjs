@@ -6,11 +6,19 @@ export const idPaciente = nome => sql(`SELECT id FROM public.pacientes WHERE nom
 
 export async function entrar(page, conta = 'medico') {
   await page.goto('/login');
-  await page.locator('input[type=email]').last().fill(CONTAS[conta].email);
-  await page.locator('input[type=password]').fill(SENHA);
-  await page.locator('input[type=password]').press('Enter');
-  // Folga para o CI: o Auth local às vezes demora no primeiro login de cada conta.
-  await expect(page).toHaveURL(/\/(pacientes|financeiro)$/, { timeout: 15000 });
+  const email = page.locator('input[type=email]').last();
+  const senha = page.locator('input[type=password]');
+  // A tela de login pode se redesenhar logo depois de abrir (o Auth termina
+  // de restaurar/encerrar a sessão anterior) e apagar o que já foi digitado
+  // — no CI isso deixou o e-mail vazio. Confere os campos antes de enviar e
+  // repete o passo inteiro se a tela ainda não tiver saído do login.
+  await expect(async () => {
+    await email.fill(CONTAS[conta].email);
+    await senha.fill(SENHA);
+    await expect(email).toHaveValue(CONTAS[conta].email, { timeout: 500 });
+    await senha.press('Enter');
+    await expect(page).toHaveURL(/\/(pacientes|financeiro)$/, { timeout: 5000 });
+  }).toPass({ timeout: 20000 });
 }
 
 // Cada teste começa sem o que uma tentativa anterior (retry) deixou.
