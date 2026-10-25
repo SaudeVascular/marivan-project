@@ -9,6 +9,7 @@ import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { usePacientesPorIds } from '../../hooks/usePacientesCache';
 import { STATUS_CORES, PROXIMOS_STATUS, NovoAgendamentoForm } from '../agenda/AgendaPages';
+import { SeletorProcedimento, useCatalogo, useConvenios } from '../agenda/SeletorProcedimento';
 
 // Mesma agenda que AgendaPage, mas recortada para o fluxo de check-in da
 // recepção: telefone/convênio à mão para ligar, sem o botão "Atender"
@@ -25,6 +26,11 @@ export function RecepcaoPage({ pacientes }) {
   const [erro, setErro] = React.useState('');
   const [mostrarForm, setMostrarForm] = React.useState(false);
   const [processandoId, setProcessandoId] = React.useState(null);
+  const [ajustando, setAjustando] = React.useState(null); // { id, convenioId, procedimentoId }
+  const convenios = useConvenios();
+  const { itens: catalogo } = useCatalogo(null);
+  // Procedimento e convênio do agendamento — viram a cobrança ao concluir.
+  const rotuloCobranca = (ag) => `${catalogo.find(p => p.id === ag.procedimentoId)?.nome || 'Procedimento a definir'} · ${convenios.find(c => c.id === ag.convenioId)?.nome || 'Particular'}`;
 
   const carregar = React.useCallback(() => {
     setCarregando(true);
@@ -46,13 +52,31 @@ export function RecepcaoPage({ pacientes }) {
   const pacientePor = (id) => pacientes.find(p => p.id === id);
   const nomeProfissional = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
+  const salvarAjuste = async (ag) => {
+    setProcessandoId(ag.id);
+    try {
+      const atualizado = await comTimeout(agendamentosService.ajustarProcedimento(ag.id, ajustando, ag.versao));
+      setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
+      setAjustando(null);
+    } catch (err) {
+      if (err.code === 'P4090') { toast.warning(err.message); carregar(); } else { toast.error('Erro ao ajustar o procedimento: ' + err.message); }
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
   const mudarStatus = async (ag, novoStatus) => {
     setProcessandoId(ag.id);
     try {
-      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus, ag.versao));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
     } finally {
       setProcessandoId(null);
     }
@@ -91,8 +115,9 @@ export function RecepcaoPage({ pacientes }) {
           onCancelar={() => setMostrarForm(false)}
           onCriado={(novo) => {
             setMostrarForm(false);
+            if (novo.recuperado) toast.warning('Um agendamento salvo antes, sem confirmação na hora, já estava gravado e foi recuperado. Confira-o; se precisar de outro, crie de novo.');
             if (novo.data === dataSelecionada) {
-              setAgendamentos(prev => [...prev, novo].sort((a, b) => a.hora.localeCompare(b.hora)));
+              setAgendamentos(prev => [...prev.filter(a => a.id !== novo.id), novo].sort((a, b) => a.hora.localeCompare(b.hora)));
             }
           }}
         />
@@ -116,6 +141,25 @@ export function RecepcaoPage({ pacientes }) {
                     {nomeProfissional(ag.medicoId)} · {ag.duracaoMin} min
                     {ag.observacoes && <> · {ag.observacoes}</>}
                   </div>
+                  <div style={{ fontSize: '15px', color: '#555' }}>
+                    {rotuloCobranca(ag)}
+                    {['Agendado', 'Confirmado', 'Aguardando', 'Em atendimento'].includes(ag.status) && ajustando?.id !== ag.id && (
+                      <button type="button" onClick={() => setAjustando({ id: ag.id, convenioId: ag.convenioId, procedimentoId: ag.procedimentoId })}
+                        style={{ marginLeft: '8px', padding: '2px 8px', fontSize: '15px', cursor: 'pointer' }}>
+                        Confirmar/ajustar procedimento
+                      </button>
+                    )}
+                  </div>
+                  {ajustando?.id === ag.id && (
+                    <div style={{ marginTop: '8px', padding: '10px', border: '1px solid #e5e7eb', borderRadius: '6px', maxWidth: '640px' }}>
+                      <SeletorProcedimento convenios={convenios} convenioId={ajustando.convenioId} procedimentoId={ajustando.procedimentoId}
+                        onChange={v => setAjustando(a => ({ ...a, ...v }))} />
+                      <button type="button" onClick={() => salvarAjuste(ag)} disabled={processandoId === ag.id} style={{ padding: '6px 14px', marginRight: '8px', cursor: 'pointer' }}>
+                        {processandoId === ag.id ? 'Salvando...' : 'Salvar'}
+                      </button>
+                      <button type="button" onClick={() => setAjustando(null)} style={{ padding: '6px 14px', cursor: 'pointer' }}>Cancelar</button>
+                    </div>
+                  )}
                   <div style={{ fontSize: '16px', color: '#444', marginTop: '2px' }}>
                     {paciente?.telefone
                       ? <a href={`tel:${paciente.telefone.replace(/\D/g, '')}`} style={{ color: '#0369a1', textDecoration: 'none' }}>📞 {paciente.telefone}</a>

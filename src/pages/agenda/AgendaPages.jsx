@@ -9,6 +9,7 @@ import { agendamentosService } from '../../services/agendamentos.service';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
+import { SeletorProcedimento, useCatalogo, useConvenios } from './SeletorProcedimento';
 
 export const STATUS_CORES = {
   'Agendado': '#3b82f6',
@@ -38,6 +39,10 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
   const [hora, setHora] = React.useState('');
   const [duracaoMin, setDuracaoMin] = React.useState(30);
   const [observacoes, setObservacoes] = React.useState('');
+  // Procedimento e convênio vão para a cobrança quando o atendimento for
+  // concluído (migração 49); o convênio vem do cadastro do paciente.
+  const [cobranca, setCobranca] = React.useState({ convenioId: null, procedimentoId: null });
+  const convenios = useConvenios();
   const [salvando, setSalvando] = React.useState(false);
   const [erro, setErro] = React.useState('');
 
@@ -53,10 +58,12 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
     if (!data || !hora) { setErro('Preencha data e horário.'); return; }
     setSalvando(true);
     try {
-      const novo = await comTimeout(agendamentosService.criar(
-        { pacienteId, medicoId: medicoId || null, data, hora, duracaoMin: Number(duracaoMin), observacoes },
+      // Sem comTimeout por fora: o serviço repete com a mesma operação e
+      // nunca duplica (utils/operacaoCriacao).
+      const novo = await agendamentosService.criar(
+        { pacienteId, medicoId: medicoId || null, data, hora, duracaoMin: Number(duracaoMin), observacoes, ...cobranca },
         userId
-      ));
+      );
       onCriado(novo);
     } catch (err) {
       setErro(err.message);
@@ -91,7 +98,7 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
                   {pacientesFiltrados.map(p => (
                     <div
                       key={p.id}
-                      onClick={() => { setPacienteId(p.id); setBusca(''); }}
+                      onClick={() => { setPacienteId(p.id); setBusca(''); setCobranca(c => ({ ...c, convenioId: p.convenioId || null })); }}
                       style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6', fontSize: '16px' }}
                     >
                       {p.nome} {p.cpf ? `— ${p.cpf}` : ''}
@@ -133,6 +140,8 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
           </select>
         </div>
 
+        <SeletorProcedimento convenios={convenios} convenioId={cobranca.convenioId} procedimentoId={cobranca.procedimentoId} onChange={setCobranca} />
+
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Observações</label>
           <input value={observacoes} onChange={e => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} />
@@ -158,6 +167,10 @@ export function AgendaPage({ pacientes }) {
   // Financeiro passa a só ler a agenda (migração 30) — sem criar, sem
   // mudar status. A tela evita mostrar um botão que a RLS vai recusar.
   const podeEditarAgenda = funcao !== 'Financeiro';
+  const convenios = useConvenios();
+  const { itens: catalogo } = useCatalogo(null);
+  // Procedimento e convênio do agendamento — viram a cobrança ao concluir.
+  const rotuloCobranca = (ag) => `${catalogo.find(p => p.id === ag.procedimentoId)?.nome || 'Procedimento a definir'} · ${convenios.find(c => c.id === ag.convenioId)?.nome || 'Particular'}`;
 
   const hojeISO = dataLocalISO();
   const [dataSelecionada, setDataSelecionada] = React.useState(hojeISO);
@@ -191,10 +204,15 @@ export function AgendaPage({ pacientes }) {
   const mudarStatus = async (ag, novoStatus) => {
     setProcessandoId(ag.id);
     try {
-      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus, ag.versao));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
     } finally {
       setProcessandoId(null);
     }
@@ -234,8 +252,9 @@ export function AgendaPage({ pacientes }) {
           onCancelar={() => setMostrarForm(false)}
           onCriado={(novo) => {
             setMostrarForm(false);
+            if (novo.recuperado) toast.warning('Um agendamento salvo antes, sem confirmação na hora, já estava gravado e foi recuperado. Confira-o; se precisar de outro, crie de novo.');
             if (novo.data === dataSelecionada) {
-              setAgendamentos(prev => [...prev, novo].sort((a, b) => a.hora.localeCompare(b.hora)));
+              setAgendamentos(prev => [...prev.filter(a => a.id !== novo.id), novo].sort((a, b) => a.hora.localeCompare(b.hora)));
             }
           }}
         />
@@ -257,6 +276,7 @@ export function AgendaPage({ pacientes }) {
                   {nomeProfissional(ag.medicoId)} · {ag.duracaoMin} min
                   {ag.observacoes && <> · {ag.observacoes}</>}
                 </div>
+                <div style={{ fontSize: '15px', color: '#555' }}>{rotuloCobranca(ag)}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ backgroundColor: STATUS_CORES[ag.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>

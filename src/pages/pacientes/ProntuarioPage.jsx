@@ -3,12 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { CONSELHO_POR_FUNCAO, podeEmitir } from '../../constants/roles';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { baixarJson, exportacaoService, nomeArquivoExportacao } from '../../services/exportacao.service';
+import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { registrosService, aplicarRegistroConfirmado, confirmarRecebimentoRegistro } from '../../services/registros.service';
 import { pacientesService } from '../../services/pacientes.service';
-import { acessosService } from '../../services/acessos.service';
 import { mesclarPacientes } from '../../hooks/usePacientesCache';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
@@ -53,7 +54,8 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   // conta veria a tela de Médico e teria a gravação recusada pelo banco.
   const enfermeiro = funcaoClinicaEfetiva === 'Enfermeiro(a)';
   const emite = (tipo) => podeEmitir(funcaoClinicaEfetiva, tipo);
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
+  const [exportando, setExportando] = React.useState(false);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [rascunhoRegistroId, setRascunhoRegistroId] = React.useState(null);
   const [rascunhoVersao, setRascunhoVersao] = React.useState(null);
@@ -238,15 +240,8 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     }
   }, [paciente?.id, setPacientes]);
 
-  // Auditoria de leitura: uma vez por paciente aberto nesta tela (não a
-  // cada recarga do histórico; a ref evita o registro em dobro do
-  // StrictMode em desenvolvimento).
-  const acessoRegistrado = React.useRef(null);
-  React.useEffect(() => {
-    if (!paciente?.id || acessoRegistrado.current === paciente.id) return;
-    acessoRegistrado.current = paciente.id;
-    acessosService.registrar(paciente.id, 'abrir_prontuario');
-  }, [paciente?.id]);
+  // Auditoria de leitura: o próprio banco registra ao devolver o histórico
+  // (ler_registros_paciente, migração 48) — o app não registra mais.
 
   React.useEffect(() => {
     if (!paciente?.id) return;
@@ -295,7 +290,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     };
   }, [salvarAgora]);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const registros = paciente.registros || [];
 
@@ -400,12 +395,25 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
 
   gravarRef.current = gravarAtendimento;
 
+  const exportarProntuario = async () => {
+    setExportando(true);
+    try {
+      const dados = await exportacaoService.prontuario(paciente.id);
+      baixarJson(nomeArquivoExportacao('prontuario', paciente.nome), dados);
+    } catch (err) {
+      toast.error('Não foi possível exportar o prontuário: ' + (err?.message || 'erro de conexão'));
+    } finally {
+      setExportando(false);
+    }
+  };
+
   const salvarComoRascunho = () => gravarAtendimento(false);
   const finalizarEAssinar = () => gravarAtendimento(true);
 
   const carregarVersaoAtual = async () => {
     try {
-      const atual = await comTimeout(registrosService.buscarPorId(conflito.id));
+      const atual = await comTimeout(registrosService.buscarDoPaciente(conflito.id, paciente.id));
+      if (!atual) throw new Error('Registro não encontrado');
       setConflito(anterior => anterior?.id === atual.id ? { ...anterior, atual } : anterior);
       aplicarRegistroSalvo(atual);
     } catch {
@@ -885,9 +893,14 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
               </>}
             </>}
           </section>}
-          <button disabled={carregandoHistorico} onClick={() => setTentativaHistorico(valor => valor + 1)}>
-            Atualizar histórico
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+            <button disabled={carregandoHistorico} onClick={() => setTentativaHistorico(valor => valor + 1)}>
+              Atualizar histórico
+            </button>
+            <button disabled={exportando} onClick={exportarProntuario} title="Baixa o prontuário completo (registros, autoria, datas, retificações) em JSON. A exportação fica registrada.">
+              {exportando ? 'Exportando...' : 'Exportar prontuário'}
+            </button>
+          </div>
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
             <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} style={{ padding: '7px', fontSize: '16px', flex: '1', minWidth: '140px' }}>

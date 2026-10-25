@@ -1,11 +1,11 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FinanceiroPage } from './FinanceiroPages';
 import { cobrancasService } from '../../services/cobrancas.service';
 
 jest.mock('../../services/supabase');
 jest.mock('../../services/cobrancas.service', () => ({
-  cobrancasService: { listar: jest.fn(), resumo: jest.fn(), atualizarStatus: jest.fn() },
+  cobrancasService: { listar: jest.fn(), resumo: jest.fn(), atualizarStatus: jest.fn(), ajustar: jest.fn() },
 }));
 jest.mock('../../services/procedimentos.service', () => ({ procedimentosService: { listar: () => Promise.resolve([]) } }));
 jest.mock('../../services/convenios.service', () => ({ conveniosService: { listar: () => Promise.resolve([]), listarValores: () => Promise.resolve([]) } }));
@@ -42,14 +42,20 @@ test('carregar mais busca a próxima página e acrescenta à lista', async () =>
   expect(screen.queryByRole('button', { name: 'Carregar mais' })).not.toBeInTheDocument();
 });
 
-test('falha nos totais mostra "…", nunca um zero falso', async () => {
+test('falha nos totais: avisa, mostra "Indisponível" (nunca um zero falso) e recarrega só os totais', async () => {
   cobrancasService.listar.mockResolvedValue({ itens: [cobranca(1)], total: 1 });
-  cobrancasService.resumo.mockRejectedValue(new Error('offline'));
+  cobrancasService.resumo
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ quantidade: 1, total: 10, totalRepasse: 5 });
   tela();
   await screen.findByText('Mostrando 1 de 1');
-  await waitFor(() => expect(cobrancasService.resumo).toHaveBeenCalled());
+  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível calcular os totais');
+  expect(screen.getAllByText('Indisponível')).toHaveLength(2);
   expect(screen.queryByText(/R\$\s*0,00/)).not.toBeInTheDocument();
-  expect(screen.getAllByText('…').length).toBeGreaterThanOrEqual(2);
+  fireEvent.click(screen.getByRole('button', { name: 'Recarregar totais' }));
+  expect(await screen.findByText(/R\$\s*10,00/)).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(cobrancasService.listar).toHaveBeenCalledTimes(1);
 });
 
 test('resposta atrasada de um período antigo não substitui a do período novo', async () => {
@@ -63,4 +69,21 @@ test('resposta atrasada de um período antigo não substitui a do período novo'
   await screen.findByText('Mostrando 1 de 1');
   await act(async () => { resolverAntigo({ itens: [cobranca(1), cobranca(2), cobranca(3)], total: 3 }); });
   expect(screen.getByText('Mostrando 1 de 1')).toBeInTheDocument();
+});
+
+test('cobrança gerada pela agenda sem procedimento: marcada, não pode ser paga com zero e o valor é ajustado', async () => {
+  cobrancasService.listar.mockResolvedValue({ itens: [{ ...cobranca(7), valor: 0, agendamentoId: 'ag-1', versao: 1, descricao: 'Atendimento — procedimento a definir' }], total: 1 });
+  cobrancasService.resumo.mockResolvedValue({ quantidade: 1, total: 0, totalRepasse: 0 });
+  cobrancasService.ajustar.mockResolvedValue({ ...cobranca(7), valor: 250, agendamentoId: 'ag-1', versao: 2, descricao: 'Consulta' });
+  tela();
+  expect(await screen.findByText('da agenda')).toBeInTheDocument();
+  expect(screen.getByText('valor a definir')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Marcar pago' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Ajustar valor' }));
+  fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '250' } });
+  fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Consulta' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  expect(await screen.findByText(/R\$\s*250,00/)).toBeInTheDocument();
+  expect(cobrancasService.ajustar).toHaveBeenCalledWith('c7', { valor: 250, descricao: 'Consulta' }, 1);
+  expect(screen.queryByText('valor a definir')).not.toBeInTheDocument();
 });

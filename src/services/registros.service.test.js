@@ -158,10 +158,11 @@ describe('histórico do paciente', () => {
     const { PAGINA_HISTORICO } = require('./registros.service');
     const { criarQueryBuilder } = require('./supabase');
     const ranges = [];
-    supabase.from.mockImplementation(() => {
+    supabase.rpc.mockImplementation((fn, args) => {
+      expect(fn).toBe('ler_registros_paciente');
       const builder = criarQueryBuilder();
-      let inicio = 0;
-      builder.range = (a, b) => { inicio = a; ranges.push([a, b]); return builder; };
+      const inicio = args.p_offset;
+      ranges.push([args.p_offset, args.p_offset + args.p_limite - 1]);
       builder.then = (resolve) => {
         const fim = Math.min(inicio + PAGINA_HISTORICO, 2 * PAGINA_HISTORICO + 5);
         const data = [];
@@ -179,7 +180,7 @@ describe('histórico do paciente', () => {
   test('erro numa página intermediária falha tudo (não mostra histórico pela metade)', async () => {
     const { criarQueryBuilder } = require('./supabase');
     let chamada = 0;
-    supabase.from.mockImplementation(() => {
+    supabase.rpc.mockImplementation(() => {
       const builder = criarQueryBuilder();
       builder.then = (resolve) => {
         chamada += 1;

@@ -7,6 +7,7 @@ import { useToast } from '../../components/common/Toast';
 import { usuariosService } from '../../services/usuarios.service';
 import { auditoriaService } from '../../services/auditoria.service';
 import { acessosService } from '../../services/acessos.service';
+import { baixarJson, exportacaoService, nomeArquivoExportacao } from '../../services/exportacao.service';
 import { configuracoesService } from '../../services/configuracoes.service';
 import { filiaisService } from '../../services/filiais.service';
 import { examesService } from '../../services/exames.service';
@@ -68,6 +69,48 @@ export function PainelAdministrativoPage() {
           <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Exames laboratoriais e de imagem, com código TUSS, usados na busca do Pedido de Exames.</p>
         </Link>
       </div>
+      <ExportarClinica />
+    </div>
+  );
+}
+
+// Entrega dos dados ao cliente (migração 48): pacientes com o prontuário
+// completo, agenda, cobranças, catálogos, clínica e profissionais, em JSON.
+// Só Administrador com papel clínico concedido (contém dados clínicos).
+function ExportarClinica() {
+  const { perfil } = useAuth();
+  const toast = useToast();
+  const [progresso, setProgresso] = React.useState(null);
+  const podeExportar = Boolean(perfil?.papel_clinico_administrador);
+  const exportar = async () => {
+    setProgresso({ feitos: 0, total: null });
+    try {
+      const dados = await exportacaoService.clinica({ aoProgredir: (feitos, total) => setProgresso({ feitos, total }) });
+      baixarJson(nomeArquivoExportacao('clinica', dados.clinica?.nome), dados);
+      toast.success(`Exportação concluída: ${dados.pacientes.length} paciente(s).`);
+    } catch (err) {
+      toast.error('Não foi possível exportar a clínica: ' + (err?.message || 'erro de conexão'));
+    } finally {
+      setProgresso(null);
+    }
+  };
+  return (
+    <div style={{ backgroundColor: 'white', padding: '20px 24px', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginTop: '20px' }}>
+      <h3 style={{ margin: '0 0 6px' }}>Exportar dados da clínica</h3>
+      <p style={{ margin: '0 0 12px', fontSize: '16px', color: '#666' }}>
+        Arquivo JSON com todos os pacientes e prontuários (registros, autoria, datas, retificações), agenda, cobranças,
+        catálogos, dados da clínica e profissionais. A exportação fica registrada na auditoria. Guarde o arquivo com o
+        mesmo cuidado de um prontuário.
+      </p>
+      {podeExportar ? (
+        <button onClick={exportar} disabled={progresso !== null} style={{ padding: '8px 16px', cursor: progresso ? 'not-allowed' : 'pointer' }}>
+          {progresso ? `Exportando... ${progresso.feitos}${progresso.total != null ? ` de ${progresso.total}` : ''} pacientes` : 'Exportar clínica'}
+        </button>
+      ) : (
+        <p style={{ margin: 0, fontSize: '16px', color: '#92400e' }}>
+          Exige uma conta de Administrador com papel clínico concedido por outro administrador (Usuários).
+        </p>
+      )}
     </div>
   );
 }
@@ -413,7 +456,10 @@ const ROTULOS_OPERACAO = {
 
 const ROTULOS_ACAO = {
   abrir_prontuario: 'Abriu o prontuário',
+  abrir_registro: 'Abriu um registro',
   imprimir_documento: 'Gerou documento',
+  exportar_prontuario: 'Exportou o prontuário',
+  exportar_clinica: 'Exportou a clínica inteira',
 };
 
 // Aba "Acessos" (migração 38): leitura de prontuários e documentos

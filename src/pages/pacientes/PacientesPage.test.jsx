@@ -57,3 +57,21 @@ test('desativar envia a versão do cadastro que estava na lista', async () => {
   fireEvent.click(await screen.findByRole('button', { name: /Desativar/ }));
   await waitFor(() => expect(pacientesService.deletar).toHaveBeenCalledWith('p1', 2));
 });
+
+test('CPF inválido num cadastro novo: avisa e não envia; o mesmo CPF antigo, sem mudar, não trava a edição', async () => {
+  const toast = jest.requireMock('../../components/common/Toast').useToast();
+  pacientesService.buscar.mockResolvedValue({ itens: [maria], total: 1 });
+  pacientesService.atualizarCadastro.mockResolvedValue({ ...maria, versaoCadastro: 3 });
+  render(<Tela />);
+  fireEvent.change(screen.getByPlaceholderText('Digite o nome completo'), { target: { value: 'Paciente Novo' } });
+  fireEvent.change(screen.getByPlaceholderText('(XX) XXXXX-XXXX'), { target: { value: '(71) 98888-7777' } });
+  fireEvent.change(screen.getByPlaceholderText('000.000.000-00'), { target: { value: '529.982.247-24' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar Paciente' }));
+  expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining('CPF inválido'));
+  expect(pacientesService.criar).not.toHaveBeenCalled();
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Editar Cadastro' }));
+  fireEvent.change(screen.getByDisplayValue('(71) 1111-1111'), { target: { value: '(71) 3333-3333' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
+  await waitFor(() => expect(pacientesService.atualizarCadastro).toHaveBeenCalled());
+});

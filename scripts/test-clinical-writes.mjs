@@ -44,7 +44,8 @@ const auth = `BEGIN;
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claim.sub" = ${quote(autor)};
 SET LOCAL "request.jwt.claim.role" = 'authenticated';
-SET LOCAL "request.jwt.claims" = ${quote(JSON.stringify({ sub: autor, role: 'authenticated' }))};`;
+SET LOCAL "request.jwt.claims" = ${quote(JSON.stringify({ sub: autor, role: 'authenticated' }))};
+SELECT set_config('pep.leitura_clinica', 'sim', true);`;
 const transacao = (sql, hold = false) => `${auth}\n${sql}\n${hold ? "SELECT 'LOCKED'; SELECT pg_sleep(0.5);" : ''}\nCOMMIT;`;
 const rpc = (op, acao, id, versao, dados) => `SELECT public.salvar_registro_clinico(${quote(op)}, ${quote(acao)}, ${quote(paciente)}, ${id ? quote(id) : 'NULL'}, ${versao ?? 'NULL'}, ${quote(JSON.stringify(dados))}::jsonb);`;
 
@@ -60,6 +61,18 @@ await executar(await readFile(new URL('../supabase/tests/pacientes_versao.sql', 
 console.log('OK: cadastro e antecedentes do paciente com controle de versão.');
 await executar(await readFile(new URL('../supabase/tests/auditoria_acessos.sql', import.meta.url), 'utf8'));
 console.log('OK: auditoria de leitura — autor fixo, ações fechadas, leitura só por Administrador.');
+await executar(await readFile(new URL('../supabase/tests/identidade_assinatura.sql', import.meta.url), 'utf8'));
+console.log('OK: assinar exige nome, número do conselho e UF; rascunho não.');
+await executar(await readFile(new URL('../supabase/tests/pacientes_validacao.sql', import.meta.url), 'utf8'));
+console.log('OK: CPF único pelos dígitos e validado; CNS, nascimento e tamanhos no banco.');
+await executar(await readFile(new URL('../supabase/tests/emissao_preservada.sql', import.meta.url), 'utf8'));
+console.log('OK: documento emitido preservado (paciente, clínica, profissional, datas) com hash.');
+await executar(await readFile(new URL('../supabase/tests/gravacao_segura.sql', import.meta.url), 'utf8'));
+console.log('OK: criação idempotente, versão e transições de status em agenda e cobranças.');
+await executar(await readFile(new URL('../supabase/tests/leitura_auditada.sql', import.meta.url), 'utf8'));
+console.log('OK: leitura clínica só com registro de acesso no banco; exportação do prontuário e da clínica.');
+await executar(await readFile(new URL('../supabase/tests/agenda_cobranca.sql', import.meta.url), 'utf8'));
+console.log('OK: procedimento no agendamento; assinar conclui; Realizado gera a cobrança pendente.');
 await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
 console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
 try {

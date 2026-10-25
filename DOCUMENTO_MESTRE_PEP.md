@@ -1,7 +1,7 @@
 # Documento Mestre do Projeto — PEP
 
 **Responsável clínico:** Dr. Marivan Araujo
-**Versão:** 2.2 — 24/10/2026
+**Versão:** 2.4 — 25/10/2026
 **Estado:** publicado em produção (https://marivan-project.vercel.app) e em uso; validação operacional com a equipe em andamento.
 
 Este documento distingue implementação de validação operacional. Um recurso
@@ -48,22 +48,24 @@ Dados reais de pacientes ficam só na produção. Procedimento em
 
 | Área | Estado | Implementação e limite atual |
 |---|---|---|
+| Sessão | IMPLEMENTADO | Sair (botão ou 15 min de inatividade) fecha a tela e apaga o token do navegador na hora, mesmo sem rede; a revogação no servidor é tentada e, sem conexão, repetida quando a rede volta, com aviso na tela de login. |
 | Consulta | IMPLEMENTADO | Digitar, salvar rascunho, reabrir, editar e finalizar/assinar. Autosave remoto: 10 s após a última tecla, ao esconder a aba e ao sair da tela, com fila para pedidos simultâneos (ver "Rascunhos"). |
-| Assinatura | IMPLEMENTADO / EM VALIDAÇÃO | Texto e assinatura atômicos, autoria com identidade profissional (conselho e RQE), imutabilidade e retificação vinculada; assinatura digitalizada nos impressos (migração 31). Não equivale a certificação digital externa (ICP-Brasil). |
+| Assinatura | IMPLEMENTADO / EM VALIDAÇÃO | Texto e assinatura atômicos, autoria com identidade profissional (conselho e RQE), imutabilidade e retificação vinculada; assinatura digitalizada nos impressos (migração 31). O banco só assina com nome, número do conselho e UF no perfil, inclusive por chamada direta à API (migração 44) — confere preenchimento, não a regularidade no conselho. Não equivale a certificação digital externa (ICP-Brasil). |
 | Concorrência | IMPLEMENTADO | Registros clínicos: UUID por operação, recibo idempotente e versão esperada. Paciente: cadastro e antecedentes só pela função `atualizar_paciente`, com versão obrigatória; edição concorrente devolve conflito em vez de sobrescrever (migrações 37, 41 e 42). |
-| Receitas e documentos | IMPLEMENTADO | Receituário, prescrição, atestado, pedido de exames (catálogo TUSS no banco), laudos, relatórios e guia SP/SADT em PDF. Erros de gravação não produzem confirmação de sucesso. |
-| Cadastro | IMPLEMENTADO | Identificação, endereço, convênio, CNS e dados clínicos separados por view e triggers; busca de pacientes no servidor. Campos obrigatórios definitivos dependem de decisão clínica. |
+| Receitas e documentos | IMPLEMENTADO | Um formulário por paciente (trocar de paciente não leva dados nem "salvo"). Salvar e imprimir só com a identidade do profissional completa (nome, registro e UF). Na assinatura, o banco guarda o retrato do documento — paciente, idade, antecedentes, clínica, profissional, datas — e um código de verificação (SHA-256); a 2ª via usa esse retrato e se identifica como tal (migração 46). A reimpressão só abre registro do paciente da URL. Receituário, prescrição, atestado, pedido de exames (catálogo TUSS no banco), laudos, relatórios e guia SP/SADT em PDF. Erros de gravação não produzem confirmação de sucesso. |
+| Cadastro | IMPLEMENTADO | Identificação, endereço, convênio, CNS e dados clínicos separados por view e triggers; busca de pacientes no servidor. CPF opcional, mas validado, padronizado e único pelos dígitos; CNS, nascimento e tamanhos validados no banco (migração 45). Criação idempotente (migração 47). Tela para localizar e reativar desativados. Campos obrigatórios definitivos dependem de decisão clínica. |
 | Perfis e autorização | IMPLEMENTADO | RLS, views mascaradas e proteção de função/status. Administrador clínico só por concessão explícita (migração 30). Profissões não médicas registram só os tipos permitidos (migração 39). |
-| Agenda e recepção | IMPLEMENTADO | Agendamento e fluxo de status/check-in. A agenda admite toda conta ativa (Financeiro só lê); restrição adicional por função exige decisão explícita. |
-| Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura do próprio repasse pelo médico. Totais calculados no banco (`resumo_cobrancas`) e lista paginada, sem o limite de 1000 linhas da API. |
+| Agenda e recepção | IMPLEMENTADO | Agendamento com procedimento e convênio (o convênio vem do cadastro; a Recepção confirma ou ajusta na chegada) e fluxo de status/check-in, com transições e versão no banco e criação idempotente (migrações 47 e 49). Assinar a Consulta (ou Evolução de Enfermagem) conclui o agendamento do dia, do mesmo profissional, que esteja Aguardando ou Em atendimento. A agenda admite toda conta ativa (Financeiro só lê); restrição adicional por função exige decisão explícita. |
+| Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura do próprio repasse pelo médico. Totais calculados no banco (`resumo_cobrancas`) e lista paginada, sem o limite de 1000 linhas da API. Criação idempotente, versão nas alterações, transições de status e data de pagamento definida pelo banco (apagada ao desfazer o pagamento) — migração 47. Agendamento Realizado gera a cobrança Pendente com procedimento, convênio, profissional, valor da tabela do convênio e repasse (uma por agendamento); sem procedimento, nasce "valor a definir" e só pode ser paga depois de ajustada — migração 49. |
 | Usuários | IMPLEMENTADO / EM VALIDAÇÃO | Convites por Edge Function com Administrador ativo e origens explícitas, publicada em produção. Falta acompanhar o fluxo completo de convite por e-mail com cada novo membro. |
 | Clínica e filiais | IMPLEMENTADO | Cadastro/configuração e múltiplas filiais. Não representa isolamento entre organizações independentes. |
-| Erros de carregamento | IMPLEMENTADO | Avisos nos carregamentos auxiliares, erros de impressão explícitos e nova tentativa para configuração da clínica e histórico (paginado, sem limite de 1000 registros). Não registrar objetos de erro potencialmente sensíveis no console. |
-| Auditoria | IMPLEMENTADO | Alterações por trigger, lidas pelo Administrador com conteúdo clínico mascarado para quem não tem papel clínico (migração 36). Leitura: quem abriu cada prontuário e gerou cada documento (migração 38). Monitoramento operacional ainda planejado. |
+| Exportação | IMPLEMENTADO | Prontuário de um paciente (quem lê o prontuário) e clínica inteira (Administrador com papel clínico), em JSON com registros, autoria, datas, retificações e retrato das emissões; montado no navegador, sem cópia no servidor; registrado na auditoria (migração 48). |
+| Erros de carregamento | IMPLEMENTADO | Falha ao abrir um paciente aparece como erro de conexão, com nova tentativa — "não encontrado" só quando o banco respondeu sem o registro; falha nos totais do Financeiro aparece como "Indisponível", com "Recarregar totais". Avisos nos carregamentos auxiliares, erros de impressão explícitos e nova tentativa para configuração da clínica e histórico (paginado, sem limite de 1000 registros). Não registrar objetos de erro potencialmente sensíveis no console. |
+| Auditoria | IMPLEMENTADO | Alterações por trigger, lidas pelo Administrador com conteúdo clínico mascarado para quem não tem papel clínico (migração 36). Leitura no banco (migração 48): registros clínicos só são entregues pelas funções que registram o acesso antes — leitura direta pela API não devolve nada; exportações também registradas. Impressões são registradas pelo app, com fila de reenvio. Limite: antecedentes do cadastro seguem legíveis por perfis clínicos na busca. Monitoramento operacional ainda planejado. |
 
 ## Matriz de autorização atual
 
-A matriz descreve o banco após a migração 42. Restrições devem existir no
+A matriz descreve o banco após a migração 48. Restrições devem existir no
 backend mesmo quando uma rota está escondida no frontend. A matriz e suas
 ressalvas estão detalhadas em [AUTORIZACAO.md](docs/AUTORIZACAO.md).
 
@@ -118,9 +120,12 @@ esse estado pode induzir duplicação.
 
 ## Validação e publicação
 
-- **IMPLEMENTADO:** testes de frontend (Jest), verificação de código (ESLint) e
+- **IMPLEMENTADO:** testes de frontend (Jest), verificação de código (ESLint),
   testes de integridade clínica, concorrência e autorização em PostgreSQL
-  descartável, todos no CI a cada pull request. `npm run db:test:clinical`
+  descartável e testes de navegador (Playwright) com login e banco reais —
+  sessão sem rede e por inatividade, troca de usuário, troca de paciente,
+  duas abas, resposta perdida após gravar, impressão e 2ª via —, todos no CI
+  a cada pull request. `npm run db:test:clinical`
   inclui a matriz de tabelas com contas ativas/inativas e privilégios anônimos.
 - **IMPLEMENTADO:** fluxo migração versionada → local → homologação → produção.
   O script de produção faz ensaio, backup completo, aplica e roda a verificação
@@ -146,9 +151,13 @@ Evidências, commits, URLs e estado por ambiente estão em
 | EM VALIDAÇÃO | Validar o fluxo da consulta com profissionais e cenários de falha. |
 | PENDENTE | Decidir se filiais compartilham pacientes ou precisam de isolamento institucional. |
 | EM VALIDAÇÃO | Regras de assinatura já implementadas; validação operacional e requisitos externos ainda abertos. |
-| PENDENTE | Supabase Pro: limite de gastos, política de backup, retenção, RPO/RTO e teste recorrente de restauração. |
+| PENDENTE | Supabase Pro: limite de gastos, política de backup, retenção, RPO/RTO e teste recorrente de restauração; rotina automatizada de backup externo verificado. |
+| PENDENTE | Assinatura criptográfica verificável (ICP-Brasil) se for oferecida comercialmente; guarda do PDF final, se exigida. A imagem de assinatura e o código de verificação não substituem certificação digital. |
 | PENDENTE | Comprovar MFA nas contas administrativas (Supabase, Vercel, GitHub), monitoramento e revisão periódica de acessos. |
 | PENDENTE | Repositório GitHub hoje público; torná-lo privado. |
+| PENDENTE | Limite de duração/inatividade das sessões no Auth da Supabase (plano Pro): fecha no servidor sessões que o app não conseguiu revogar. |
+| PENDENTE | Homologação acompanhada com a equipe — roteiro em [ROTEIRO_HOMOLOGACAO.md](docs/ROTEIRO_HOMOLOGACAO.md). |
+| PENDENTE | Para uso comercial: um ambiente (projeto Supabase) por clínica enquanto não houver isolamento entre organizações; assinatura verificável (ICP-Brasil); exportação dos dados do paciente; suporte e contratos. |
 | PENDENTE | Proteção dos previews da Vercel (hoje abertos; usam só a homologação). |
 | PLANEJADO | Botão "Reenviar convite" na gestão de usuários. |
 
@@ -160,3 +169,5 @@ Evidências, commits, URLs e estado por ambiente estão em
 | 2.0 | 19/09/2026 | Estado real por área, matriz de permissões, distinção entre rascunho remoto e autosave local, pendências e publicação. |
 | 2.1 | 19/09/2026 | Migração 30: Administrador deixou de ter acesso clínico automático (passa a exigir concessão explícita de outro administrador); Financeiro passou a só ler a agenda. |
 | 2.2 | 24/10/2026 | Publicação em produção (migrações 31–42): autosave remoto, versão obrigatória do paciente, totais do Financeiro no banco, histórico paginado, auditoria mascarada e de acessos, Psicologia/Fisioterapia com tipos permitidos, assinatura digitalizada, catálogo TUSS e guia SP/SADT. Frontend migrado para Vite. Tabela de ambientes. |
+| 2.3 | 24/10/2026 | Terceira avaliação: saída de sessão sem depender da rede, documentos só com identidade profissional completa, falhas de conexão distintas de "paciente não encontrado" e dos totais do Financeiro; auditoria de leitura registrada como parcial; script de limpeza dos pacientes fictícios retirado (usado uma vez, em 24/10/2026). |
+| 2.4 | 25/10/2026 | Quarta avaliação (migrações 43–48) e agenda → cobrança (49): reimpressão presa ao paciente do registro; formulários de documento por paciente; identidade profissional exigida pelo banco na assinatura; CPF/CNS/nascimento validados e CPF único pelos dígitos; reativação de pacientes; retrato da emissão e 2ª via fiel com código de verificação; criação idempotente e versão em cadastro, agenda e cobranças; leitura clínica auditada no banco; exportação do prontuário e da clínica; testes de navegador no CI. |

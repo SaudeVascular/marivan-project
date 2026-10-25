@@ -9,6 +9,15 @@ const fromDb = (p) => ({
 });
 
 export const procedimentosService = {
+  // Procedimentos ativos com o valor da tabela do convênio (ou particular),
+  // para quem agenda — migração 49. A tabela de preços inteira continua só
+  // do Financeiro/Administrador.
+  async catalogo(convenioId) {
+    const { data, error } = await supabase.rpc('catalogo_procedimentos', { p_convenio_id: convenioId || null });
+    if (error) throw error;
+    return (data || []).map(p => ({ id: p.id, nome: p.nome, valor: p.valor == null ? null : Number(p.valor) }));
+  },
+
   async listar() {
     const { data, error } = await supabase
       .from('procedimentos')
