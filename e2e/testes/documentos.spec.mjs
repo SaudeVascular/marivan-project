@@ -9,7 +9,14 @@ test('atestado: assina, gera o PDF e a 2ª via usa os dados da emissão', async 
   const janela = context.waitForEvent('page');
   await page.getByRole('button', { name: /Imprimir/ }).click();
   const pdf = await janela;
-  await expect.poll(() => pdf.url(), { timeout: 20000 }).toMatch(/^blob:/);
+  // Com visualizador de PDF (Chrome), a janela abre o blob; sem ele
+  // (Chromium sem tela do CI), o mesmo PDF vira download. Os dois provam
+  // que o documento foi gerado.
+  const gerado = await Promise.any([
+    pdf.waitForURL(/^blob:/, { timeout: 20000 }).then(() => 'janela'),
+    pdf.waitForEvent('download', { timeout: 20000 }).then(() => 'download'),
+  ]);
+  expect(['janela', 'download']).toContain(gerado);
   const registro = sql(`SELECT id FROM public.consultas WHERE paciente_id = '${a}' AND tipo = 'Atestado' ORDER BY created_at DESC LIMIT 1`);
   expect(registro).not.toBe('');
 
