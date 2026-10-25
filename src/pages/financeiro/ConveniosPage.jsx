@@ -416,7 +416,10 @@ function TabelaConvenio({ convenio, procedimentos, onProcedimentosMudaram }) {
 
 // Lê a planilha no navegador, mostra o que será gravado e os problemas
 // de cada linha, e só então grava — de uma vez, no banco.
+// Sem `convenio`: importa o catálogo de procedimentos (valor particular
+// opcional; nada sai do catálogo — migração 51).
 export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar }) {
+  const catalogo = !convenio;
   const toast = useToast();
   const [lido, setLido] = React.useState(null);
   const [lendo, setLendo] = React.useState(false);
@@ -434,7 +437,7 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
     if (arquivo.size > 10 * 1024 * 1024) { setErro('Arquivo maior que 10 MB.'); return; }
     setLendo(true);
     try {
-      setLido({ nome: arquivo.name, ...(await lerPlanilha(arquivo)) });
+      setLido({ nome: arquivo.name, ...(await lerPlanilha(arquivo, { exigeValor: !catalogo })) });
     } catch (err) {
       setErro('Não consegui ler o arquivo. Ele é uma planilha (.xls, .xlsx, .ods ou .csv)? ' + (err.message || ''));
     } finally {
@@ -452,10 +455,16 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
     try {
       // Sem comTimeout: uma tabela grande leva mais que o tempo padrão, e a
       // gravação é tudo ou nada — repetir não duplica nada.
-      const r = await conveniosService.importarTabela(convenio.id, lido.itens, substituir);
-      toast.success(`Tabela importada: ${r.gravados} valores gravados` +
-        (r.procedimentosNovos ? `, ${r.procedimentosNovos} procedimentos novos` : '') +
-        (r.removidos ? `, ${r.removidos} retirados` : '') + '.');
+      let r;
+      if (catalogo) {
+        r = await procedimentosService.importar(lido.itens);
+        toast.success(`Procedimentos importados: ${r.novos} novos, ${r.atualizados} atualizados.`);
+      } else {
+        r = await conveniosService.importarTabela(convenio.id, lido.itens, substituir);
+        toast.success(`Tabela importada: ${r.gravados} valores gravados` +
+          (r.procedimentosNovos ? `, ${r.procedimentosNovos} procedimentos novos` : '') +
+          (r.removidos ? `, ${r.removidos} retirados` : '') + '.');
+      }
       await onImportado(r);
     } catch (err) {
       setErro('A importação não foi gravada (nada mudou): ' + err.message);
@@ -464,7 +473,7 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
     }
   };
 
-  const modelo = () => baixarPlanilha('modelo-tabela-convenio.xlsx', [
+  const modelo = () => baixarPlanilha(catalogo ? 'modelo-procedimentos.xlsx' : 'modelo-tabela-convenio.xlsx', [
     ['10101012', 'Consulta em consultório (no horário normal ou preestabelecido)', 180, 'Consulta'],
     ['40304361', 'Hemograma com contagem de plaquetas ou frações', 12.5, 'Exame'],
     ['', 'Curativo simples', 40, 'Procedimento'],
@@ -473,8 +482,14 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
   return (
     <div style={{ border: '1px dashed #0369a1', borderRadius: '8px', padding: '14px', marginTop: '14px', backgroundColor: '#f8fbff' }}>
       <p style={{ marginTop: 0 }}>
-        A planilha precisa de um cabeçalho com as colunas <strong>Código</strong>, <strong>Descrição</strong> e <strong>Valor</strong>{' '}
-        (e, se quiser, <strong>Tipo</strong>: Consulta, Exame ou Procedimento — sem ele, o tipo vem do código TUSS).
+        {catalogo ? (
+          <>A planilha precisa de um cabeçalho com as colunas <strong>Código</strong> e <strong>Descrição</strong> (a TUSS da ANS já vem assim){' '}
+          e, se quiser, <strong>Tipo</strong> (Consulta, Exame ou Procedimento — sem ele, vem do código TUSS) e <strong>Valor</strong> (particular).
+          Procedimento que já existe (mesmo código) é atualizado; nada é apagado.</>
+        ) : (
+          <>A planilha precisa de um cabeçalho com as colunas <strong>Código</strong>, <strong>Descrição</strong> e <strong>Valor</strong>{' '}
+          (e, se quiser, <strong>Tipo</strong>: Consulta, Exame ou Procedimento — sem ele, o tipo vem do código TUSS).</>
+        )}
         Vale .xls, .xlsx, .ods ou .csv; só a primeira aba é lida.{' '}
         <button type="button" onClick={modelo} style={{ ...botaoClaro, padding: '2px 8px' }}>Baixar modelo</button>
       </p>
@@ -493,7 +508,7 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
               {lido.erros.length > 20 && <div>… e mais {lido.erros.length - 20}.</div>}
               {lido.itens.length > 0 && (
                 <label style={{ display: 'block', marginTop: '6px' }}>
-                  <input type="checkbox" checked={ignorarErros} onChange={e => setIgnorarErros(e.target.checked)} /> Importar só as {lido.itens.length} linhas certas (não vale para substituir a tabela)
+                  <input type="checkbox" checked={ignorarErros} onChange={e => setIgnorarErros(e.target.checked)} /> Importar só as {lido.itens.length} linhas certas {catalogo ? '' : ' (não vale para substituir a tabela)'}
                 </label>
               )}
             </div>
@@ -513,7 +528,7 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
                       <td style={{ padding: '4px 6px', fontFamily: 'monospace' }}>{i.codigo || '—'}</td>
                       <td style={{ padding: '4px 6px' }}>{i.descricao || '(nome do cadastro)'}</td>
                       <td style={{ padding: '4px 6px' }}>{i.tipo || 'pelo código'}</td>
-                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>{formatarMoeda(i.valor)}</td>
+                      <td style={{ padding: '4px 6px', textAlign: 'right' }}>{i.valor == null ? '—' : formatarMoeda(i.valor)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -521,15 +536,15 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
               {lido.itens.length > 50 && <div style={{ padding: '4px 6px', color: '#6b7280' }}>… e mais {lido.itens.length - 50} linhas.</div>}
             </div>
           )}
-          <fieldset style={{ border: 'none', padding: 0, margin: '10px 0' }}>
+          {!catalogo && <fieldset style={{ border: 'none', padding: 0, margin: '10px 0' }}>
             <label style={{ display: 'block' }}>
               <input type="radio" name="modo-importacao" checked={!substituir} onChange={() => setSubstituir(false)} /> Acrescentar e atualizar: o que estiver no arquivo entra ou tem o valor atualizado; o resto da tabela fica como está
             </label>
             <label style={{ display: 'block' }}>
               <input type="radio" name="modo-importacao" checked={substituir} onChange={() => setSubstituir(true)} /> Substituir a tabela inteira: o que não estiver no arquivo sai da tabela
             </label>
-          </fieldset>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          </fieldset>}
+          <div style={{ display: 'flex', gap: '8px', marginTop: catalogo ? '10px' : 0 }}>
             <button onClick={importar} disabled={!pode || gravando} style={{ ...botao('#28a745'), opacity: !pode || gravando ? 0.6 : 1 }}>
               {gravando ? 'Gravando...' : `Importar ${lido.itens.length} linhas`}
             </button>
@@ -544,6 +559,7 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
 
 function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
   const toast = useToast();
+  const [importando, setImportando] = React.useState(false);
   const vazio = { codigo: '', nome: '', tipo: 'Consulta', valorParticular: '' };
   const [novo, setNovo] = React.useState(vazio);
   const [editando, setEditando] = React.useState(null);
@@ -630,8 +646,22 @@ function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
 
   return (
     <div style={cartao}>
-      <h3 style={{ marginTop: 0 }}>Procedimentos ({procedimentos.length})</h3>
-      <p style={{ color: '#6b7280', marginTop: '-6px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <h3 style={{ margin: 0 }}>Procedimentos ({procedimentos.length})</h3>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <button onClick={() => setImportando(v => !v)} style={botao('#28a745')}>⬆ Importar planilha de procedimentos</button>
+          <button onClick={() => baixarPlanilha('procedimentos.xlsx', procedimentos.map(p => [p.codigo, p.nome, p.valorParticular ?? '', p.tipo]))
+            .catch(err => toast.error('Não foi possível gerar a planilha: ' + err.message))} disabled={procedimentos.length === 0} style={botaoClaro}>⬇ Baixar catálogo</button>
+        </div>
+      </div>
+      {importando && (
+        <ImportadorTabela onCancelar={() => setImportando(false)}
+          onImportado={async () => {
+            setImportando(false);
+            setProcedimentos(await procedimentosService.listar());
+          }} />
+      )}
+      <p style={{ color: '#6b7280' }}>
         O <strong>tipo</strong> decide o percentual de repasse de cada profissional (Administração → Usuários).
         Os valores de cada convênio ficam na tabela do convênio.
       </p>

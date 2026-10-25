@@ -67,6 +67,14 @@ export const procedimentosService = {
     return fromDb(data);
   },
 
+  // Catálogo lido da planilha, gravado de uma vez (migração 51): cria o que
+  // não existe e atualiza nome, tipo e valor particular do que já existe.
+  async importar(itens) {
+    const { data, error } = await supabase.rpc('importar_procedimentos', { p_itens: itens });
+    if (error) throw error;
+    return { novos: data.novos, atualizados: data.atualizados };
+  },
+
   // Só apaga de verdade se o procedimento nunca foi usado em nenhuma
   // cobrança — senão perderíamos a referência em registros históricos.
   async excluir(id) {

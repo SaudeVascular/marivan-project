@@ -72,8 +72,10 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_repasse_da_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
      OR to_regprocedure('public.relatorio_producao(date,date,uuid)') IS NULL
      OR has_function_privilege('anon', 'public.relatorio_producao(date,date,uuid)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.importar_tabela_convenio(uuid,jsonb,boolean)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'P0 inseguro: repasse por profissional ou relatório de produção ausente ou aberto a anon (aplique a migração 50)';
+     OR has_function_privilege('anon', 'public.importar_tabela_convenio(uuid,jsonb,boolean)', 'EXECUTE')
+     OR to_regprocedure('public.importar_procedimentos(jsonb)') IS NULL
+     OR has_function_privilege('anon', 'public.importar_procedimentos(jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'P0 inseguro: repasse por profissional ou relatório de produção ausente ou aberto a anon (aplique as migrações 50 e 51)';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)

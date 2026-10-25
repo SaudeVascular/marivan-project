@@ -11,7 +11,7 @@ jest.mock('../../services/convenios.service', () => ({
 }));
 jest.mock('../../services/procedimentos.service', () => ({
   TIPOS_PROCEDIMENTO: ['Consulta', 'Exame', 'Procedimento'],
-  procedimentosService: { listar: jest.fn(), criar: jest.fn(), atualizar: jest.fn(), excluir: jest.fn(), catalogo: jest.fn() },
+  procedimentosService: { listar: jest.fn(), criar: jest.fn(), atualizar: jest.fn(), excluir: jest.fn(), catalogo: jest.fn(), importar: jest.fn() },
 }));
 jest.mock('../../utils/planilha', () => ({ lerPlanilha: jest.fn(), baixarPlanilha: jest.fn(() => Promise.resolve()) }));
 jest.mock('../../components/common/Layout', () => ({ Header: () => null }));
@@ -111,4 +111,24 @@ test('catálogo de procedimentos: código, tipo e valor particular, sem repasse'
   fireEvent.click(screen.getByRole('button', { name: /Cadastrar/ }));
   await waitFor(() => expect(procedimentosService.criar).toHaveBeenCalledWith({ codigo: '40304361', nome: 'Hemograma', tipo: 'Exame', valorParticular: '25' }));
   expect(await screen.findByText('40304361 — Hemograma')).toBeInTheDocument();
+});
+
+test('catálogo importado de planilha: valor opcional, sem modo substituir, lista recarregada', async () => {
+  lerPlanilha.mockResolvedValue({
+    itens: [{ codigo: '10101012', descricao: 'Consulta em consultório', valor: null, tipo: null }, { codigo: '40301620', descricao: 'Glicose', valor: '9.90', tipo: null }],
+    erros: [], avisos: [],
+  });
+  procedimentosService.importar.mockResolvedValue({ novos: 1, atualizados: 1 });
+  render(<MemoryRouter><ConveniosTabelasPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'Procedimentos' }));
+  fireEvent.click(screen.getByRole('button', { name: /Importar planilha de procedimentos/ }));
+  fireEvent.change(screen.getByLabelText('Arquivo da tabela'), { target: { files: [new File(['x'], 'tuss.csv')] } });
+  expect(await screen.findByText(/2 linhas prontas/)).toBeInTheDocument();
+  expect(lerPlanilha).toHaveBeenCalledWith(expect.any(File), { exigeValor: false });
+  expect(screen.queryByLabelText(/Substituir a tabela inteira/)).not.toBeInTheDocument();
+  expect(screen.getByRole('row', { name: /Consulta em consultório/ })).toHaveTextContent('—');
+  procedimentosService.listar.mockResolvedValue([CONSULTA, { id: 'proc-3', nome: 'Glicose', codigo: '40301620', tipo: 'Exame', valorParticular: 9.9, ativo: true }]);
+  fireEvent.click(screen.getByRole('button', { name: 'Importar 2 linhas' }));
+  await waitFor(() => expect(procedimentosService.importar).toHaveBeenCalledWith(expect.any(Array)));
+  expect(await screen.findByText('40301620 — Glicose')).toBeInTheDocument();
 });

@@ -47,6 +47,29 @@ test('Financeiro cadastra a operadora e importa a tabela do convênio de uma pla
   expect(sql("SELECT codigo || ' ' || tipo FROM public.procedimentos WHERE nome = 'E2E Hemograma'")).toBe('40399991 Exame');
 });
 
+test('Financeiro importa o catálogo de procedimentos de uma planilha (sem valor obrigatório)', async ({ page }) => {
+  sql("DELETE FROM public.procedimentos WHERE nome IN ('E2E Ecocardiograma', 'E2E Retorno')");
+  await entrar(page, 'financeiro');
+  await page.goto('/financeiro/config');
+  await page.getByRole('tab', { name: 'Procedimentos' }).click();
+  await page.getByRole('button', { name: /Importar planilha de procedimentos/ }).click();
+  await page.getByLabel('Arquivo da tabela').setInputFiles({
+    name: 'catalogo-e2e.xls',
+    mimeType: 'application/vnd.ms-excel',
+    buffer: planilhaXls([
+      ['Código do Termo', 'Termo', 'Tipo', 'Valor'],
+      ['E2E0101', 'E2E Ecocardiograma', 'Exame', ''],
+      ['E2E0102', 'E2E Retorno', 'Consulta', '150,00'],
+    ]),
+  });
+  await expect(page.getByText(/2 linhas prontas/)).toBeVisible();
+  await page.getByRole('button', { name: 'Importar 2 linhas' }).click();
+  await expect(page.getByText('Procedimentos importados: 2 novos, 0 atualizados.')).toBeVisible();
+  await expect(page.getByText('E2E0101 — E2E Ecocardiograma')).toBeVisible();
+  expect(sql("SELECT tipo || ' ' || COALESCE(valor_particular::text, 'sem') FROM public.procedimentos WHERE codigo = 'E2E0101'")).toBe('Exame sem');
+  expect(sql("SELECT tipo || ' ' || valor_particular FROM public.procedimentos WHERE codigo = 'E2E0102'")).toBe('Consulta 150.00');
+});
+
 test('relatório de produção: a médica vê e imprime a própria; o Financeiro vê a de todos, com o que fica para a clínica', async ({ page }) => {
   const b = idPaciente('E2E Paciente B');
   limparAtendimentos(b);

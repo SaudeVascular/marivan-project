@@ -32,7 +32,7 @@ export function lerValor(celula) {
 
 export const normalizarCodigo = (c) => String(c ?? '').toUpperCase().replace(/[^0-9A-Z]/g, '');
 
-function acharCabecalho(linhas) {
+function acharCabecalho(linhas, exigeValor) {
   for (let i = 0; i < Math.min(linhas.length, 15); i++) {
     const mapa = {};
     linhas[i].forEach((celula, coluna) => {
@@ -42,17 +42,23 @@ function acharCabecalho(linhas) {
         if (mapa[campo] === undefined && casa(h)) { mapa[campo] = coluna; break; }
       }
     });
-    if (mapa.valor !== undefined && (mapa.codigo !== undefined || mapa.descricao !== undefined)) return { indice: i, mapa };
+    const temIdentificacao = exigeValor ? (mapa.codigo !== undefined || mapa.descricao !== undefined) : (mapa.codigo !== undefined && mapa.descricao !== undefined);
+    if (temIdentificacao && (!exigeValor || mapa.valor !== undefined)) return { indice: i, mapa };
   }
   return null;
 }
 
 // Linhas da planilha (lista de listas) → itens prontos para o banco, com
 // os problemas de cada linha. Puro: testável sem arquivo.
-export function interpretarLinhas(linhas) {
-  const cabecalho = acharCabecalho(linhas);
+// exigeValor: tabela de convênio (valor obrigatório). Sem ele, catálogo de
+// procedimentos: Código e Descrição obrigatórios; Valor (particular) opcional.
+export function interpretarLinhas(linhas, { exigeValor = true } = {}) {
+  const cabecalho = acharCabecalho(linhas, exigeValor);
   if (!cabecalho) {
-    return { itens: [], erros: [{ linha: null, motivo: 'Não encontrei o cabeçalho: a planilha precisa das colunas Código (ou Descrição) e Valor.' }], avisos: [] };
+    const motivo = exigeValor
+      ? 'Não encontrei o cabeçalho: a planilha precisa das colunas Código (ou Descrição) e Valor.'
+      : 'Não encontrei o cabeçalho: a planilha precisa das colunas Código e Descrição.';
+    return { itens: [], erros: [{ linha: null, motivo }], avisos: [] };
   }
   const { indice, mapa } = cabecalho;
   const itens = [];
@@ -64,14 +70,15 @@ export function interpretarLinhas(linhas) {
     const numero = i + 1; // como aparece na planilha
     const codigo = mapa.codigo !== undefined ? normalizarCodigo(l[mapa.codigo]) : '';
     const descricao = mapa.descricao !== undefined ? String(l[mapa.descricao] ?? '').replace(/\s+/g, ' ').trim() : '';
-    const valorBruto = l[mapa.valor];
+    const valorBruto = mapa.valor !== undefined ? l[mapa.valor] : undefined;
     const tipoBruto = mapa.tipo !== undefined ? semAcento(l[mapa.tipo]) : '';
     if (!codigo && !descricao && (valorBruto === undefined || valorBruto === '')) continue; // linha vazia
     if (!codigo && !descricao) { erros.push({ linha: numero, motivo: 'sem código nem descrição' }); continue; }
     if (codigo.length > 20) { erros.push({ linha: numero, motivo: `código com mais de 20 caracteres (${codigo})` }); continue; }
     if (descricao.length > 300) { erros.push({ linha: numero, motivo: 'descrição com mais de 300 caracteres' }); continue; }
+    const valorVazio = valorBruto === undefined || valorBruto === '';
     const valor = lerValor(valorBruto);
-    if (valor === null) { erros.push({ linha: numero, motivo: `valor inválido (${valorBruto === undefined || valorBruto === '' ? 'vazio' : valorBruto})` }); continue; }
+    if (valor === null && (exigeValor || !valorVazio)) { erros.push({ linha: numero, motivo: `valor inválido (${valorBruto === undefined || valorBruto === '' ? 'vazio' : valorBruto})` }); continue; }
     let tipo = null;
     if (tipoBruto) {
       tipo = TIPOS_ACEITOS[tipoBruto] || null;
@@ -90,14 +97,14 @@ export function interpretarLinhas(linhas) {
   return { itens, erros, avisos };
 }
 
-export async function lerPlanilha(arquivo) {
+export async function lerPlanilha(arquivo, opcoes) {
   const XLSX = await carregarXlsx();
   const dados = await arquivo.arrayBuffer();
   const pasta = XLSX.read(dados, { type: 'array', cellDates: false, dense: true });
   const aba = pasta.Sheets[pasta.SheetNames[0]];
   if (!aba) return { itens: [], erros: [{ linha: null, motivo: 'A planilha está vazia.' }], avisos: [] };
   const linhas = XLSX.utils.sheet_to_json(aba, { header: 1, raw: true, defval: '' });
-  return interpretarLinhas(linhas);
+  return interpretarLinhas(linhas, opcoes);
 }
 
 // Planilha-modelo e exportação da tabela atual, no mesmo formato que a

@@ -74,6 +74,8 @@ BEGIN
   PERFORM pg_temp.como('ef000000-0000-4000-8000-000000000005');
   PERFORM pg_temp.assert_ok(pg_temp.erro(format($q$SELECT public.importar_tabela_convenio(%L, '[{"codigo":"1","valor":"1"}]')$q$, conv)) = '42501',
     'Recepção não importa tabela');
+  PERFORM pg_temp.assert_ok(pg_temp.erro($q$SELECT public.importar_procedimentos('[{"codigo":"1"}]')$q$) = '42501',
+    'Recepção não importa procedimentos');
 
   PERFORM pg_temp.como('ef000000-0000-4000-8000-000000000003');
   SELECT id INTO particular FROM public.convenios WHERE convenios.particular;
@@ -112,6 +114,21 @@ BEGIN
   -- No Particular, a importação grava o valor particular.
   r := public.importar_tabela_convenio(particular, '[{"descricao":"Curativo CRP","valor":"55"}]');
   PERFORM pg_temp.assert_ok((SELECT valor_particular FROM public.procedimentos WHERE id = curativo) = 55, 'Particular: valor particular');
+
+  -- Catálogo importado de planilha (migração 51) -------------------------
+  r := public.importar_procedimentos('[
+    {"codigo":"10101012","descricao":"Consulta em consultório CRP","tipo":"Consulta"},
+    {"codigo":"40.30.162-0","descricao":"Glicose CRP","valor":"9.90"},
+    {"descricao":"Curativo CRP","valor":"60"}]');
+  PERFORM pg_temp.assert_ok(r = '{"novos":1,"atualizados":2}', 'catálogo: 1 novo, 2 atualizados: ' || r::TEXT);
+  PERFORM pg_temp.assert_ok((SELECT nome = 'Consulta em consultório CRP' AND valor_particular = 300 FROM public.procedimentos WHERE id = consulta),
+    'mesmo código: renomeia e mantém o valor particular quando a planilha não traz');
+  PERFORM pg_temp.assert_ok((pg_temp.proc('40301620')).tipo = 'Exame' AND (pg_temp.proc('40301620')).valor_particular = 9.9,
+    'novo: código normalizado, tipo pelo código e valor particular');
+  PERFORM pg_temp.assert_ok((SELECT valor_particular FROM public.procedimentos WHERE id = curativo) = 60, 'pelo nome: valor atualizado');
+  PERFORM pg_temp.assert_ok(pg_temp.erro($q$SELECT public.importar_procedimentos('[{"codigo":"1","descricao":"X","valor":"abc"}]')$q$) = '22023',
+    'valor inválido recusa');
+  UPDATE public.procedimentos SET nome = 'Consulta CRP' WHERE id = consulta;
 
   -- Repasse por profissional ---------------------------------------------
   PERFORM pg_temp.assert_ok(pg_temp.erro(format($q$INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta) VALUES (%L, 50)$q$, medica)) = '42501',
@@ -183,6 +200,7 @@ BEGIN
   PERFORM pg_temp.assert_ok((SELECT count(*) FROM public.auditoria WHERE tabela = 'repasse_profissional') >= 3, 'regras de repasse auditadas');
   PERFORM pg_temp.assert_ok(NOT has_function_privilege('anon', 'public.relatorio_producao(date,date,uuid)', 'EXECUTE'), 'anon não executa o relatório');
   PERFORM pg_temp.assert_ok(NOT has_function_privilege('anon', 'public.importar_tabela_convenio(uuid,jsonb,boolean)', 'EXECUTE'), 'anon não importa');
+  PERFORM pg_temp.assert_ok(NOT has_function_privilege('anon', 'public.importar_procedimentos(jsonb)', 'EXECUTE'), 'anon não importa catálogo');
 END;
 $$;
 ROLLBACK;

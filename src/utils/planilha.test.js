@@ -49,3 +49,18 @@ test('sem cabeçalho reconhecível', () => {
   expect(r.itens).toEqual([]);
   expect(r.erros[0].motivo).toMatch(/cabeçalho/);
 });
+
+test('catálogo: valor opcional, mas código e descrição no cabeçalho', () => {
+  const r = interpretarLinhas([
+    ['Código do Termo', 'Termo', 'Valor particular'],
+    ['10101012', 'Consulta em consultório', ''],
+    ['40301620', 'Glicose', '9,90'],
+    ['40301630', 'Ureia', 'xx'],
+  ], { exigeValor: false });
+  expect(r.itens).toEqual([
+    { codigo: '10101012', descricao: 'Consulta em consultório', valor: null, tipo: null },
+    { codigo: '40301620', descricao: 'Glicose', valor: '9.90', tipo: null },
+  ]);
+  expect(r.erros).toEqual([{ linha: 4, motivo: 'valor inválido (xx)' }]);
+  expect(interpretarLinhas([['Código', 'Valor'], ['1', '2']], { exigeValor: false }).erros[0].motivo).toMatch(/Código e Descrição/);
+});
