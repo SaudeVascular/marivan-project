@@ -60,6 +60,10 @@ await executar(await readFile(new URL('../supabase/tests/pacientes_versao.sql', 
 console.log('OK: cadastro e antecedentes do paciente com controle de versão.');
 await executar(await readFile(new URL('../supabase/tests/auditoria_acessos.sql', import.meta.url), 'utf8'));
 console.log('OK: auditoria de leitura — autor fixo, ações fechadas, leitura só por Administrador.');
+await executar(await readFile(new URL('../supabase/tests/identidade_assinatura.sql', import.meta.url), 'utf8'));
+console.log('OK: assinar exige nome, número do conselho e UF; rascunho não.');
+await executar(await readFile(new URL('../supabase/tests/pacientes_validacao.sql', import.meta.url), 'utf8'));
+console.log('OK: CPF único pelos dígitos e validado; CNS, nascimento e tamanhos no banco.');
 await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
 console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
 try {

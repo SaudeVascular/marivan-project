@@ -65,9 +65,16 @@ test('falha ao carregar: mostra o erro e libera depois de tentar novamente', asy
 test('cadastro sem número do conselho: bloqueia e explica', async () => {
   usuariosService.buscarPerfil.mockResolvedValue({ ...PERFIL, crm: '' });
   tela();
-  expect(await screen.findByText(/sem número do registro no conselho/)).toBeInTheDocument();
+  expect(await screen.findByText(/número do registro no conselho ou UF/)).toBeInTheDocument();
   expect(botaoSalvar()).toBeDisabled();
   expect(botaoImprimir()).toBeDisabled();
+});
+
+test('cadastro sem UF: bloqueia (mesma regra do banco ao assinar)', async () => {
+  usuariosService.buscarPerfil.mockResolvedValue({ ...PERFIL, uf: '' });
+  tela();
+  expect(await screen.findByText(/número do registro no conselho ou UF/)).toBeInTheDocument();
+  expect(botaoSalvar()).toBeDisabled();
 });
 
 test('identidade completa: libera salvar e imprimir', async () => {

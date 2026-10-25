@@ -108,11 +108,12 @@ export const pacientesService = {
   // Busca paginada no servidor (o banco limita cada resposta a 1000
   // linhas — carregar todos de uma vez deixava pacientes de fora sem
   // aviso). Sem termo, lista em ordem alfabética.
-  async buscar({ termo = '', limite = TAMANHO_PAGINA_PACIENTES, offset = 0 } = {}) {
+  // `ativos: false` lista os desativados (tela "Pacientes desativados").
+  async buscar({ termo = '', limite = TAMANHO_PAGINA_PACIENTES, offset = 0, ativos = true } = {}) {
     let query = supabase
       .from('pacientes_view')
       .select(CAMPOS_LEITURA, { count: 'exact' })
-      .eq('ativo', true)
+      .eq('ativo', ativos)
       .order('nome')
       .order('id')
       .range(offset, offset + limite - 1);
@@ -182,8 +183,8 @@ export const pacientesService = {
     await atualizar(id, 'ativo', versaoEsperada, { ativo: false });
   },
 
-  // Reverte a exclusão lógica. Sem tela própria ainda; lê a versão atual
-  // antes, porque quem reativa não estava com o cadastro aberto.
+  // Reverte a exclusão lógica (tela PacientesDesativados); lê a versão
+  // atual antes, porque quem reativa não estava com o cadastro aberto.
   async reativar(id) {
     const { data, error } = await supabase.from('pacientes_view').select('versao_cadastro').eq('id', id).single();
     if (error) throw error;

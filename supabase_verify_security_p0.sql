@@ -44,6 +44,13 @@ BEGIN
   IF position('pep.atualizar_paciente' IN pg_get_functiondef('public.versionar_paciente()'::regprocedure)) = 0 THEN
     RAISE EXCEPTION 'P0 inseguro: UPDATE direto em pacientes sem conferência de versão (aplique a migração 42)';
   END IF;
+  IF position('identidade_profissional_validada' IN pg_get_functiondef('public.validar_consulta_clinica()'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: assinatura sem validar a identidade profissional (aplique a migração 44)';
+  END IF;
+  IF position('p_registro_id' IN pg_get_functiondef('public.registrar_acesso(uuid,text,text,uuid)'::regprocedure)) = 0
+     OR position('paciente_id = p_paciente_id' IN pg_get_functiondef('public.registrar_acesso(uuid,text,text,uuid)'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: acesso aceita registro de outro paciente (aplique a migração 43)';
+  END IF;
 
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';

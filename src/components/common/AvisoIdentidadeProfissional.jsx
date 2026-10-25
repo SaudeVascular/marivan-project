@@ -22,7 +22,7 @@ export function AvisoIdentidadeProfissional({ identidade }) {
   }
   return (
     <div role="alert" style={{ ...base, backgroundColor: '#fef3c7', border: '1px solid #fde68a', color: '#92400e' }}>
-      Seu cadastro está sem nome ou sem número do registro no conselho. Peça ao Administrador que complete seu cadastro em Usuários — o documento só pode ser salvo ou impresso com sua identificação completa.
+      Seu cadastro está sem nome, número do registro no conselho ou UF. Peça ao Administrador que complete seu cadastro em Usuários — o documento só pode ser salvo ou impresso com sua identificação completa.
     </div>
   );
 }

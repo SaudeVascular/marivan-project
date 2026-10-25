@@ -53,6 +53,20 @@ export const registrosService = {
     return registros.map(fromDb);
   },
 
+  // Registro SÓ se for deste paciente (null se não existir, não for visível
+  // ou for de outro paciente). Usado onde a URL traz os dois ids: buscar
+  // cada um separado permitia montar o cadastro de B com o conteúdo de A.
+  async buscarDoPaciente(registroId, pacienteId) {
+    const { data, error } = await supabase
+      .from('consultas')
+      .select(CAMPOS)
+      .eq('id', registroId)
+      .eq('paciente_id', pacienteId)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? fromDb(data) : null;
+  },
+
   async buscarPorId(registroId) {
     const { data, error } = await supabase
       .from('consultas')

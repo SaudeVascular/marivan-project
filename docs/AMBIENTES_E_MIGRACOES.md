@@ -122,12 +122,12 @@ CONFIRM_STAGING_PUSH=APLICAR_EM_HOMOLOGACAO npm run db:staging:push
 Depois execute `supabase_verify_security_p0.sql` no SQL Editor da homologação
 e faça os testes de interface com dados fictícios.
 
-## Estado atual (24/10/2026)
+## Estado atual (25/10/2026)
 
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
-| Homologação | `snhmydckyypgucwbsaus` | 01–42 | OK (24/10) |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10, depois do site novo publicado) |
+| Homologação | `snhmydckyypgucwbsaus` | 01–45 | — |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–45 pendentes** (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
@@ -143,6 +143,27 @@ pooler `aws-0-sa-east-1` não conhece esse projeto.
 bash scripts/supabase-push-producao.sh                   # dry-run, para
 CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 ```
+
+### Migrações 43–45 (independentes do site)
+
+- 43: auditoria de acesso recusa registro de outro paciente;
+- 44: assinar exige nome, número do conselho e UF no perfil;
+- 45: CPF validado, gravado no formato 000.000.000-00 e único pelos dígitos;
+  CNS, nascimento e tamanhos validados.
+
+Funcionam com o site antigo e com o novo. Antes de aplicar a 44, confira no
+SQL Editor da produção que todo profissional que assina tem os três campos —
+quem não tiver passa a receber a mensagem pedindo para completar o cadastro:
+
+```sql
+SELECT nome, funcao, crm, uf FROM public.perfis
+ WHERE ativo AND (funcao IN ('Médico','Enfermeiro(a)','Psicólogo(a)','Fisioterapeuta')
+                  OR papel_clinico_administrador IS NOT NULL)
+   AND (char_length(btrim(coalesce(nome,''))) < 3 OR btrim(coalesce(crm,'')) = ''
+        OR upper(btrim(coalesce(uf,''))) NOT IN ('AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'));
+```
+
+A 45 para sozinha, sem mudar nada, se já houver CPFs repetidos.
 
 ### Publicação de 39–42 (site e banco juntos — feita em 24/10/2026)
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from './useAuth';
 import { usuariosService } from '../services/usuarios.service';
-import { CONSELHO_POR_FUNCAO } from '../constants/roles';
+import { CONSELHO_POR_FUNCAO, UFS } from '../constants/roles';
 import { comTimeout } from '../utils/comTimeout';
 
 const VAZIO = {
@@ -15,7 +15,7 @@ const VAZIO = {
 };
 
 // Identidade do profissional logado para os documentos. Enquanto ela não
-// estiver carregada e completa (nome e número do conselho), `pronto` é
+// estiver carregada e completa (nome, número do conselho e UF), `pronto` é
 // false e as telas não deixam salvar nem imprimir — sem isso, uma resposta
 // lenta ou uma falha gerava PDF e texto salvo com "Não informado".
 //
@@ -54,7 +54,11 @@ export function useMedicoPerfil() {
             cbo: perfil.cbo || '',
           },
         });
-        setEstado(perfil.nome?.trim() && perfil.crm?.trim() ? 'pronto' : 'incompleto');
+        // Mesma regra do banco ao assinar (migração 44).
+        const completo = (perfil.nome || '').trim().length >= 3
+          && /^[0-9A-Za-z./-]{1,20}$/.test((perfil.crm || '').trim())
+          && UFS.includes((perfil.uf || '').trim().toUpperCase());
+        setEstado(completo ? 'pronto' : 'incompleto');
       })
       .catch(() => {
         if (!ativo) return;

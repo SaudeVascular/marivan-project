@@ -11,10 +11,10 @@ jest.mock('../../hooks/useClinica', () => ({ useClinica: () => ({ clinica: {} })
 
 test('falha de carregamento não é apresentada como atendimento inexistente', async () => {
   pacientesService.buscarPorId.mockRejectedValue(new Error('Falha de rede'));
-  registrosService.buscarPorId.mockResolvedValue({ id: 'r1' });
+  registrosService.buscarDoPaciente.mockResolvedValue({ id: 'r1', pacienteId: 'p1' });
   render(<MemoryRouter initialEntries={['/imprimir/p1/r1']}><Routes>
     <Route path="/imprimir/:pacienteId/:registroId" element={<ImprimirAtendimentoPage />} />
   </Routes></MemoryRouter>);
   expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o atendimento para impressão');
-  expect(screen.queryByText('Registro não encontrado.')).not.toBeInTheDocument();
+  expect(screen.queryByText(/Registro não encontrado/)).not.toBeInTheDocument();
 });

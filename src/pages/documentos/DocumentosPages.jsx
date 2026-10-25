@@ -47,7 +47,15 @@ const TITULO_RELATORIO = {
   'Enfermeiro(a)': 'Relatório de Enfermagem',
 };
 
-export function AtestadoPage({ pacientes, setPacientes }) {
+// Um formulário por paciente: trocar de paciente (mesma rota, outro id)
+// recria o componente — medicamentos, texto, "já salvo" e ids não passam
+// de um paciente para o outro (ver ProntuarioPage).
+export function AtestadoPage(props) {
+  const { id } = useParams();
+  return <AtestadoConteudo key={id} {...props} />;
+}
+
+function AtestadoConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const { clinica } = useClinica();
@@ -218,7 +226,12 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   );
 }
 
-export function ReceituarioPage({ pacientes, setPacientes }) {
+export function ReceituarioPage(props) {
+  const { id } = useParams();
+  return <ReceituarioConteudo key={id} {...props} />;
+}
+
+function ReceituarioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
@@ -572,7 +585,12 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   );
 }
 
-export function RelatorioPage({ pacientes, setPacientes }) {
+export function RelatorioPage(props) {
+  const { id } = useParams();
+  return <RelatorioConteudo key={id} {...props} />;
+}
+
+function RelatorioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const tituloRelatorio = TITULO_RELATORIO[funcaoClinicaEfetiva] || TITULO_RELATORIO['Médico'];
@@ -856,10 +874,15 @@ export function ImprimirAtendimentoPage() {
     setErro('');
     setPaciente(null);
     setRegistro(null);
-    Promise.all([
-      pacientesService.buscarPorId(pacienteId),
-      registrosService.buscarPorId(registroId),
-    ])
+    // O registro manda: só é aceito se for do paciente da URL, e o paciente
+    // exibido é o do próprio registro. Uma URL com o paciente B e um
+    // registro de A não mostra nada.
+    (async () => {
+      const r = await registrosService.buscarDoPaciente(registroId, pacienteId);
+      if (!r) return [null, null];
+      const p = await pacientesService.buscarPorId(r.pacienteId);
+      return String(p?.id) === String(r.pacienteId) ? [p, r] : [null, null];
+    })()
       .then(([p, r]) => { if (!cancelado) { setPaciente(p); setRegistro(r); } })
       .catch(() => { if (!cancelado) setErro('Não foi possível carregar o atendimento para impressão. Recarregue a página para tentar novamente.'); })
       .finally(() => { if (!cancelado) setCarregando(false); });
@@ -868,7 +891,9 @@ export function ImprimirAtendimentoPage() {
 
   if (carregando) return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando...</div>;
   if (erro) return <div role="alert" style={{ padding: '40px' }}>{erro}</div>;
-  if (!paciente || !registro) return <div style={{ padding: '40px' }}>Registro não encontrado.</div>;
+  if (!paciente || !registro || String(registro.pacienteId) !== String(paciente.id)) {
+    return <div role="alert" style={{ padding: '40px' }}>Registro não encontrado para este paciente.</div>;
+  }
 
   // Antecedentes médicos (comorbidades, alergias etc.) fazem sentido junto
   // de um registro de atendimento — não fazem sentido "vazando" para
@@ -922,6 +947,7 @@ export function ImprimirAtendimentoPage() {
   const imprimir = async () => {
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
+    if (String(registro.pacienteId) !== String(paciente.id)) return;
     const janela = iniciarJanelaImpressao();
     const antecedentes = ehAtendimento ? [
       { text: 'ANTECEDENTES MÉDICOS', bold: true, fontSize: 9.5, color: '#333', margin: [0, 0, 0, 4] },
@@ -1086,7 +1112,12 @@ const TIPOS_EXAME = [
   'Outro',
 ];
 
-export function LaudoPage({ pacientes, setPacientes }) {
+export function LaudoPage(props) {
+  const { id } = useParams();
+  return <LaudoConteudo key={id} {...props} />;
+}
+
+function LaudoConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
@@ -1268,7 +1299,12 @@ export function LaudoPage({ pacientes, setPacientes }) {
   );
 }
 
-export function PedidoExamesPage({ pacientes, setPacientes }) {
+export function PedidoExamesPage(props) {
+  const { id } = useParams();
+  return <PedidoExamesConteudo key={id} {...props} />;
+}
+
+function PedidoExamesConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
@@ -1773,7 +1809,12 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   );
 }
 
-export function DocumentoPage({ titulo, pacientes }) {
+export function DocumentoPage(props) {
+  const { id } = useParams();
+  return <DocumentoConteudo key={id} {...props} />;
+}
+
+function DocumentoConteudo({ titulo, pacientes }) {
   const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
 
   if (!paciente) {

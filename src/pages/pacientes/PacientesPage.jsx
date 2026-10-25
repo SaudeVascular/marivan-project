@@ -8,6 +8,8 @@ import { useBuscaPacientes, mesclarPacientes } from '../../hooks/usePacientesCac
 import { conveniosService } from '../../services/convenios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { dataBrasileiraParaISO, formatarData, formatarDataDigitada, formatarCPF } from '../../utils/mascaras';
+import { cnsValido, cpfValido } from '../../utils/validacaoCadastro';
+import { PacientesDesativados } from './PacientesDesativados';
 
 export function PacientesPage({ setPacientes }) {
   const navigate = useNavigate();
@@ -117,8 +119,15 @@ export function PacientesPage({ setPacientes }) {
       return;
     }
 
-    if (novoPaciente.cns && novoPaciente.cns.length !== 15) {
-      toast.warning('O Cartão Nacional de Saúde tem 15 dígitos.');
+    // Como no banco (migração 45): CPF e CNS só são conferidos quando
+    // mudam — um cadastro antigo com CPF fora do padrão continua editável.
+    const mudou = campo => !pacienteEditando || (novoPaciente[campo] || '') !== (pacienteEditando[campo] || '');
+    if (novoPaciente.cpf && mudou('cpf') && !cpfValido(novoPaciente.cpf)) {
+      toast.warning('CPF inválido: confira os 11 dígitos. O CPF é opcional — deixe em branco se o paciente não tiver.');
+      return;
+    }
+    if (novoPaciente.cns && mudou('cns') && !cnsValido(novoPaciente.cns)) {
+      toast.warning('Cartão Nacional de Saúde inválido: confira os 15 dígitos.');
       return;
     }
     // CPF repetido: o banco recusa (UNIQUE) e o erro 23505 é tratado
@@ -163,7 +172,7 @@ export function PacientesPage({ setPacientes }) {
 
   const desativarPaciente = async (paciente) => {
     const confirmado = window.confirm(
-      `Desativar o cadastro de "${paciente.nome}"?\n\nO paciente sai da lista e das buscas, mas o histórico dele no prontuário é mantido. Isso não é uma exclusão definitiva, mas hoje só é revertida diretamente no banco de dados.`
+      `Desativar o cadastro de "${paciente.nome}"?\n\nO paciente sai da lista e das buscas, mas o histórico dele no prontuário é mantido. Isso não é uma exclusão definitiva: dá para reativar em "Pacientes desativados", no fim desta página.`
     );
     if (!confirmado) return;
     setProcessandoId(paciente.id);
@@ -532,6 +541,8 @@ export function PacientesPage({ setPacientes }) {
           )}
         </div>
       </div>
+
+      <PacientesDesativados aoReativar={() => resultado.recarregar()} />
     </div>
   );
 }
