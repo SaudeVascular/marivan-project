@@ -30,8 +30,10 @@ INSERT INTO public.cobrancas (paciente_id, medico_id, valor, percentual_repasse,
 SELECT 'e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 10, 50, DATE '2030-01-15'
 FROM generate_series(1, 1500);
 INSERT INTO public.cobrancas (paciente_id, medico_id, valor, percentual_repasse, status, data_cobranca) VALUES
- ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 999, 50, 'Cancelado', DATE '2030-01-16'),
+ ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 999, 50, 'Pendente', DATE '2030-01-16'),
  ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000002', 7, 0, 'Pendente', DATE '2030-01-17');
+-- Nasce Pendente (migração 47) e é cancelada depois.
+UPDATE public.cobrancas SET status = 'Cancelado' WHERE valor = 999 AND data_cobranca = DATE '2030-01-16';
 
 SET LOCAL ROLE authenticated;
 DO $$

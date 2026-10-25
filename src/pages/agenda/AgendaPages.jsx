@@ -53,10 +53,12 @@ export function NovoAgendamentoForm({ pacientes, profissionais, dataPadrao, user
     if (!data || !hora) { setErro('Preencha data e horário.'); return; }
     setSalvando(true);
     try {
-      const novo = await comTimeout(agendamentosService.criar(
+      // Sem comTimeout por fora: o serviço repete com a mesma operação e
+      // nunca duplica (utils/operacaoCriacao).
+      const novo = await agendamentosService.criar(
         { pacienteId, medicoId: medicoId || null, data, hora, duracaoMin: Number(duracaoMin), observacoes },
         userId
-      ));
+      );
       onCriado(novo);
     } catch (err) {
       setErro(err.message);
@@ -191,10 +193,15 @@ export function AgendaPage({ pacientes }) {
   const mudarStatus = async (ag, novoStatus) => {
     setProcessandoId(ag.id);
     try {
-      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus, ag.versao));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
     } finally {
       setProcessandoId(null);
     }
@@ -234,8 +241,9 @@ export function AgendaPage({ pacientes }) {
           onCancelar={() => setMostrarForm(false)}
           onCriado={(novo) => {
             setMostrarForm(false);
+            if (novo.recuperado) toast.warning('Um agendamento salvo antes, sem confirmação na hora, já estava gravado e foi recuperado. Confira-o; se precisar de outro, crie de novo.');
             if (novo.data === dataSelecionada) {
-              setAgendamentos(prev => [...prev, novo].sort((a, b) => a.hora.localeCompare(b.hora)));
+              setAgendamentos(prev => [...prev.filter(a => a.id !== novo.id), novo].sort((a, b) => a.hora.localeCompare(b.hora)));
             }
           }}
         />

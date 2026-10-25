@@ -1,7 +1,7 @@
-import { dataLocalISO } from '../utils/formatters';
 import { supabase } from './supabase';
+import { criarComOperacao } from '../utils/operacaoCriacao';
 
-const CAMPOS = 'id, paciente_id, agendamento_id, procedimento_id, medico_id, convenio_id, descricao, valor, percentual_repasse, valor_repasse, forma_pagamento, status, data_cobranca, data_pagamento, observacoes, created_by, created_at';
+const CAMPOS = 'id, paciente_id, agendamento_id, procedimento_id, medico_id, convenio_id, descricao, valor, percentual_repasse, valor_repasse, forma_pagamento, status, data_cobranca, data_pagamento, observacoes, created_by, created_at, versao';
 
 const fromDb = (c) => ({
   id: c.id,
@@ -21,6 +21,7 @@ const fromDb = (c) => ({
   observacoes: c.observacoes || '',
   createdBy: c.created_by,
   createdAt: c.created_at,
+  versao: c.versao,
 });
 
 export const cobrancasService = {
@@ -61,31 +62,47 @@ export const cobrancasService = {
     return fromDb(data);
   },
 
+  // Idempotente (migração 47): repetir não cria outra cobrança.
   async criar({ pacienteId, procedimentoId, medicoId, convenioId, descricao, valor, percentualRepasse, formaPagamento }, userId) {
-    const { data, error } = await supabase
-      .from('cobrancas')
-      .insert([{
-        paciente_id: pacienteId,
-        procedimento_id: procedimentoId || null,
-        medico_id: medicoId || null,
-        convenio_id: convenioId || null,
-        descricao: descricao || null,
-        valor,
-        percentual_repasse: percentualRepasse || 0,
-        forma_pagamento: formaPagamento || null,
-        created_by: userId,
-      }])
-      .select(CAMPOS)
-      .single();
-    if (error) throw error;
-    return fromDb(data);
+    const dados = {
+      paciente_id: pacienteId,
+      procedimento_id: procedimentoId || null,
+      medico_id: medicoId || null,
+      convenio_id: convenioId || null,
+      descricao: descricao || null,
+      valor,
+      percentual_repasse: percentualRepasse || 0,
+      forma_pagamento: formaPagamento || null,
+      created_by: userId,
+    };
+    const { resultado, recuperado } = await criarComOperacao({
+      userId,
+      escopo: 'cobranca:nova',
+      intencao: dados,
+      inserir: async (operacaoId) => {
+        const { data, error } = await supabase.from('cobrancas').insert([{ ...dados, operacao_id: operacaoId }]).select(CAMPOS).single();
+        if (error) throw error;
+        return data;
+      },
+      recuperar: async (operacaoId) => {
+        const { data, error } = await supabase.from('cobrancas').select(CAMPOS).eq('operacao_id', operacaoId).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+    });
+    return { ...fromDb(resultado), recuperado };
   },
 
-  async atualizarStatus(id, status) {
-    const campos = { status };
-    if (status === 'Pago') campos.data_pagamento = dataLocalISO();
-    const { data, error } = await supabase.from('cobrancas').update(campos).eq('id', id).select(CAMPOS).single();
+  // Só com a versão da tela (migração 47). A data de pagamento é do banco:
+  // entra ao marcar Pago e sai ao desfazer.
+  async atualizarStatus(id, status, versaoEsperada) {
+    if (!Number.isInteger(versaoEsperada)) throw new Error('Recarregue a lista antes de alterar esta cobrança.');
+    const { data, error } = await supabase.from('cobrancas').update({ status })
+      .eq('id', id).eq('versao', versaoEsperada).select(CAMPOS).maybeSingle();
     if (error) throw error;
+    if (!data) {
+      throw Object.assign(new Error('Esta cobrança foi alterada por outra pessoa. A lista foi recarregada; confira e tente de novo.'), { code: 'P4090' });
+    }
     return fromDb(data);
   },
 };

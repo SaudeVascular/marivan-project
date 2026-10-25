@@ -51,6 +51,11 @@ BEGIN
      OR position('paciente_id = p_paciente_id' IN pg_get_functiondef('public.registrar_acesso(uuid,text,text,uuid)'::regprocedure)) = 0 THEN
     RAISE EXCEPTION 'P0 inseguro: acesso aceita registro de outro paciente (aplique a migração 43)';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
+     OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'pacientes_operacao_id_key') THEN
+    RAISE EXCEPTION 'P0 inseguro: agenda/cobranças sem versão e transições, ou criação sem idempotência (aplique a migração 47)';
+  END IF;
 
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';

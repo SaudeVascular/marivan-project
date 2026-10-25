@@ -330,7 +330,9 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
     if (!valor || Number(valor) <= 0) { setErro('Informe um valor válido.'); return; }
     setSalvando(true);
     try {
-      const novo = await comTimeout(cobrancasService.criar({
+      // Sem comTimeout por fora: o serviço repete com a mesma operação e
+      // nunca duplica (utils/operacaoCriacao).
+      const novo = await cobrancasService.criar({
         pacienteId,
         procedimentoId: procedimentoId || null,
         medicoId: medicoId || null,
@@ -339,7 +341,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
         valor: Number(valor),
         percentualRepasse: procedimentoSelecionado?.percentualRepasse || 0,
         formaPagamento: formaPagamento || null,
-      }, userId));
+      }, userId);
       onCriado(novo);
     } catch (err) {
       setErro(err.message);
@@ -531,11 +533,16 @@ export function FinanceiroPage({ pacientes }) {
   const mudarStatus = async (cobranca, novoStatus) => {
     setProcessandoId(cobranca.id);
     try {
-      const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus));
+      const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus, cobranca.versao));
       setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
       carregarResumo();
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
     } finally {
       setProcessandoId(null);
     }
@@ -595,8 +602,9 @@ export function FinanceiroPage({ pacientes }) {
           onCancelar={() => setMostrarForm(false)}
           onCriado={(nova) => {
             setMostrarForm(false);
+            if (nova.recuperado) toast.warning('Uma cobrança salva antes, sem confirmação na hora, já estava gravada e foi recuperada. Confira-a; se precisar de outra, crie de novo.');
             // Fora do período escolhido, a nova cobrança não entra na lista.
-            if ((!de || nova.dataCobranca >= de) && (!ate || nova.dataCobranca <= ate)) {
+            if ((!de || nova.dataCobranca >= de) && (!ate || nova.dataCobranca <= ate) && !cobrancas.some(c => c.id === nova.id)) {
               setCobrancas(prev => [nova, ...prev]);
               setTotalCobrancas(t => t + 1);
             }

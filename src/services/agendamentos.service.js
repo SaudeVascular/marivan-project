@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
+import { criarComOperacao } from '../utils/operacaoCriacao';
 
-const CAMPOS = 'id, paciente_id, medico_id, data, hora, duracao_min, status, observacoes, created_by, created_at';
+const CAMPOS = 'id, paciente_id, medico_id, data, hora, duracao_min, status, observacoes, created_by, created_at, versao';
 
 // DB (snake_case) → React (camelCase)
 const fromDb = (a) => ({
@@ -14,7 +15,26 @@ const fromDb = (a) => ({
   observacoes: a.observacoes || '',
   createdBy: a.created_by,
   createdAt: a.created_at,
+  versao: a.versao,
 });
+
+// Alteração só se a versão for a da tela (migração 47). Nenhuma linha =
+// alguém mudou antes (ou o agendamento sumiu): avisa em vez de sobrescrever.
+async function alterar(id, versaoEsperada, campos) {
+  if (!Number.isInteger(versaoEsperada)) throw new Error('Recarregue a agenda antes de alterar este agendamento.');
+  const { data: row, error } = await supabase
+    .from('agendamentos')
+    .update(campos)
+    .eq('id', id)
+    .eq('versao', versaoEsperada)
+    .select(CAMPOS)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) {
+    throw Object.assign(new Error('Este agendamento foi alterado por outra pessoa. A agenda foi recarregada; confira e tente de novo.'), { code: 'P4090' });
+  }
+  return fromDb(row);
+}
 
 export const agendamentosService = {
   async listarPorData(data) {
@@ -27,50 +47,49 @@ export const agendamentosService = {
     return (rows || []).map(fromDb);
   },
 
+  // Idempotente (migração 47): repetir não cria outro agendamento.
   async criar({ pacienteId, medicoId, data, hora, duracaoMin, observacoes }, userId) {
-    const { data: row, error } = await supabase
-      .from('agendamentos')
-      .insert([{
-        paciente_id: pacienteId,
-        medico_id: medicoId || null,
-        data,
-        hora,
-        duracao_min: duracaoMin || 30,
-        observacoes: observacoes || null,
-        created_by: userId,
-      }])
-      .select(CAMPOS)
-      .single();
-    if (error) throw error;
-    return fromDb(row);
+    const dados = {
+      paciente_id: pacienteId,
+      medico_id: medicoId || null,
+      data,
+      hora,
+      duracao_min: duracaoMin || 30,
+      observacoes: observacoes || null,
+      created_by: userId,
+    };
+    const { resultado, recuperado } = await criarComOperacao({
+      userId,
+      escopo: 'agendamento:novo',
+      intencao: dados,
+      inserir: async (operacaoId) => {
+        const { data: row, error } = await supabase
+          .from('agendamentos').insert([{ ...dados, operacao_id: operacaoId }]).select(CAMPOS).single();
+        if (error) throw error;
+        return row;
+      },
+      recuperar: async (operacaoId) => {
+        const { data: row, error } = await supabase
+          .from('agendamentos').select(CAMPOS).eq('operacao_id', operacaoId).maybeSingle();
+        if (error) throw error;
+        return row;
+      },
+    });
+    return { ...fromDb(resultado), recuperado };
   },
 
-  async atualizarStatus(id, status) {
-    const { data: row, error } = await supabase
-      .from('agendamentos')
-      .update({ status })
-      .eq('id', id)
-      .select(CAMPOS)
-      .single();
-    if (error) throw error;
-    return fromDb(row);
+  async atualizarStatus(id, status, versaoEsperada) {
+    return alterar(id, versaoEsperada, { status });
   },
 
-  async atualizar(id, { pacienteId, medicoId, data, hora, duracaoMin, observacoes }) {
-    const { data: row, error } = await supabase
-      .from('agendamentos')
-      .update({
-        paciente_id: pacienteId,
-        medico_id: medicoId || null,
-        data,
-        hora,
-        duracao_min: duracaoMin,
-        observacoes: observacoes || null,
-      })
-      .eq('id', id)
-      .select(CAMPOS)
-      .single();
-    if (error) throw error;
-    return fromDb(row);
+  async atualizar(id, { pacienteId, medicoId, data, hora, duracaoMin, observacoes }, versaoEsperada) {
+    return alterar(id, versaoEsperada, {
+      paciente_id: pacienteId,
+      medico_id: medicoId || null,
+      data,
+      hora,
+      duracao_min: duracaoMin,
+      observacoes: observacoes || null,
+    });
   },
 };

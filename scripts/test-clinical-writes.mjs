@@ -66,6 +66,8 @@ await executar(await readFile(new URL('../supabase/tests/pacientes_validacao.sql
 console.log('OK: CPF único pelos dígitos e validado; CNS, nascimento e tamanhos no banco.');
 await executar(await readFile(new URL('../supabase/tests/emissao_preservada.sql', import.meta.url), 'utf8'));
 console.log('OK: documento emitido preservado (paciente, clínica, profissional, datas) com hash.');
+await executar(await readFile(new URL('../supabase/tests/gravacao_segura.sql', import.meta.url), 'utf8'));
+console.log('OK: criação idempotente, versão e transições de status em agenda e cobranças.');
 await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
 console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
 try {

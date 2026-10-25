@@ -49,10 +49,15 @@ export function RecepcaoPage({ pacientes }) {
   const mudarStatus = async (ag, novoStatus) => {
     setProcessandoId(ag.id);
     try {
-      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus));
+      const atualizado = await comTimeout(agendamentosService.atualizarStatus(ag.id, novoStatus, ag.versao));
       setAgendamentos(prev => prev.map(a => a.id === ag.id ? atualizado : a));
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
     } finally {
       setProcessandoId(null);
     }
@@ -91,8 +96,9 @@ export function RecepcaoPage({ pacientes }) {
           onCancelar={() => setMostrarForm(false)}
           onCriado={(novo) => {
             setMostrarForm(false);
+            if (novo.recuperado) toast.warning('Um agendamento salvo antes, sem confirmação na hora, já estava gravado e foi recuperado. Confira-o; se precisar de outro, crie de novo.');
             if (novo.data === dataSelecionada) {
-              setAgendamentos(prev => [...prev, novo].sort((a, b) => a.hora.localeCompare(b.hora)));
+              setAgendamentos(prev => [...prev.filter(a => a.id !== novo.id), novo].sort((a, b) => a.hora.localeCompare(b.hora)));
             }
           }}
         />

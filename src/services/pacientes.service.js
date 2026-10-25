@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { authService } from './authService';
 import { capitalizarTexto } from '../utils/formatters';
+import { criarComOperacao } from '../utils/operacaoCriacao';
 
 // Leitura vem de `pacientes_view` (supabase_pacientes_mascara_clinica.sql),
 // não da tabela `pacientes` direto: a view mascara alergias/antecedentes
@@ -155,15 +156,38 @@ export const pacientesService = {
   // Escreve na tabela (a view mascarada não é atualizável por causa do
   // CASE) e relê pela view, pra devolver ao chamador o mesmo formato
   // mascarado que listar()/buscarPorId() usam.
+  //
+  // Idempotente (migração 47): repetir depois de uma resposta perdida não
+  // cria outro paciente. Se a gravação foi confirmada mas a releitura
+  // falhar, devolve o cadastro mesmo assim (`releituraPendente`) — o
+  // paciente existe, a tela não pode dizer que deu erro.
   async criar(pacienteData) {
     const user = await authService.getCurrentUser();
-    const { data, error } = await supabase
-      .from('pacientes')
-      .insert([{ ...cadastroToDb(pacienteData), created_by: user?.id }])
-      .select('id')
-      .single();
-    if (error) throw error;
-    return pacientesService.buscarPorId(data.id);
+    const dados = cadastroToDb(pacienteData);
+    const { resultado: id, recuperado } = await criarComOperacao({
+      userId: user?.id,
+      escopo: 'paciente:novo',
+      intencao: dados,
+      inserir: async (operacaoId) => {
+        const { data, error } = await supabase
+          .from('pacientes')
+          .insert([{ ...dados, created_by: user?.id, operacao_id: operacaoId }])
+          .select('id')
+          .single();
+        if (error) throw error;
+        return data.id;
+      },
+      recuperar: async (operacaoId) => {
+        const { data, error } = await supabase.rpc('localizar_paciente_por_operacao', { p_operacao_id: operacaoId });
+        if (error) throw error;
+        return data || null;
+      },
+    });
+    try {
+      return { ...(await pacientesService.buscarPorId(id)), recuperado };
+    } catch {
+      return { ...pacienteData, id, versaoCadastro: null, releituraPendente: true, recuperado };
+    }
   },
 
   // Edição só pela função atualizar_paciente (migrações 41/42), sempre com

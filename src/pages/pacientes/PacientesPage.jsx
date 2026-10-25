@@ -141,8 +141,15 @@ export function PacientesPage({ setPacientes }) {
         const atualizado = await comTimeout(pacientesService.atualizarCadastro(pacienteEditando.id, dadosParaSalvar, pacienteEditando.versaoCadastro));
         setPacientes(prev => mesclarPacientes(prev, [atualizado]));
       } else {
-        const criado = await comTimeout(pacientesService.criar(dadosParaSalvar));
-        setPacientes(prev => mesclarPacientes(prev, [criado]));
+        // Sem comTimeout por fora: o serviço repete com a mesma operação e
+        // nunca duplica o cadastro (utils/operacaoCriacao).
+        const criado = await pacientesService.criar(dadosParaSalvar);
+        if (criado.recuperado) {
+          toast.warning('Um cadastro salvo antes, sem confirmação na hora, já estava gravado e foi recuperado. Confira os dados do paciente.');
+        } else if (criado.releituraPendente) {
+          toast.warning('Paciente cadastrado. Não foi possível recarregar os dados agora; a lista será atualizada.');
+        }
+        if (!criado.releituraPendente) setPacientes(prev => mesclarPacientes(prev, [criado]));
       }
       limparFormulario();
       resultado.recarregar();
