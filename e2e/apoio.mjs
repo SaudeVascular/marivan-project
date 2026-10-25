@@ -9,7 +9,7 @@ export async function entrar(page, conta = 'medico') {
   await page.locator('input[type=email]').last().fill(CONTAS[conta].email);
   await page.locator('input[type=password]').fill(SENHA);
   await page.locator('input[type=password]').press('Enter');
-  await expect(page).toHaveURL(/\/pacientes$/);
+  await expect(page).toHaveURL(/\/(pacientes|financeiro)$/);
 }
 
 export const tokenNoNavegador = page =>

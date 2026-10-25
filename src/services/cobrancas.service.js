@@ -93,6 +93,19 @@ export const cobrancasService = {
     return { ...fromDb(resultado), recuperado };
   },
 
+  // Financeiro completa uma cobrança pendente (ex.: gerada pela agenda sem
+  // procedimento) — só na versão da tela.
+  async ajustar(id, { valor, descricao }, versaoEsperada) {
+    if (!Number.isInteger(versaoEsperada)) throw new Error('Recarregue a lista antes de alterar esta cobrança.');
+    const { data, error } = await supabase.from('cobrancas').update({ valor, descricao: descricao || null })
+      .eq('id', id).eq('versao', versaoEsperada).select(CAMPOS).maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      throw Object.assign(new Error('Esta cobrança foi alterada por outra pessoa. A lista foi recarregada; confira e tente de novo.'), { code: 'P4090' });
+    }
+    return fromDb(data);
+  },
+
   // Só com a versão da tela (migração 47). A data de pagamento é do banco:
   // entra ao marcar Pago e sai ao desfazer.
   async atualizarStatus(id, status, versaoEsperada) {

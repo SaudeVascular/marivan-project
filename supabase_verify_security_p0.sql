@@ -61,6 +61,11 @@ BEGIN
      OR has_schema_privilege('anon', 'privado', 'USAGE') THEN
     RAISE EXCEPTION 'P0 inseguro: leitura/exportação ausente ou aberta a anon (aplique a migração 48)';
   END IF;
+  IF to_regprocedure('public.catalogo_procedimentos(uuid)') IS NULL
+     OR has_function_privilege('anon', 'public.catalogo_procedimentos(uuid)', 'EXECUTE')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_gerar_cobranca_do_agendamento') THEN
+    RAISE EXCEPTION 'P0 inseguro: agenda sem geração de cobrança, ou catálogo aberto a anon (aplique a migração 49)';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'pacientes_operacao_id_key') THEN

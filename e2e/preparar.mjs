@@ -5,6 +5,7 @@ export const SENHA = 'TesteE2E-Fictício-2026';
 export const CONTAS = {
   medico: { email: 'e2e-medico@example.invalid', funcao: 'Médico', nome: 'Médica E2E', crm: '12345', uf: 'BA', sexo: 'Feminino' },
   recepcao: { email: 'e2e-recepcao@example.invalid', funcao: 'Recepcionista', nome: 'Recepção E2E' },
+  financeiro: { email: 'e2e-financeiro@example.invalid', funcao: 'Financeiro', nome: 'Financeiro E2E' },
 };
 
 function exigirLocal() {
@@ -47,9 +48,20 @@ export default async function preparar() {
   }
   // Pacientes fictícios recriados a cada execução (prefixo E2E).
   sql(`SET session_replication_role = replica;
+    DELETE FROM public.cobrancas WHERE paciente_id IN (SELECT id FROM public.pacientes WHERE nome ILIKE 'E2E %');
+    DELETE FROM public.agendamentos WHERE paciente_id IN (SELECT id FROM public.pacientes WHERE nome ILIKE 'E2E %');
     DELETE FROM public.acessos WHERE paciente_id IN (SELECT id FROM public.pacientes WHERE nome ILIKE 'E2E %');
     DELETE FROM public.medicamentos_receita WHERE consulta_id IN (SELECT c.id FROM public.consultas c JOIN public.pacientes p ON p.id = c.paciente_id WHERE p.nome LIKE 'E2E %');
     DELETE FROM public.consultas WHERE paciente_id IN (SELECT id FROM public.pacientes WHERE nome ILIKE 'E2E %');
     DELETE FROM public.pacientes WHERE nome ILIKE 'E2E %';
-    INSERT INTO public.pacientes (nome, telefone, nascimento) VALUES ('E2E Paciente A', '(71) 90000-0001', '1980-01-01'), ('E2E Paciente B', '(71) 90000-0002', '1990-02-02');`);
+    DELETE FROM public.convenio_valores WHERE procedimento_id IN (SELECT id FROM public.procedimentos WHERE nome = 'E2E Consulta');
+    DELETE FROM public.procedimentos WHERE nome = 'E2E Consulta';
+    DELETE FROM public.convenios WHERE nome = 'E2E Convênio';
+    INSERT INTO public.convenios (nome) VALUES ('E2E Convênio');
+    INSERT INTO public.procedimentos (nome, valor_particular, percentual_repasse) VALUES ('E2E Consulta', 300, 60);
+    INSERT INTO public.convenio_valores (convenio_id, procedimento_id, valor)
+      SELECT c.id, p.id, 180 FROM public.convenios c, public.procedimentos p WHERE c.nome = 'E2E Convênio' AND p.nome = 'E2E Consulta';
+    INSERT INTO public.pacientes (nome, telefone, nascimento, convenio_id) VALUES
+      ('E2E Paciente A', '(71) 90000-0001', '1980-01-01', (SELECT id FROM public.convenios WHERE nome = 'E2E Convênio')),
+      ('E2E Paciente B', '(71) 90000-0002', '1990-02-02', NULL);`);
 }

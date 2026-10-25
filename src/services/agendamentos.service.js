@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { criarComOperacao } from '../utils/operacaoCriacao';
 
-const CAMPOS = 'id, paciente_id, medico_id, data, hora, duracao_min, status, observacoes, created_by, created_at, versao';
+const CAMPOS = 'id, paciente_id, medico_id, data, hora, duracao_min, status, observacoes, created_by, created_at, versao, procedimento_id, convenio_id';
 
 // DB (snake_case) → React (camelCase)
 const fromDb = (a) => ({
@@ -16,6 +16,8 @@ const fromDb = (a) => ({
   createdBy: a.created_by,
   createdAt: a.created_at,
   versao: a.versao,
+  procedimentoId: a.procedimento_id || null,
+  convenioId: a.convenio_id || null,
 });
 
 // Alteração só se a versão for a da tela (migração 47). Nenhuma linha =
@@ -48,9 +50,11 @@ export const agendamentosService = {
   },
 
   // Idempotente (migração 47): repetir não cria outro agendamento.
-  async criar({ pacienteId, medicoId, data, hora, duracaoMin, observacoes }, userId) {
+  async criar({ pacienteId, medicoId, data, hora, duracaoMin, observacoes, procedimentoId, convenioId }, userId) {
     const dados = {
       paciente_id: pacienteId,
+      procedimento_id: procedimentoId || null,
+      convenio_id: convenioId || null,
       medico_id: medicoId || null,
       data,
       hora,
@@ -76,6 +80,11 @@ export const agendamentosService = {
       },
     });
     return { ...fromDb(resultado), recuperado };
+  },
+
+  // Recepção confirma/ajusta na chegada (migração 49).
+  async ajustarProcedimento(id, { procedimentoId, convenioId }, versaoEsperada) {
+    return alterar(id, versaoEsperada, { procedimento_id: procedimentoId || null, convenio_id: convenioId || null });
   },
 
   async atualizarStatus(id, status, versaoEsperada) {

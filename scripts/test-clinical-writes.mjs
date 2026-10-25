@@ -71,6 +71,8 @@ await executar(await readFile(new URL('../supabase/tests/gravacao_segura.sql', i
 console.log('OK: criação idempotente, versão e transições de status em agenda e cobranças.');
 await executar(await readFile(new URL('../supabase/tests/leitura_auditada.sql', import.meta.url), 'utf8'));
 console.log('OK: leitura clínica só com registro de acesso no banco; exportação do prontuário e da clínica.');
+await executar(await readFile(new URL('../supabase/tests/agenda_cobranca.sql', import.meta.url), 'utf8'));
+console.log('OK: procedimento no agendamento; assinar conclui; Realizado gera a cobrança pendente.');
 await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
 console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
 try {

@@ -14,10 +14,9 @@ import { comTimeout } from '../../utils/comTimeout';
 import { registrarImpressao } from '../../services/acessos.service';
 import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
 import { FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { formatarMoeda } from '../../utils/formatters';
 
-export function formatarMoeda(valor) {
-  return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
+export { formatarMoeda };
 
 export function CatalogoFinanceiroPage() {
   const toast = useToast();
@@ -530,6 +529,23 @@ export function FinanceiroPage({ pacientes }) {
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
   const nomeMedico = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
+  const [ajustandoCobranca, setAjustandoCobranca] = React.useState(null);
+  const salvarAjusteCobranca = async (cobranca) => {
+    const valor = Number(ajustandoCobranca.valor);
+    if (!(valor > 0)) { toast.warning('Informe um valor maior que zero.'); return; }
+    setProcessandoId(cobranca.id);
+    try {
+      const atualizada = await comTimeout(cobrancasService.ajustar(cobranca.id, { valor, descricao: ajustandoCobranca.descricao }, cobranca.versao));
+      setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
+      setAjustandoCobranca(null);
+      carregarResumo();
+    } catch (err) {
+      if (err.code === 'P4090') { toast.warning(err.message); carregar(); } else { toast.error('Erro ao ajustar a cobrança: ' + err.message); }
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
   const mudarStatus = async (cobranca, novoStatus) => {
     setProcessandoId(cobranca.id);
     try {
@@ -625,10 +641,20 @@ export function FinanceiroPage({ pacientes }) {
             <div key={c.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <strong>{nomePaciente(c.pacienteId)}</strong> — {formatarMoeda(c.valor)}
+                {c.agendamentoId && <span style={{ marginLeft: '8px', fontSize: '14px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#075985' }}>da agenda</span>}
+                {c.status === 'Pendente' && !(Number(c.valor) > 0) && <span style={{ marginLeft: '8px', fontSize: '14px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#92400e' }}>valor a definir</span>}
                 <div style={{ fontSize: '16px', color: '#666' }}>
                   {new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')} · {c.descricao || 'Sem descrição'} · {nomeMedico(c.medicoId)}
                   {podeGerenciar && c.valorRepasse > 0 && <> · repasse {formatarMoeda(c.valorRepasse)}</>}
                 </div>
+                {ajustandoCobranca?.id === c.id && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <input aria-label="Descrição" value={ajustandoCobranca.descricao} onChange={e => setAjustandoCobranca(a => ({ ...a, descricao: e.target.value }))} style={{ padding: '6px', minWidth: '200px' }} />
+                    <input aria-label="Valor" type="number" min="0" step="0.01" value={ajustandoCobranca.valor} onChange={e => setAjustandoCobranca(a => ({ ...a, valor: e.target.value }))} style={{ padding: '6px', width: '120px' }} />
+                    <button onClick={() => salvarAjusteCobranca(c)} disabled={processandoId === c.id}>Salvar</button>
+                    <button onClick={() => setAjustandoCobranca(null)}>Cancelar</button>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
@@ -636,7 +662,10 @@ export function FinanceiroPage({ pacientes }) {
                 </span>
                 {podeGerenciar && c.status === 'Pendente' && (
                   <>
-                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
+                    {ajustandoCobranca?.id !== c.id && (
+                      <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '' })} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>Ajustar valor</button>
+                    )}
+                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id || !(Number(c.valor) > 0)} title={Number(c.valor) > 0 ? '' : 'Defina o valor antes de marcar como pago'} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
                     <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>
                   </>
                 )}

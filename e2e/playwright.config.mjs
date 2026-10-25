@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4173',
     viewport: { width: 1440, height: 900 },
+    // Mesmo fuso da clínica: o banco conclui o atendimento pela data de São Paulo.
+    timezoneId: 'America/Sao_Paulo',
     // No Mac de desenvolvimento usa o Chrome instalado; no CI, o Chromium do Playwright.
     channel: process.env.E2E_CANAL || undefined,
     trace: 'retain-on-failure',
