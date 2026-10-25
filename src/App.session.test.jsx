@@ -66,7 +66,7 @@ test('resposta tardia da sessão anterior não aparece para o novo usuário', as
   expect(await screen.findByText('Dados B', { selector: 'p' })).toBeInTheDocument();
   await act(async () => { resolverA({ itens: [{ id: 'p1', nome: 'Dados A' }], total: 1 }); });
   expect(screen.queryByText('Dados A', { selector: 'p' })).not.toBeInTheDocument();
-  expect(screen.getByTestId('cache').textContent).toBe('Dados B');
+  expect(screen.getByTestId('cache')).toHaveTextContent(/^Dados B$/);
 });
 
 test('cache já carregado não sobrevive à troca de identidade', async () => {
@@ -75,11 +75,11 @@ test('cache já carregado não sobrevive à troca de identidade', async () => {
     .mockImplementationOnce(() => new Promise(() => {}));
   const { rerender } = render(tela());
   await screen.findByText('Dados A', { selector: 'p' });
-  expect(screen.getByTestId('cache').textContent).toBe('Dados A');
+  expect(screen.getByTestId('cache')).toHaveTextContent(/^Dados A$/);
   useAuth.mockReturnValue({ user: { id: 'usuario-B' }, funcao: 'Médico' });
   rerender(tela());
   expect(screen.queryByText('Dados A', { selector: 'p' })).not.toBeInTheDocument();
-  expect(screen.getByTestId('cache').textContent).toBe('');
+  expect(screen.getByTestId('cache')).toBeEmptyDOMElement();
 });
 
 test('ativar conta: encerrar a sessão do convite não recria a tela (a confirmação não se perde)', () => {

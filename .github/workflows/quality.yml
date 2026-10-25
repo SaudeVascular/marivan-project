@@ -38,6 +38,9 @@ jobs:
       - name: Conferir o histórico inicial de migrações
         run: npm run db:migrations:check
 
+      - name: Verificar o código (ESLint)
+        run: npm run lint -- --max-warnings=0
+
       - name: Executar testes
         run: npm test -- --runInBand
         env:

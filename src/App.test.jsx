@@ -3,7 +3,7 @@ import App from './App';
 // Importar daqui (não de services/__mocks__/supabase direto) importa —
 // jest.mock troca este caminho pelo mock para todo mundo, mas um import
 // direto do arquivo em __mocks__ cria uma SEGUNDA cópia do objeto,
-// diferente da que useAuth.js recebe (cada import "cru" reavalia o
+// diferente da que useAuth.jsx recebe (cada import "cru" reavalia o
 // módulo). Só assim resetSupabaseMockPadrao mexe no mesmo objeto que o
 // app usa de verdade.
 import { resetSupabaseMockPadrao } from './services/supabase';

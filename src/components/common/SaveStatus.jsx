@@ -1,5 +1,4 @@
-import React from 'react';
-import { Save, Check, AlertCircle, Loader } from 'lucide-react';
+import { Check, AlertCircle, Loader } from 'lucide-react';
 
 const SaveStatus = ({ status, lastSaved, isMobile }) => {
   // Não mostrar nada se estiver idle
