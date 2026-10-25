@@ -8,7 +8,7 @@ import { iniciarJanelaImpressao, concluirJanelaImpressao } from '../../utils/jan
 
 jest.mock('../../services/supabase');
 jest.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'medico-1' } }) }));
-jest.mock('../../hooks/useMedicoPerfil', () => ({ useMedicoPerfil: () => ({ medico: 'Dra. Teste', crm: 'CRM 123/BA', especialidade: '' }) }));
+jest.mock('../../hooks/useMedicoPerfil', () => ({ useMedicoPerfil: () => ({ medico: 'Dra. Teste', crm: 'CRM 123/BA', especialidade: '', estado: 'pronto', pronto: true, recarregar: () => {} }) }));
 jest.mock('../../hooks/useClinica', () => ({ useClinica: () => ({ clinica: {} }) }));
 jest.mock('../../components/common/Toast', () => {
   const toast = { error: jest.fn(), warning: jest.fn() };

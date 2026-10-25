@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { FinanceiroPage } from './FinanceiroPages';
 import { cobrancasService } from '../../services/cobrancas.service';
@@ -42,14 +42,20 @@ test('carregar mais busca a próxima página e acrescenta à lista', async () =>
   expect(screen.queryByRole('button', { name: 'Carregar mais' })).not.toBeInTheDocument();
 });
 
-test('falha nos totais mostra "…", nunca um zero falso', async () => {
+test('falha nos totais: avisa, mostra "Indisponível" (nunca um zero falso) e recarrega só os totais', async () => {
   cobrancasService.listar.mockResolvedValue({ itens: [cobranca(1)], total: 1 });
-  cobrancasService.resumo.mockRejectedValue(new Error('offline'));
+  cobrancasService.resumo
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce({ quantidade: 1, total: 10, totalRepasse: 5 });
   tela();
   await screen.findByText('Mostrando 1 de 1');
-  await waitFor(() => expect(cobrancasService.resumo).toHaveBeenCalled());
+  expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível calcular os totais');
+  expect(screen.getAllByText('Indisponível')).toHaveLength(2);
   expect(screen.queryByText(/R\$\s*0,00/)).not.toBeInTheDocument();
-  expect(screen.getAllByText('…').length).toBeGreaterThanOrEqual(2);
+  fireEvent.click(screen.getByRole('button', { name: 'Recarregar totais' }));
+  expect(await screen.findByText(/R\$\s*10,00/)).toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(cobrancasService.listar).toHaveBeenCalledTimes(1);
 });
 
 test('resposta atrasada de um período antigo não substitui a do período novo', async () => {

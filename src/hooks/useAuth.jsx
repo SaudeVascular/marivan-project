@@ -5,6 +5,7 @@ import { FUNCOES_CLINICAS } from '../constants/roles';
 import { comTimeout } from '../utils/comTimeout';
 import { limparRascunhosAtendimento, limparRascunhosLegados } from '../utils/rascunhoAtendimento';
 import { iniciarMonitorInatividade, registrarLogoutPorInatividade } from '../utils/sessionSecurity';
+import { encerrarSessaoNoNavegador, observarRevogacaoPendente } from '../services/sessao.service';
 
 const AuthContext = createContext();
 
@@ -17,6 +18,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const ultimoUserIdRef = useRef(undefined);
   const requisicaoPerfilRef = useRef(0);
+  // Depois de sair, nenhum evento de Auth com sessão pode reabrir a área
+  // autenticada (ex: renovação de token que já estava a caminho, ou o
+  // signOut que falhou sem rede) — só um login explícito.
+  const encerradaRef = useRef(false);
+  const [revogacaoPendente, setRevogacaoPendente] = useState(false);
+
+  useEffect(() => observarRevogacaoPendente(setRevogacaoPendente), []);
+
+  // Sair: primeiro fecha a tela e descarta os dados da sessão (na hora, sem
+  // esperar a rede); depois encerra no navegador e tenta revogar no
+  // servidor. Nunca lança: a saída local acontece mesmo com o servidor fora.
+  const encerrarSessao = useCallback(async () => {
+    encerradaRef.current = true;
+    requisicaoPerfilRef.current++; // descarta leituras de perfil em andamento
+    limparRascunhosAtendimento();
+    setUser(null);
+    setPerfil(null);
+    setPerfilPronto(true);
+    return encerrarSessaoNoNavegador();
+  }, []);
 
   // Busca o perfil/função do usuário logado. A criação do perfil é
   // responsabilidade exclusiva do trigger do banco; o cliente não pode
@@ -61,16 +82,12 @@ export const AuthProvider = ({ children }) => {
     if (requisicao !== requisicaoPerfilRef.current || authUser.id !== ultimoUserIdRef.current) return;
 
     if (!p || p.ativo === false) {
-      await supabase.auth.signOut();
-      limparRascunhosAtendimento();
-      setUser(null);
-      setPerfil(null);
-      setPerfilPronto(true);
+      await encerrarSessao();
       return;
     }
     setPerfil(p);
     setPerfilPronto(true);
-  }, []);
+  }, [encerrarSessao]);
 
   useEffect(() => {
     limparRascunhosLegados();
@@ -83,6 +100,7 @@ export const AuthProvider = ({ children }) => {
     const getSession = async () => {
       try {
         const { data: { session } } = await comTimeout(supabase.auth.getSession(), 12000);
+        if (encerradaRef.current) return;
         setUser(session?.user ?? null);
         await carregarPerfil(session?.user ?? null);
       } catch (err) {
@@ -100,6 +118,7 @@ export const AuthProvider = ({ children }) => {
     // Escutar mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (encerradaRef.current && session) return;
         setUser(session?.user ?? null);
         setLoading(false);
         // Não consultar o banco dentro do callback de Auth: o cliente ainda
@@ -116,13 +135,13 @@ export const AuthProvider = ({ children }) => {
     return iniciarMonitorInatividade({
       aoExpirar: async () => {
         registrarLogoutPorInatividade();
-        limparRascunhosAtendimento();
-        await supabase.auth.signOut();
+        await encerrarSessao();
       },
     });
-  }, [user]);
+  }, [user, encerrarSessao]);
 
   const login = async (email, password) => {
+    encerradaRef.current = false;
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
@@ -132,12 +151,10 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
-    // Rascunho de atendimento é dado clínico não persistido — não pode
-    // sobreviver ao logout no mesmo navegador (ver utils/rascunhoAtendimento).
-    limparRascunhosAtendimento();
-  };
+  // Rascunho de atendimento é dado clínico não persistido — não pode
+  // sobreviver ao logout no mesmo navegador (ver utils/rascunhoAtendimento).
+  // Devolve { revogado } (ver services/sessao.service).
+  const logout = encerrarSessao;
 
   const funcao = perfil?.funcao ?? null;
   // Papel clínico EFETIVO (migrações 30 e 35): função clínica direta
@@ -153,7 +170,7 @@ export const AuthProvider = ({ children }) => {
   const temAcessoClinico = funcaoClinicaEfetiva !== null;
 
   return (
-    <AuthContext.Provider value={{ user, perfil, funcao, funcaoClinicaEfetiva, temAcessoClinico, login, logout, loading, perfilPronto }}>
+    <AuthContext.Provider value={{ user, perfil, funcao, funcaoClinicaEfetiva, temAcessoClinico, login, logout, loading, perfilPronto, revogacaoPendente }}>
       {children}
     </AuthContext.Provider>
   );

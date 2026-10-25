@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { CONSELHO_POR_FUNCAO, podeEmitir } from '../../constants/roles';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useAutoSave } from '../../hooks/useAutoSave';
 import { Header, painelStyle, atalhoStyle } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
@@ -53,7 +54,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
   // conta veria a tela de Médico e teria a gravação recusada pelo banco.
   const enfermeiro = funcaoClinicaEfetiva === 'Enfermeiro(a)';
   const emite = (tipo) => podeEmitir(funcaoClinicaEfetiva, tipo);
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const [atendimentoAtual, setAtendimentoAtual] = React.useState('');
   const [rascunhoRegistroId, setRascunhoRegistroId] = React.useState(null);
   const [rascunhoVersao, setRascunhoVersao] = React.useState(null);
@@ -295,7 +296,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     };
   }, [salvarAgora]);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const registros = paciente.registros || [];
 

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { calcularIdade } from '../../utils/formatters';
-import { comTimeout } from '../../utils/comTimeout';
 import { FUNCOES_RECEPCAO, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { URL_LOGO_PEP } from '../../utils/logoPep';
 
@@ -115,16 +114,12 @@ export function Header() {
   const navigate = useNavigate();
   const [saindo, setSaindo] = React.useState(false);
 
-  const handleLogout = async () => {
+  // A tela fecha na hora (useAuth descarta a sessão antes de falar com o
+  // servidor); a revogação remota segue sozinha e nunca lança.
+  const handleLogout = () => {
     setSaindo(true);
-    try {
-      await comTimeout(logout(), 6000);
-    } catch (err) {
-      console.error('Erro ao sair:', err?.message || err);
-    } finally {
-      setSaindo(false);
-      navigate('/login', { replace: true });
-    }
+    logout();
+    navigate('/login', { replace: true });
   };
 
   // Três áreas fixas (ver .pep-header em index.css): clínica colada à
