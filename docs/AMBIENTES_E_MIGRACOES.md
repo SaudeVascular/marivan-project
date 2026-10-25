@@ -126,8 +126,8 @@ e faça os testes de interface com dados fictícios.
 
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
-| Homologação | `snhmydckyypgucwbsaus` | 01–45 | — |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–45 pendentes** (ver abaixo) |
+| Homologação | `snhmydckyypgucwbsaus` | 01–42 | OK (24/10); **43–48 pendentes** |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–48 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
@@ -144,14 +144,24 @@ bash scripts/supabase-push-producao.sh                   # dry-run, para
 CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 ```
 
-### Migrações 43–45 (independentes do site)
+### Publicação de 43–48 (site e banco juntos)
 
 - 43: auditoria de acesso recusa registro de outro paciente;
 - 44: assinar exige nome, número do conselho e UF no perfil;
 - 45: CPF validado, gravado no formato 000.000.000-00 e único pelos dígitos;
-  CNS, nascimento e tamanhos validados.
+  CNS, nascimento e tamanhos validados;
+- 46: retrato da emissão guardado na assinatura (2ª via fiel);
+- 47: criação idempotente e versão/transições em agenda e cobranças;
+- 48: registros clínicos só legíveis pelas funções que registram o acesso;
+  exportação do prontuário e da clínica.
 
-Funcionam com o site antigo e com o novo. Antes de aplicar a 44, confira no
+O site novo lê o histórico pela função da 48, e o antigo lê direto (e
+passaria a ver o histórico vazio depois da 48). Por isso, como na
+publicação de 39–42: num horário sem ninguém atendendo, (1) merge na
+`main`, (2) logo em seguida o ensaio e o `CONFIRMAR_PUSH=SIM` do
+`supabase-push-producao.sh`, (3) recarregar as abas abertas.
+
+Antes de aplicar a 44, confira no
 SQL Editor da produção que todo profissional que assina tem os três campos —
 quem não tiver passa a receber a mensagem pedindo para completar o cadastro:
 
