@@ -11,7 +11,7 @@ jest.mock('../../services/pacientes.service');
 jest.mock('../../hooks/useClinica', () => ({ useClinica: () => ({ clinica: {} }) }));
 jest.mock('../../components/common/Layout', () => ({
   Header: () => null, LogoClinica: () => null,
-  CabecalhoImpresso: ({ paciente }) => <p>Cabeçalho de {paciente.nome}</p>, RodapeImpresso: () => null,
+  CabecalhoImpresso: ({ paciente, clinica }) => <p>Cabeçalho de {paciente.nome}{clinica ? ` — ${clinica.nome}` : ''}</p>, RodapeImpresso: () => null,
 }));
 
 const REGISTRO_A = { id: 'reg-A', pacienteId: 'pac-A', tipo: 'Atestado', titulo: 'Atestado', conteudo: 'Conteúdo clínico de A', data: '24/10/2026', hora: '10:00', status: 'Assinado' };
@@ -50,4 +50,24 @@ test('se o paciente devolvido não for o do registro, recusa', async () => {
   tela('pac-A', 'reg-A');
   expect(await screen.findByRole('alert')).toHaveTextContent('Registro não encontrado para este paciente');
   expect(screen.queryByText(/Conteúdo clínico de A/)).not.toBeInTheDocument();
+});
+
+test('2ª via usa o retrato da emissão, não o cadastro atual', async () => {
+  registrosService.buscarDoPaciente.mockResolvedValue({
+    ...REGISTRO_A, assinadoEm: '2026-10-24T13:00:00Z', emissaoHash: '0123456789abcdef00',
+    emissao: { modelo: 1, paciente: { nome: 'Nome na Emissão', idade: 40 }, clinica: { nome: 'Clínica na Emissão' } },
+  });
+  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-A', nome: 'Nome Atual' });
+  tela('pac-A', 'reg-A');
+  expect(await screen.findByText('Cabeçalho de Nome na Emissão — Clínica na Emissão')).toBeInTheDocument();
+  expect(screen.getByText(/2ª via do documento original — código de verificação 0123-4567-89AB-CDEF/)).toBeInTheDocument();
+  expect(screen.getByText(/Atendimento: 24\/10\/2026 às 10:00/)).toBeInTheDocument();
+  expect(screen.queryByText(/Nome Atual/)).not.toBeInTheDocument();
+});
+
+test('registro assinado antes da preservação: avisa que usa dados atuais', async () => {
+  registrosService.buscarDoPaciente.mockResolvedValue({ ...REGISTRO_A, emissao: null });
+  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-A', nome: 'Paciente A' });
+  tela('pac-A', 'reg-A');
+  expect(await screen.findByText(/Reimpressão com dados ATUAIS do cadastro/)).toBeInTheDocument();
 });

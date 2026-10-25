@@ -5,6 +5,8 @@ import { dataLocalISO } from '../utils/formatters';
 export const PAGINA_HISTORICO = 1000;
 
 const CAMPOS = 'id, tipo, titulo, conteudo, data, hora, created_by, created_at, status, assinado_em, assinado_por_nome, assinado_por_registro, retificacao_de, motivo_retificacao, paciente_id, versao';
+// Retrato da emissão (migração 46): só na reimpressão, não no histórico.
+const CAMPOS_COM_EMISSAO = `${CAMPOS}, emissao, emissao_hash`;
 
 // DB → React
 const fromDb = (c) => ({
@@ -29,6 +31,8 @@ const fromDb = (c) => ({
   assinadoPorRegistro: c.assinado_por_registro || '',
   retificacaoDe: c.retificacao_de || null,
   motivoRetificacao: c.motivo_retificacao || '',
+  emissao: c.emissao || null,
+  emissaoHash: c.emissao_hash || null,
 });
 
 export const registrosService = {
@@ -59,7 +63,7 @@ export const registrosService = {
   async buscarDoPaciente(registroId, pacienteId) {
     const { data, error } = await supabase
       .from('consultas')
-      .select(CAMPOS)
+      .select(CAMPOS_COM_EMISSAO)
       .eq('id', registroId)
       .eq('paciente_id', pacienteId)
       .maybeSingle();

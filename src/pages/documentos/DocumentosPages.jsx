@@ -5,6 +5,7 @@ import { useClinica } from '../../hooks/useClinica';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
 import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useMedicoPerfil } from '../../hooks/useMedicoPerfil';
+import { dadosDaEmissao } from '../../utils/emissao';
 import { AvisoIdentidadeProfissional } from '../../components/common/AvisoIdentidadeProfissional';
 import { Header, CabecalhoImpresso, RodapeImpresso } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
@@ -929,15 +930,30 @@ export function ImprimirAtendimentoPage() {
     ? (registro.retificacaoDe ? 'RETIFICAÇÃO DE REGISTRO' : 'REGISTRO DE ATENDIMENTO')
     : (tituloPorProfissao || TITULO_DOCUMENTO[registro.tipo] || registro.tipo.toUpperCase());
 
+  // 2ª via fiel (migração 46): paciente, antecedentes e clínica como
+  // estavam na assinatura; sem retrato, dados atuais — e o documento diz.
+  const doc = dadosDaEmissao(registro, paciente, clinica);
+  const ant = doc.antecedentes || {};
+  const linhaVia = doc.original
+    ? `${ehAtendimento ? 'Cópia do registro original' : '2ª via do documento original'} — código de verificação ${doc.codigo}`
+    : (registro.status === 'Rascunho'
+      ? 'Rascunho — ainda não assinado'
+      : 'Reimpressão com dados ATUAIS do cadastro (registro anterior à preservação da emissão)');
+  const linhaDatas = [
+    `Atendimento: ${registro.data}${registro.hora ? ` às ${registro.hora}` : ''}`,
+    registro.assinadoEm ? `Assinado em ${new Date(registro.assinadoEm).toLocaleString('pt-BR')}` : null,
+    `Impresso em ${new Date().toLocaleString('pt-BR')}`,
+  ].filter(Boolean).join('   —   ');
+
   const comorbidades = [
-    { label: 'HAS',          valor: paciente.has },
-    { label: 'DM',           valor: paciente.dm },
-    { label: 'DAC',          valor: paciente.dac },
-    { label: 'Dislipidemia', valor: paciente.dislipidemia },
-    { label: 'Tabagismo',    valor: paciente.tabagismo },
-    { label: 'Etilismo',     valor: paciente.etilismo },
+    { label: 'HAS',          valor: ant.has },
+    { label: 'DM',           valor: ant.dm },
+    { label: 'DAC',          valor: ant.dac },
+    { label: 'Dislipidemia', valor: ant.dislipidemia },
+    { label: 'Tabagismo',    valor: ant.tabagismo },
+    { label: 'Etilismo',     valor: ant.etilismo },
   ].filter(c => c.valor && c.valor !== 'Não' && c.valor !== '');
-  const temComorbidades = comorbidades.length > 0 || !!paciente.outrasComorbidades;
+  const temComorbidades = comorbidades.length > 0 || !!ant.outrasComorbidades;
 
   // Reimpressão vira PDF de verdade, igual às telas de criação — mesmo
   // motivo (ver utils/documentoPdf): repetir cabeçalho/rodapé em toda
@@ -954,24 +970,20 @@ export function ImprimirAtendimentoPage() {
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#eee' }], margin: [0, 0, 0, 6] },
       !temComorbidades ? { text: 'Sem comorbidades registradas.', color: '#999', margin: [0, 0, 0, 4] } : null,
       comorbidades.length > 0 ? { text: comorbidades.map(c => c.label + (c.valor !== 'Sim' ? `: ${c.valor}` : '')).join('   •   '), margin: [0, 0, 0, 4] } : null,
-      paciente.outrasComorbidades ? { text: [{ text: 'Outras comorbidades: ', bold: true }, paciente.outrasComorbidades], margin: [0, 2, 0, 0] } : null,
-      paciente.cirurgias ? { text: [{ text: 'Cirurgias prévias: ', bold: true }, paciente.cirurgias], margin: [0, 2, 0, 0] } : null,
-      paciente.medicamentosUso ? { text: [{ text: 'Medicamentos em uso: ', bold: true }, paciente.medicamentosUso], margin: [0, 2, 0, 0] } : null,
-      paciente.alergias ? { text: `⚠ Alergias: ${paciente.alergias}`, color: '#dc2626', bold: true, margin: [0, 2, 0, 0] } : null,
+      ant.outrasComorbidades ? { text: [{ text: 'Outras comorbidades: ', bold: true }, ant.outrasComorbidades], margin: [0, 2, 0, 0] } : null,
+      ant.cirurgias ? { text: [{ text: 'Cirurgias prévias: ', bold: true }, ant.cirurgias], margin: [0, 2, 0, 0] } : null,
+      ant.medicamentosUso ? { text: [{ text: 'Medicamentos em uso: ', bold: true }, ant.medicamentosUso], margin: [0, 2, 0, 0] } : null,
+      ant.alergias ? { text: `⚠ Alergias: ${ant.alergias}`, color: '#dc2626', bold: true, margin: [0, 2, 0, 0] } : null,
       { text: '', margin: [0, 0, 0, 10] },
     ].filter(Boolean) : [];
 
     const criarPdfDocumento = await carregarCriarPdfDocumento();
     registrarImpressao(paciente.id, `Reimpressão: ${registro.tipo}`, registro.id);
     concluirJanelaImpressao(janela, criarPdfDocumento({
-      clinica,
-      paciente,
+      clinica: doc.clinica,
+      paciente: doc.paciente,
       tituloDocumento: titulo,
-      subtitulo: [
-        `${registro.data} às ${registro.hora}`,
-        !ehAtendimento ? '2ª via' : null,
-        registro.status === 'Rascunho' ? 'Rascunho — ainda não assinado' : null,
-      ].filter(Boolean).join('   —   '),
+      subtitulo: `${linhaDatas}\n${linhaVia}`,
       corpo: [
         ...antecedentes,
         registro.retificacaoDe && registro.motivoRetificacao
@@ -997,24 +1009,22 @@ export function ImprimirAtendimentoPage() {
           Fechar
         </button>
         <span style={{ fontSize: '16px', color: '#555' }}>
-          {paciente.nome} — {registro.data} às {registro.hora}
+          {doc.paciente.nome} — {registro.data} às {registro.hora}
         </span>
       </div>
 
       {/* Documento */}
       <div className="doc-preview" style={{ maxWidth: '800px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '16px', lineHeight: '1.6' }}>
         <div className="doc-cabecalho-grupo">
-          <CabecalhoImpresso paciente={paciente} />
+          <CabecalhoImpresso paciente={doc.paciente} clinica={doc.original ? doc.clinica : undefined} />
 
           {/* Mesmo estilo de título centralizado e espaçado das telas de
               criação (Atestado, Receituário...) — reimpressão de um
               documento fechado deve parecer uma 2ª via dele, não um
               "registro de atendimento" genérico. */}
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>{titulo}</h2>
-          <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 4px' }}>
-            {registro.data} às {registro.hora}
-            {!ehAtendimento && ' — 2ª via'}
-          </p>
+          <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 4px' }}>{linhaDatas}</p>
+          <p style={{ textAlign: 'center', fontSize: '15px', margin: '0 0 4px', color: doc.original ? '#555' : '#b45309' }}>{linhaVia}</p>
           <p style={{ textAlign: 'center', margin: '0 0 20px', fontSize: '16px', color: registro.status === 'Rascunho' ? '#b45309' : '#555' }}>
             {registro.status === 'Rascunho' ? '⚠ Rascunho — ainda não assinado' : '🔒 Assinado'}
           </p>
@@ -1044,10 +1054,10 @@ export function ImprimirAtendimentoPage() {
                 </div>
               )}
               {!temComorbidades && <p style={{ color: '#999', margin: '0 0 8px' }}>Sem comorbidades registradas.</p>}
-              {paciente.outrasComorbidades && <p style={{ margin: '4px 0' }}><strong>Outras comorbidades:</strong> {paciente.outrasComorbidades}</p>}
-              {paciente.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {paciente.cirurgias}</p>}
-              {paciente.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {paciente.medicamentosUso}</p>}
-              {paciente.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {paciente.alergias}</p>}
+              {ant.outrasComorbidades && <p style={{ margin: '4px 0' }}><strong>Outras comorbidades:</strong> {ant.outrasComorbidades}</p>}
+              {ant.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {ant.cirurgias}</p>}
+              {ant.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {ant.medicamentosUso}</p>}
+              {ant.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {ant.alergias}</p>}
             </div>
           )}
 
@@ -1087,7 +1097,7 @@ export function ImprimirAtendimentoPage() {
               </div>
             </div>
           </div>
-          <RodapeImpresso />
+          <RodapeImpresso clinica={doc.original ? doc.clinica : undefined} />
         </div>
       </div>
     </div>

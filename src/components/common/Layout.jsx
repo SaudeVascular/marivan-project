@@ -30,9 +30,12 @@ export function LogoClinica({ size = 44 }) {
   );
 }
 
-export function CabecalhoImpresso({ paciente }) {
-  const { clinica } = useClinica();
-  const idade = paciente ? calcularIdade(paciente.nascimento) : null;
+// `clinica` e `paciente.idade` vêm do retrato da emissão na 2ª via
+// (utils/emissao); sem eles, valem os dados atuais.
+export function CabecalhoImpresso({ paciente, clinica: clinicaDoDocumento }) {
+  const { clinica: clinicaAtual } = useClinica();
+  const clinica = clinicaDoDocumento || clinicaAtual;
+  const idade = paciente ? (paciente.idade ?? calcularIdade(paciente.nascimento)) : null;
   return (
     <div className="cabecalho-impresso" style={{ borderBottom: '2px solid #1d4ed8', paddingBottom: '12px', marginBottom: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
@@ -58,8 +61,9 @@ export function CabecalhoImpresso({ paciente }) {
 // continua no fluxo normal, como sempre foi. Impresso, repete no rodapé
 // de TODA página (não só a última) e fica sempre na borda inferior da
 // área útil, sem depender de quanto texto veio antes.
-export function RodapeImpresso() {
-  const { clinica } = useClinica();
+export function RodapeImpresso({ clinica: clinicaDoDocumento }) {
+  const { clinica: clinicaAtual } = useClinica();
+  const clinica = clinicaDoDocumento || clinicaAtual;
   return (
     <div className="rodape-impresso" style={{ borderTop: '1px solid #ddd', marginTop: '40px', paddingTop: '10px', textAlign: 'center', fontSize: '11px', color: '#666' }}>
       <p style={{ margin: '2px 0' }}>{clinica.endereco}{clinica.cep ? ` — CEP ${clinica.cep}` : ''}</p>
