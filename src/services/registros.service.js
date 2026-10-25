@@ -40,16 +40,16 @@ export const registrosService = {
   // por consulta, e um histórico cortado em silêncio esconderia registros
   // antigos (alergias, cirurgias, laudos). O desempate por id deixa a
   // ordem estável entre as páginas — sem pular nem repetir registro.
+  //
+  // Leitura pela função ler_registros_paciente (migração 48): o banco
+  // registra "abriu o prontuário" na 1ª página antes de devolver qualquer
+  // coisa — sem registro não há leitura.
   async listarPorPaciente(pacienteId) {
     const registros = [];
     for (let inicio = 0; ; inicio += PAGINA_HISTORICO) {
       const { data, error } = await supabase
-        .from('consultas')
-        .select(CAMPOS)
-        .eq('paciente_id', pacienteId)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(inicio, inicio + PAGINA_HISTORICO - 1);
+        .rpc('ler_registros_paciente', { p_paciente_id: pacienteId, p_limite: PAGINA_HISTORICO, p_offset: inicio })
+        .select(CAMPOS);
       if (error) throw error;
       registros.push(...(data || []));
       if (!data || data.length < PAGINA_HISTORICO) break;
@@ -60,25 +60,16 @@ export const registrosService = {
   // Registro SÓ se for deste paciente (null se não existir, não for visível
   // ou for de outro paciente). Usado onde a URL traz os dois ids: buscar
   // cada um separado permitia montar o cadastro de B com o conteúdo de A.
+  // Pela função ler_registro (migração 48), que registra o acesso e recusa
+  // registro de outro paciente (22023 → null aqui, como "não encontrado").
   async buscarDoPaciente(registroId, pacienteId) {
     const { data, error } = await supabase
-      .from('consultas')
+      .rpc('ler_registro', { p_registro_id: registroId, p_paciente_id: pacienteId })
       .select(CAMPOS_COM_EMISSAO)
-      .eq('id', registroId)
-      .eq('paciente_id', pacienteId)
       .maybeSingle();
+    if (error?.code === '22023') return null;
     if (error) throw error;
     return data ? fromDb(data) : null;
-  },
-
-  async buscarPorId(registroId) {
-    const { data, error } = await supabase
-      .from('consultas')
-      .select(CAMPOS)
-      .eq('id', registroId)
-      .single();
-    if (error) throw error;
-    return fromDb(data);
   },
 
   async criar(registro, pacienteId, userId) {

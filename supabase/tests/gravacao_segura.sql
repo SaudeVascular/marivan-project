@@ -1,6 +1,9 @@
 -- Somente banco descartável: fixtures e verificações são revertidas no final.
 -- Migração 47: criação idempotente, versão e transições em agenda e cobranças.
 BEGIN;
+-- Simula a passagem pelas funções de leitura auditada (migração 48); o
+-- bloqueio da leitura direta é testado em leitura_auditada.sql.
+SELECT set_config('pep.leitura_clinica', 'sim', true);
 INSERT INTO auth.users (id, email) VALUES
  ('ec000000-0000-4000-8000-000000000001', 'recepcao-gs@example.invalid'),
  ('ec000000-0000-4000-8000-000000000002', 'financeiro-gs@example.invalid');

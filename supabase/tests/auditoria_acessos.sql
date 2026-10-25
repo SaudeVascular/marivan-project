@@ -1,6 +1,9 @@
 -- Somente banco descartável: fixtures e verificações são revertidas no final.
 -- Migração 38: registro de leitura (abrir prontuário, imprimir documento).
 BEGIN;
+-- Simula a passagem pelas funções de leitura auditada (migração 48); o
+-- bloqueio da leitura direta é testado em leitura_auditada.sql.
+SELECT set_config('pep.leitura_clinica', 'sim', true);
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
 $$;
@@ -39,7 +42,9 @@ DO $$
 DECLARE p UUID := 'e8000000-0000-4000-8000-000000000010'; medico UUID := 'e8000000-0000-4000-8000-000000000001';
 BEGIN
   PERFORM pg_temp.como(medico);
-  PERFORM public.registrar_acesso(p, 'abrir_prontuario');
+  PERFORM count(*) FROM public.ler_registros_paciente(p); -- registra abrir_prontuario no banco (migração 48)
+  PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', p, 'abrir_prontuario')),
+    'o app não registra abrir_prontuario por conta própria: só a função de leitura');
   PERFORM public.registrar_acesso(p, 'imprimir_documento', 'Receituário');
   PERFORM public.registrar_acesso(p, 'imprimir_documento', 'Reimpressão: Atestado', 'e8000000-0000-4000-8000-000000000020');
   PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L, %L, %L)', p, 'imprimir_documento', 'Reimpressão',
@@ -48,7 +53,7 @@ BEGIN
     gen_random_uuid())), 'registro inexistente recusado');
 
   PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', p, 'apagar_tudo')), 'ação fora da lista recusada');
-  PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', gen_random_uuid(), 'abrir_prontuario')), 'paciente inexistente recusado');
+  PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', gen_random_uuid(), 'imprimir_documento')), 'paciente inexistente recusado');
   PERFORM pg_temp.assert_ok(pg_temp.falha('SELECT * FROM public.acessos'), 'tabela base fechada para leitura');
   PERFORM pg_temp.assert_ok(pg_temp.falha(format(
     'INSERT INTO public.acessos (usuario_id, paciente_id, acao) VALUES (%L, %L, %L)', 'e8000000-0000-4000-8000-000000000002', p, 'abrir_prontuario')),
@@ -56,7 +61,7 @@ BEGIN
   PERFORM pg_temp.assert_ok(NOT EXISTS (SELECT 1 FROM public.acessos_view), 'Médico não lê a auditoria de acessos');
 
   PERFORM pg_temp.como('e8000000-0000-4000-8000-000000000003');
-  PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', p, 'abrir_prontuario')), 'conta inativa não registra');
+  PERFORM pg_temp.assert_ok(pg_temp.falha(format('SELECT public.registrar_acesso(%L, %L)', p, 'imprimir_documento')), 'conta inativa não registra');
 
   PERFORM pg_temp.como('e8000000-0000-4000-8000-000000000002');
   PERFORM pg_temp.assert_ok((SELECT count(*) FROM public.acessos_view WHERE paciente_id = p) = 3, 'Administrador lê os três acessos');
