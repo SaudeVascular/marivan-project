@@ -127,7 +127,7 @@ e faça os testes de interface com dados fictícios.
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
 | Homologação | `snhmydckyypgucwbsaus` | 01–49 | — (25/10) |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–49 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–50 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
@@ -144,7 +144,7 @@ bash scripts/supabase-push-producao.sh                   # dry-run, para
 CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 ```
 
-### Publicação de 43–49 (site e banco juntos)
+### Publicação de 43–50 (site e banco juntos)
 
 - 43: auditoria de acesso recusa registro de outro paciente;
 - 44: assinar exige nome, número do conselho e UF no perfil;
@@ -156,7 +156,15 @@ CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
   exportação do prontuário e da clínica;
 - 49: procedimento e convênio no agendamento; assinar a consulta conclui o
   agendamento do dia; agendamento Realizado gera a cobrança Pendente com o
-  valor da tabela do convênio.
+  valor da tabela do convênio;
+- 50: dados da operadora e tabela de cada convênio (importação de
+  planilha); código e tipo do procedimento; repasse por profissional;
+  relatório de produção. O repasse por procedimento deixa de valer: depois
+  de aplicar, o Administrador define em Administração → Usuários os
+  percentuais de cada profissional, e o Financeiro confere o tipo de cada
+  procedimento (procedimentos antigos com nome começando por "Consulta"
+  viram Consulta; os demais, Procedimento). Até lá, cobranças novas nascem
+  com repasse 0%.
 
 O site novo lê o histórico pela função da 48, e o antigo lê direto (e
 passaria a ver o histórico vazio depois da 48). Por isso, como na

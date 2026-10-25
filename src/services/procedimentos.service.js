@@ -1,46 +1,65 @@
 import { supabase } from './supabase';
 
+export const TIPOS_PROCEDIMENTO = ['Consulta', 'Exame', 'Procedimento'];
+
 const fromDb = (p) => ({
   id: p.id,
   nome: p.nome,
-  valorParticular: p.valor_particular,
-  percentualRepasse: p.percentual_repasse,
+  codigo: p.codigo || '',
+  tipo: p.tipo || 'Procedimento',
+  // Vazio = sem preço particular (procedimento que só existe na tabela de
+  // algum convênio — migração 50), diferente de R$ 0,00.
+  valorParticular: p.valor_particular == null ? null : Number(p.valor_particular),
   ativo: p.ativo,
+});
+
+// O PostgREST corta cada resposta em 1000 linhas; tabelas importadas
+// passam disso.
+const TAMANHO_PAGINA = 1000;
+async function todasAsPaginas(consultar) {
+  const todos = [];
+  for (let inicio = 0; ; inicio += TAMANHO_PAGINA) {
+    const { data, error } = await consultar().range(inicio, inicio + TAMANHO_PAGINA - 1);
+    if (error) throw error;
+    todos.push(...(data || []));
+    if (!data || data.length < TAMANHO_PAGINA) return todos;
+  }
+}
+
+const paraDb = ({ nome, codigo, tipo, valorParticular }) => ({
+  nome,
+  codigo: codigo || null,
+  tipo: tipo || 'Procedimento',
+  valor_particular: valorParticular === '' || valorParticular == null ? null : Number(valorParticular),
 });
 
 export const procedimentosService = {
   // Procedimentos ativos com o valor da tabela do convênio (ou particular),
-  // para quem agenda — migração 49. A tabela de preços inteira continua só
-  // do Financeiro/Administrador.
+  // para quem agenda — migração 49/50. A tabela de preços inteira continua
+  // só do Financeiro/Administrador.
   async catalogo(convenioId) {
-    const { data, error } = await supabase.rpc('catalogo_procedimentos', { p_convenio_id: convenioId || null });
-    if (error) throw error;
-    return (data || []).map(p => ({ id: p.id, nome: p.nome, valor: p.valor == null ? null : Number(p.valor) }));
+    const linhas = await todasAsPaginas(() => supabase.rpc('catalogo_procedimentos', { p_convenio_id: convenioId || null }).order('nome').order('id'));
+    return linhas.map(p => ({
+      id: p.id, nome: p.nome, codigo: p.codigo || '', tipo: p.tipo || 'Procedimento',
+      valor: p.valor == null ? null : Number(p.valor),
+    }));
   },
 
   async listar() {
-    const { data, error } = await supabase
-      .from('procedimentos')
-      .select('*')
-      .order('nome');
-    if (error) throw error;
-    return (data || []).map(fromDb);
+    const linhas = await todasAsPaginas(() => supabase.from('procedimentos').select('*').order('nome').order('id'));
+    return linhas.map(fromDb);
   },
 
-  async criar({ nome, valorParticular, percentualRepasse }) {
-    const { data, error } = await supabase
-      .from('procedimentos')
-      .insert([{ nome, valor_particular: valorParticular, percentual_repasse: percentualRepasse || 0 }])
-      .select()
-      .single();
+  async criar(dados) {
+    const { data, error } = await supabase.from('procedimentos').insert([paraDb(dados)]).select().single();
     if (error) throw error;
     return fromDb(data);
   },
 
-  async atualizar(id, { nome, valorParticular, percentualRepasse, ativo }) {
+  async atualizar(id, { ativo, ...dados }) {
     const { data, error } = await supabase
       .from('procedimentos')
-      .update({ nome, valor_particular: valorParticular, percentual_repasse: percentualRepasse, ativo })
+      .update({ ...paraDb(dados), ativo })
       .eq('id', id)
       .select()
       .single();
@@ -63,3 +82,5 @@ export const procedimentosService = {
     if (error) throw error;
   },
 };
+
+export { todasAsPaginas };

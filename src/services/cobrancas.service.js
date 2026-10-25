@@ -63,7 +63,9 @@ export const cobrancasService = {
   },
 
   // Idempotente (migração 47): repetir não cria outra cobrança.
-  async criar({ pacienteId, procedimentoId, medicoId, convenioId, descricao, valor, percentualRepasse, formaPagamento }, userId) {
+  // O percentual de repasse é do banco (migração 50): vem da regra do
+  // profissional para o tipo do procedimento.
+  async criar({ pacienteId, procedimentoId, medicoId, convenioId, descricao, valor, formaPagamento }, userId) {
     const dados = {
       paciente_id: pacienteId,
       procedimento_id: procedimentoId || null,
@@ -71,7 +73,6 @@ export const cobrancasService = {
       convenio_id: convenioId || null,
       descricao: descricao || null,
       valor,
-      percentual_repasse: percentualRepasse || 0,
       forma_pagamento: formaPagamento || null,
       created_by: userId,
     };
@@ -94,10 +95,13 @@ export const cobrancasService = {
   },
 
   // Financeiro completa uma cobrança pendente (ex.: gerada pela agenda sem
-  // procedimento) — só na versão da tela.
-  async ajustar(id, { valor, descricao }, versaoEsperada) {
+  // procedimento) — só na versão da tela. Trocar o procedimento recalcula
+  // o repasse no banco.
+  async ajustar(id, { valor, descricao, procedimentoId }, versaoEsperada) {
     if (!Number.isInteger(versaoEsperada)) throw new Error('Recarregue a lista antes de alterar esta cobrança.');
-    const { data, error } = await supabase.from('cobrancas').update({ valor, descricao: descricao || null })
+    const campos = { valor, descricao: descricao || null };
+    if (procedimentoId !== undefined) campos.procedimento_id = procedimentoId || null;
+    const { data, error } = await supabase.from('cobrancas').update(campos)
       .eq('id', id).eq('versao', versaoEsperada).select(CAMPOS).maybeSingle();
     if (error) throw error;
     if (!data) {

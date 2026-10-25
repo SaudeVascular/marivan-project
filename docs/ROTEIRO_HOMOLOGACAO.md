@@ -57,6 +57,13 @@ Ferramentas do desenvolvedor → Rede → "Off-line".
 | 5.1 | Período com cobranças | Totais conferem com a soma da lista |
 | 5.2 | Tirar a rede e trocar o período | "Indisponível" e o aviso, nunca R$ 0,00 |
 | 5.3 | Voltar a rede, **Recarregar totais** | Totais aparecem |
+| 5.4 | Financeiro → Convênios e tabelas: preencher os dados de uma operadora com CNPJ errado | Aviso "CNPJ inválido"; nada salvo |
+| 5.5 | Importar a planilha da tabela do convênio (.xls ou .xlsx) com uma linha de valor errado | Prévia aponta a linha; só importa marcando "só as linhas certas" |
+| 5.6 | Importar de novo com "Substituir a tabela inteira" | Pede confirmação; o que não estava no arquivo sai da tabela |
+| 5.7 | Administração → Usuários: definir o repasse de dois profissionais com percentuais diferentes | Cada um mostra as próprias regras |
+| 5.8 | Agendar e atender um paciente de cada profissional | A cobrança pendente traz o repasse do profissional e do tipo do procedimento |
+| 5.9 | Como profissional, Relatório de produção do mês; trocar para intervalo de dias; imprimir | Só a própria produção; o papel traz o cabeçalho da clínica e o período |
+| 5.10 | Como Administrador, relatório de todos e depois de um profissional e de um procedimento | Totais por profissional e por procedimento conferem com a lista; "Fica para a clínica" = produção − repasse |
 
 ## 6. Backup e restauração (com quem administra a Supabase)
 

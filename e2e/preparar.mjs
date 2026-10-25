@@ -54,11 +54,15 @@ export default async function preparar() {
     DELETE FROM public.medicamentos_receita WHERE consulta_id IN (SELECT c.id FROM public.consultas c JOIN public.pacientes p ON p.id = c.paciente_id WHERE p.nome LIKE 'E2E %');
     DELETE FROM public.consultas WHERE paciente_id IN (SELECT id FROM public.pacientes WHERE nome ILIKE 'E2E %');
     DELETE FROM public.pacientes WHERE nome ILIKE 'E2E %';
-    DELETE FROM public.convenio_valores WHERE procedimento_id IN (SELECT id FROM public.procedimentos WHERE nome = 'E2E Consulta');
-    DELETE FROM public.procedimentos WHERE nome = 'E2E Consulta';
-    DELETE FROM public.convenios WHERE nome = 'E2E Convênio';
+    DELETE FROM public.convenio_valores WHERE procedimento_id IN (SELECT id FROM public.procedimentos WHERE nome ILIKE 'E2E %');
+    DELETE FROM public.procedimentos WHERE nome ILIKE 'E2E %';
+    DELETE FROM public.convenios WHERE nome ILIKE 'E2E %';
     INSERT INTO public.convenios (nome) VALUES ('E2E Convênio');
-    INSERT INTO public.procedimentos (nome, valor_particular, percentual_repasse) VALUES ('E2E Consulta', 300, 60);
+    INSERT INTO public.procedimentos (nome, tipo, valor_particular) VALUES ('E2E Consulta', 'Consulta', 300);
+    -- Repasse é do profissional (migração 50): a médica fictícia recebe 60% das consultas.
+    INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta, percentual_exame, percentual_procedimento)
+      SELECT id, 60, 10, 30 FROM auth.users WHERE email = 'e2e-medico@example.invalid'
+      ON CONFLICT (profissional_id) DO UPDATE SET percentual_consulta = 60, percentual_exame = 10, percentual_procedimento = 30;
     INSERT INTO public.convenio_valores (convenio_id, procedimento_id, valor)
       SELECT c.id, p.id, 180 FROM public.convenios c, public.procedimentos p WHERE c.nome = 'E2E Convênio' AND p.nome = 'E2E Consulta';
     INSERT INTO public.pacientes (nome, telefone, nascimento, convenio_id) VALUES

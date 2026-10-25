@@ -13,288 +13,15 @@ import { cobrancasService } from '../../services/cobrancas.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { registrarImpressao } from '../../services/acessos.service';
 import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
-import { FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { EscolhaProcedimento, useCatalogo } from '../agenda/SeletorProcedimento';
 import { formatarMoeda } from '../../utils/formatters';
 
 export { formatarMoeda };
 
-export function CatalogoFinanceiroPage() {
-  const toast = useToast();
-  const [procedimentos, setProcedimentos] = React.useState([]);
-  const [convenios, setConvenios] = React.useState([]);
-  const [valores, setValores] = React.useState([]);
-  const [carregando, setCarregando] = React.useState(true);
-  const [novoProc, setNovoProc] = React.useState({ nome: '', valorParticular: '', percentualRepasse: '' });
-  const [novoConvenio, setNovoConvenio] = React.useState('');
-  const [convenioSelecionado, setConvenioSelecionado] = React.useState('');
-  const [salvando, setSalvando] = React.useState(false);
-  const [editandoProc, setEditandoProc] = React.useState(null);
-  const [editandoConvenio, setEditandoConvenio] = React.useState(null);
-
-  const carregar = React.useCallback(() => {
-    setCarregando(true);
-    Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores()])
-      .then(([p, c, v]) => { setProcedimentos(p); setConvenios(c); setValores(v); })
-      .catch(err => toast.error('Erro ao carregar: ' + err.message))
-      .finally(() => setCarregando(false));
-  }, [toast]);
-
-  React.useEffect(() => { carregar(); }, [carregar]);
-
-  const criarProcedimento = async (e) => {
-    e.preventDefault();
-    if (!novoProc.nome.trim() || novoProc.valorParticular === '') return;
-    setSalvando(true);
-    try {
-      const criado = await comTimeout(procedimentosService.criar({
-        nome: novoProc.nome.trim(),
-        valorParticular: Number(novoProc.valorParticular),
-        percentualRepasse: Number(novoProc.percentualRepasse) || 0,
-      }));
-      setProcedimentos(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
-      setNovoProc({ nome: '', valorParticular: '', percentualRepasse: '' });
-    } catch (err) {
-      toast.error('Erro ao criar procedimento: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const alternarAtivoProcedimento = async (p) => {
-    try {
-      const atualizado = await comTimeout(procedimentosService.atualizar(p.id, { nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse, ativo: !p.ativo }));
-      setProcedimentos(prev => prev.map(x => x.id === p.id ? atualizado : x));
-    } catch (err) {
-      toast.error('Erro ao atualizar: ' + err.message);
-    }
-  };
-
-  const salvarEdicaoProcedimento = async () => {
-    if (!editandoProc?.nome.trim() || editandoProc.valorParticular === '') return;
-    setSalvando(true);
-    try {
-      const atual = procedimentos.find(p => p.id === editandoProc.id);
-      const atualizado = await comTimeout(procedimentosService.atualizar(editandoProc.id, {
-        nome: editandoProc.nome.trim(),
-        valorParticular: Number(editandoProc.valorParticular),
-        percentualRepasse: Number(editandoProc.percentualRepasse) || 0,
-        ativo: atual?.ativo ?? true,
-      }));
-      setProcedimentos(prev => prev.map(p => p.id === atualizado.id ? atualizado : p).sort((a, b) => a.nome.localeCompare(b.nome)));
-      setEditandoProc(null);
-    } catch (err) {
-      toast.error('Erro ao salvar procedimento: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const excluirProcedimento = async (p) => {
-    if (!window.confirm(`Excluir definitivamente o procedimento "${p.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
-    try {
-      await comTimeout(procedimentosService.excluir(p.id));
-      setProcedimentos(prev => prev.filter(x => x.id !== p.id));
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  const criarConvenio = async (e) => {
-    e.preventDefault();
-    if (!novoConvenio.trim()) return;
-    setSalvando(true);
-    try {
-      const criado = await comTimeout(conveniosService.criar({ nome: novoConvenio.trim() }));
-      setConvenios(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
-      setNovoConvenio('');
-    } catch (err) {
-      toast.error('Erro ao criar convênio: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const alternarAtivoConvenio = async (c) => {
-    try {
-      const atualizado = await comTimeout(conveniosService.atualizar(c.id, { nome: c.nome, ativo: !c.ativo }));
-      setConvenios(prev => prev.map(x => x.id === c.id ? atualizado : x));
-    } catch (err) {
-      toast.error('Erro ao atualizar: ' + err.message);
-    }
-  };
-
-  const excluirConvenio = async (c) => {
-    if (!window.confirm(`Excluir definitivamente o convênio "${c.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
-    try {
-      await comTimeout(conveniosService.excluir(c.id));
-      setConvenios(prev => prev.filter(x => x.id !== c.id));
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  const salvarEdicaoConvenio = async () => {
-    if (!editandoConvenio?.nome.trim()) return;
-    if (editandoConvenio.registroAns && editandoConvenio.registroAns.length !== 6) {
-      toast.warning('O Registro ANS tem 6 dígitos.');
-      return;
-    }
-    setSalvando(true);
-    try {
-      const atual = convenios.find(c => c.id === editandoConvenio.id);
-      const atualizado = await comTimeout(conveniosService.atualizar(editandoConvenio.id, {
-        nome: editandoConvenio.nome.trim(),
-        ativo: atual?.ativo ?? true,
-        registroAns: editandoConvenio.registroAns,
-      }));
-      setConvenios(prev => prev.map(c => c.id === atualizado.id ? atualizado : c).sort((a, b) => a.nome.localeCompare(b.nome)));
-      setEditandoConvenio(null);
-    } catch (err) {
-      toast.error('Erro ao salvar convênio: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const valorOverride = (procedimentoId) =>
-    valores.find(v => v.convenioId === convenioSelecionado && v.procedimentoId === procedimentoId);
-
-  const salvarValorConvenio = async (procedimentoId, valorTexto) => {
-    if (valorTexto === '') return;
-    try {
-      const salvo = await comTimeout(conveniosService.definirValor({
-        convenioId: convenioSelecionado,
-        procedimentoId,
-        valor: Number(valorTexto),
-      }));
-      setValores(prev => [...prev.filter(v => !(v.convenioId === convenioSelecionado && v.procedimentoId === procedimentoId)), salvo]);
-    } catch (err) {
-      toast.error('Erro ao salvar valor: ' + err.message);
-    }
-  };
-
-  if (carregando) return <div><Header /><p style={{ padding: '20px' }}>Carregando...</p></div>;
-
-  return (
-    <div>
-      <Header />
-      <Link to="/financeiro">← Voltar</Link>
-      <h2 style={{ marginTop: '20px' }}>Procedimentos e Convênios</h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', alignItems: 'start' }}>
-        {/* Procedimentos */}
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Procedimentos</h3>
-          <form onSubmit={criarProcedimento} style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
-            <input placeholder="Nome" value={novoProc.nome} onChange={e => setNovoProc({ ...novoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '140px', padding: '7px' }} />
-            <input placeholder="Valor R$" type="number" min="0" step="0.01" value={novoProc.valorParticular} onChange={e => setNovoProc({ ...novoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '90px', padding: '7px' }} />
-            <input placeholder="% repasse" type="number" min="0" max="100" step="0.1" value={novoProc.percentualRepasse} onChange={e => setNovoProc({ ...novoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '90px', padding: '7px' }} />
-            <button type="submit" disabled={salvando} style={{ padding: '7px 14px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add</button>
-          </form>
-          {procedimentos.map(p => (
-            <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: p.ativo ? 1 : 0.5 }}>
-              {editandoProc?.id === p.id ? (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input value={editandoProc.nome} onChange={e => setEditandoProc({ ...editandoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '120px', padding: '6px', fontSize: '16px' }} />
-                  <input type="number" min="0" step="0.01" value={editandoProc.valorParticular} onChange={e => setEditandoProc({ ...editandoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
-                  <input type="number" min="0" max="100" step="0.1" value={editandoProc.percentualRepasse} onChange={e => setEditandoProc({ ...editandoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
-                  <button onClick={salvarEdicaoProcedimento} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoProc(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <strong>{p.nome}</strong>
-                    <div style={{ fontSize: '16px', color: '#666' }}>{formatarMoeda(p.valorParticular)} · {p.percentualRepasse}% repasse</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoProc({ id: p.id, nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
-                      Editar
-                    </button>
-                    <button onClick={() => alternarAtivoProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: p.ativo ? '#fee2e2' : '#d1fae5', color: p.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                      {p.ativo ? 'Desativar' : 'Reativar'}
-                    </button>
-                    <button onClick={() => excluirProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Convênios */}
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Convênios</h3>
-          <form onSubmit={criarConvenio} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
-            <input placeholder="Nome do convênio" value={novoConvenio} onChange={e => setNovoConvenio(e.target.value)} style={{ flex: 1, padding: '7px' }} />
-            <button type="submit" disabled={salvando} style={{ padding: '7px 14px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add</button>
-          </form>
-
-          {convenios.map(c => (
-            <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: c.ativo ? 1 : 0.5 }}>
-              {editandoConvenio?.id === c.id ? (
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <input value={editandoConvenio.nome} onChange={e => setEditandoConvenio({ ...editandoConvenio, nome: e.target.value })} style={{ flex: 1, padding: '6px', fontSize: '16px' }} />
-                  <input value={editandoConvenio.registroAns} onChange={e => setEditandoConvenio({ ...editandoConvenio, registroAns: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Registro ANS" title="Registro ANS da operadora (6 dígitos) — sai na guia SP/SADT" inputMode="numeric" style={{ width: '120px', padding: '6px', fontSize: '16px' }} />
-                  <button onClick={salvarEdicaoConvenio} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoConvenio(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>
-                    <strong>{c.nome}</strong>
-                    {c.registroAns && <span style={{ color: '#6b7280', marginLeft: '8px' }}>ANS {c.registroAns}</span>}
-                  </span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome, registroAns: c.registroAns || '' })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
-                      Editar
-                    </button>
-                    <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                      {c.ativo ? 'Desativar' : 'Reativar'}
-                    </button>
-                    <button onClick={() => excluirConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', margin: '14px 0 6px' }}>Valores por procedimento</label>
-          <select value={convenioSelecionado} onChange={e => setConvenioSelecionado(e.target.value)} style={{ width: '100%', padding: '7px', marginBottom: '10px' }}>
-            <option value="">Selecione um convênio...</option>
-            {convenios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
-
-          {convenioSelecionado && procedimentos.filter(p => p.ativo).map(p => {
-            const override = valorOverride(p.id);
-            return (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <span style={{ fontSize: '16px' }}>{p.nome} <span style={{ color: '#999' }}>(particular: {formatarMoeda(p.valorParticular)})</span></span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="usa particular"
-                  defaultValue={override ? override.valor : ''}
-                  onBlur={e => salvarValorConvenio(p.id, e.target.value)}
-                  style={{ width: '110px', padding: '5px', fontSize: '16px' }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export const COBRANCA_STATUS_CORES = { 'Pendente': '#f59e0b', 'Pago': '#28a745', 'Cancelado': '#6c757d', 'Glosado': '#ef4444' };
 
-export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresConvenio, medicos, userId, onCriado, onCancelar }) {
+export function NovaCobrancaForm({ pacientes, convenios, medicos, userId, onCriado, onCancelar }) {
   const [busca, setBusca] = React.useState('');
   const [pacienteId, setPacienteId] = React.useState('');
   const [procedimentoId, setProcedimentoId] = React.useState('');
@@ -309,18 +36,12 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
   // Busca no servidor (8 primeiros); o escolhido já fica no cache.
   const { itens: pacientesFiltrados } = useBuscaPacientes(busca, { limite: 8 });
   const pacienteSelecionado = pacientes.find(p => p.id === pacienteId);
-  const procedimentoSelecionado = procedimentos.find(p => p.id === procedimentoId);
-
-  const aplicarValorSugerido = (procId, convId) => {
-    const proc = procedimentos.find(p => p.id === procId);
-    if (!proc) return;
-    if (convId) {
-      const override = valoresConvenio.find(v => v.convenioId === convId && v.procedimentoId === procId);
-      setValor(override ? String(override.valor) : String(proc.valorParticular));
-    } else {
-      setValor(String(proc.valorParticular));
-    }
-  };
+  // Valor da tabela do convênio escolhido (ou particular) — migração 50.
+  const { itens: catalogo } = useCatalogo(convenioId || null);
+  React.useEffect(() => {
+    const proc = catalogo.find(p => p.id === procedimentoId);
+    if (proc && proc.valor != null) setValor(String(proc.valor));
+  }, [catalogo, procedimentoId]);
 
   const salvar = async (e) => {
     e.preventDefault();
@@ -338,7 +59,6 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
         convenioId: convenioId || null,
         descricao,
         valor: Number(valor),
-        percentualRepasse: procedimentoSelecionado?.percentualRepasse || 0,
         formaPagamento: formaPagamento || null,
       }, userId);
       onCriado(novo);
@@ -381,17 +101,15 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
-            <select value={convenioId} onChange={e => { setConvenioId(e.target.value); aplicarValorSugerido(procedimentoId, e.target.value); }} style={{ width: '100%', padding: '8px' }}>
+            <select aria-label="Convênio" value={convenioId} onChange={e => setConvenioId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">Particular</option>
-              {convenios.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {convenios.filter(c => c.ativo && !c.particular).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
-            <select value={procedimentoId} onChange={e => { setProcedimentoId(e.target.value); aplicarValorSugerido(e.target.value, convenioId); }} style={{ width: '100%', padding: '8px' }}>
-              <option value="">Selecione...</option>
-              {procedimentos.filter(p => p.ativo).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
+            <EscolhaProcedimento itens={catalogo} procedimentoId={procedimentoId} rotuloVazio="Selecione..." estilo={{ width: '100%', padding: '8px' }}
+              onChange={id => setProcedimentoId(id || '')} />
           </div>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Valor (R$) *</label>
@@ -401,7 +119,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
 
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico responsável</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Profissional</label>
             <select value={medicoId} onChange={e => setMedicoId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">Não definido</option>
               {medicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
@@ -425,6 +143,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
           </div>
         </div>
 
+        <p style={{ fontSize: '15px', color: '#6b7280', margin: '0 0 12px' }}>O repasse é calculado pela regra do profissional para o tipo do procedimento (Administração → Usuários).</p>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="submit" disabled={salvando} style={{ padding: '10px 20px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
             {salvando ? 'Salvando...' : '✓ Lançar cobrança'}
@@ -459,7 +178,6 @@ export function FinanceiroPage({ pacientes }) {
   const [carregandoMais, setCarregandoMais] = React.useState(false);
   const [procedimentos, setProcedimentos] = React.useState([]);
   const [convenios, setConvenios] = React.useState([]);
-  const [valoresConvenio, setValoresConvenio] = React.useState([]);
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
   const [erro, setErro] = React.useState('');
@@ -519,12 +237,13 @@ export function FinanceiroPage({ pacientes }) {
 
   React.useEffect(() => {
     if (!podeGerenciar) return;
-    Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores(), usuariosService.listar()])
-      .then(([p, c, v, u]) => { setProcedimentos(p); setConvenios(c); setValoresConvenio(v); setUsuarios(u); })
+    Promise.all([procedimentosService.listar(), conveniosService.listar(), usuariosService.listar()])
+      .then(([p, c, u]) => { setProcedimentos(p); setConvenios(c); setUsuarios(u); })
       .catch(() => toast.error('Não foi possível carregar os dados para cobrança. Recarregue a página antes de criar uma cobrança'));
   }, [podeGerenciar, toast]);
 
-  const medicos = usuarios.filter(u => u.ativo && u.funcao === 'Médico');
+  // Todo profissional de saúde (não só Médico) tem produção e repasse.
+  const medicos = usuarios.filter(u => u.ativo && (FUNCOES_CLINICAS.includes(u.funcao) || (u.funcao === 'Administrador' && u.papel_clinico_administrador)));
   const buscandoNomes = usePacientesPorIds(React.useMemo(() => cobrancas.map(c => c.pacienteId), [cobrancas]));
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
   const nomeMedico = (id) => usuarios.find(u => u.id === id)?.nome || '—';
@@ -535,7 +254,12 @@ export function FinanceiroPage({ pacientes }) {
     if (!(valor > 0)) { toast.warning('Informe um valor maior que zero.'); return; }
     setProcessandoId(cobranca.id);
     try {
-      const atualizada = await comTimeout(cobrancasService.ajustar(cobranca.id, { valor, descricao: ajustandoCobranca.descricao }, cobranca.versao));
+      const proc = procedimentos.find(p => p.id === ajustandoCobranca.procedimentoId);
+      const atualizada = await comTimeout(cobrancasService.ajustar(cobranca.id, {
+        valor,
+        descricao: ajustandoCobranca.descricao || proc?.nome || '',
+        procedimentoId: ajustandoCobranca.procedimentoId || null,
+      }, cobranca.versao));
       setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
       setAjustandoCobranca(null);
       carregarResumo();
@@ -574,11 +298,12 @@ export function FinanceiroPage({ pacientes }) {
       {!podeGerenciar && <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>Suas cobranças e repasses (somente leitura).</p>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <Link to="/financeiro/producao" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>📊 Relatório de produção</Link>
         <label style={{ fontSize: '16px' }}>De <input type="date" value={de} onChange={e => setDe(e.target.value)} style={{ padding: '6px' }} /></label>
         <label style={{ fontSize: '16px' }}>Até <input type="date" value={ate} onChange={e => setAte(e.target.value)} style={{ padding: '6px' }} /></label>
         {podeGerenciar && (
           <>
-            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Procedimentos e Convênios</Link>
+            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Convênios e tabelas</Link>
             {!mostrarForm && (
               <button onClick={() => setMostrarForm(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 + Nova cobrança
@@ -610,9 +335,7 @@ export function FinanceiroPage({ pacientes }) {
       {mostrarForm && podeGerenciar && (
         <NovaCobrancaForm
           pacientes={pacientes}
-          procedimentos={procedimentos}
           convenios={convenios}
-          valoresConvenio={valoresConvenio}
           medicos={medicos}
           userId={user?.id}
           onCancelar={() => setMostrarForm(false)}
@@ -649,6 +372,11 @@ export function FinanceiroPage({ pacientes }) {
                 </div>
                 {ajustandoCobranca?.id === c.id && (
                   <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: '260px', flex: 2 }}>
+                      <EscolhaProcedimento itens={procedimentos.filter(p => p.ativo || p.id === ajustandoCobranca.procedimentoId).map(p => ({ ...p, valor: p.valorParticular }))}
+                        procedimentoId={ajustandoCobranca.procedimentoId} rotuloVazio="Procedimento a definir" estilo={{ padding: '6px', width: '100%' }}
+                        onChange={id => setAjustandoCobranca(a => ({ ...a, procedimentoId: id, descricao: procedimentos.find(p => p.id === id)?.nome || a.descricao }))} />
+                    </div>
                     <input aria-label="Descrição" value={ajustandoCobranca.descricao} onChange={e => setAjustandoCobranca(a => ({ ...a, descricao: e.target.value }))} style={{ padding: '6px', minWidth: '200px' }} />
                     <input aria-label="Valor" type="number" min="0" step="0.01" value={ajustandoCobranca.valor} onChange={e => setAjustandoCobranca(a => ({ ...a, valor: e.target.value }))} style={{ padding: '6px', width: '120px' }} />
                     <button onClick={() => salvarAjusteCobranca(c)} disabled={processandoId === c.id}>Salvar</button>
@@ -663,7 +391,7 @@ export function FinanceiroPage({ pacientes }) {
                 {podeGerenciar && c.status === 'Pendente' && (
                   <>
                     {ajustandoCobranca?.id !== c.id && (
-                      <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '' })} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>Ajustar valor</button>
+                      <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '', procedimentoId: c.procedimentoId || null })} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>Ajustar</button>
                     )}
                     <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id || !(Number(c.valor) > 0)} title={Number(c.valor) > 0 ? '' : 'Defina o valor antes de marcar como pago'} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
                     <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>

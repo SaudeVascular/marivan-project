@@ -12,8 +12,11 @@ UPDATE public.perfis SET ativo = true, funcao = 'Recepcionista', nome = 'Recepç
 UPDATE public.perfis SET ativo = true, funcao = 'Médico', nome = 'Outro médico AC', crm = '2', uf = 'BA' WHERE id = 'ee000000-0000-4000-8000-000000000003';
 SET LOCAL session_replication_role = origin;
 INSERT INTO public.convenios (id, nome) VALUES ('ee000000-0000-4000-8000-000000000030', 'Convênio AC');
-INSERT INTO public.procedimentos (id, nome, valor_particular, percentual_repasse)
- VALUES ('ee000000-0000-4000-8000-000000000040', 'Consulta AC', 300, 60);
+INSERT INTO public.procedimentos (id, nome, valor_particular, tipo)
+ VALUES ('ee000000-0000-4000-8000-000000000040', 'Consulta AC', 300, 'Consulta');
+-- Repasse é do profissional (migração 50): 60% em consultas.
+INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta, percentual_exame)
+ VALUES ('ee000000-0000-4000-8000-000000000001', 60, 10);
 INSERT INTO public.convenio_valores (convenio_id, procedimento_id, valor)
  VALUES ('ee000000-0000-4000-8000-000000000030', 'ee000000-0000-4000-8000-000000000040', 180);
 INSERT INTO public.pacientes (id, nome) VALUES ('ee000000-0000-4000-8000-000000000010', 'Paciente AC');
@@ -73,7 +76,7 @@ BEGIN
   c := pg_temp.cobranca(ag);
   PERFORM pg_temp.assert_ok(c.status = 'Pendente' AND c.valor = 180 AND c.percentual_repasse = 60 AND c.valor_repasse = 108
     AND c.procedimento_id = proc AND c.convenio_id = conv AND c.medico_id = medica AND c.paciente_id = pac AND c.descricao = 'Consulta AC',
-    'cobrança pendente com o valor da tabela do convênio e o repasse do procedimento');
+    'cobrança pendente com o valor da tabela do convênio e o repasse de consulta da médica');
   PERFORM pg_temp.assert_ok((SELECT count(*) FROM pg_temp.cobranca(ag)) = 1, 'uma cobrança por agendamento');
 
   -- Pela agenda, sem procedimento: cobrança com valor a definir.

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { calcularIdade } from '../../utils/formatters';
-import { FUNCOES_RECEPCAO, FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { FUNCOES_CLINICAS, FUNCOES_RECEPCAO, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { URL_LOGO_PEP } from '../../utils/logoPep';
 
 // Usa a logomarca cadastrada em Configurações da Clínica (logo_url); sem
@@ -150,6 +150,8 @@ export function Header() {
           <Link to="/enfermagem" style={linkCabecalho}>🩺 Enfermagem</Link>
         )}
         {(FUNCOES_FINANCEIRO.includes(funcao) || funcao === 'Médico') && <Link to="/financeiro" style={linkCabecalho}>💰 Financeiro</Link>}
+        {/* Demais profissionais de saúde: só o relatório da própria produção. */}
+        {FUNCOES_CLINICAS.includes(funcao) && funcao !== 'Médico' && <Link to="/financeiro/producao" style={linkCabecalho}>📊 Produção</Link>}
         {funcao === 'Administrador' && <Link to="/painel" style={linkCabecalho}>⚙️ Administração</Link>}
         <button
           onClick={handleLogout}

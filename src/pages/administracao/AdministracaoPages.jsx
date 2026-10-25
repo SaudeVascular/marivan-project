@@ -11,10 +11,11 @@ import { baixarJson, exportacaoService, nomeArquivoExportacao } from '../../serv
 import { configuracoesService } from '../../services/configuracoes.service';
 import { filiaisService } from '../../services/filiais.service';
 import { examesService } from '../../services/exames.service';
+import { repasseService } from '../../services/repasse.service';
 import { pontuarCorrespondencia } from '../../utils/buscaExames';
 import { comTimeout } from '../../utils/comTimeout';
 import { formatarCPF, formatarCNPJ } from '../../utils/mascaras';
-import { UFS, FUNCOES_USUARIO, CONSELHO_POR_FUNCAO } from '../../constants/roles';
+import { UFS, FUNCOES_USUARIO, CONSELHO_POR_FUNCAO, FUNCOES_CLINICAS } from '../../constants/roles';
 
 // Painel administrativo (seção 2.5 do Documento Mestre) — hub com acesso
 // a Usuários, Auditoria e Configurações da Clínica, no lugar de três
@@ -127,6 +128,13 @@ function SiglaConselho({ funcao }) {
   );
 }
 
+// Quem atende e, portanto, tem produção e repasse (migração 50).
+const ehProfissional = (u) => FUNCOES_CLINICAS.includes(u.funcao) || (u.funcao === 'Administrador' && !!u.papel_clinico_administrador);
+const REPASSE_VAZIO = { consulta: 0, exame: 0, procedimento: 0 };
+const textoRepasse = (r) => (r
+  ? `consultas ${r.consulta.toLocaleString('pt-BR')}% · exames ${r.exame.toLocaleString('pt-BR')}% · procedimentos ${r.procedimento.toLocaleString('pt-BR')}%`
+  : 'não definido (0%)');
+
 export function UsuariosPage() {
   const toast = useToast();
   const { user } = useAuth();
@@ -139,12 +147,18 @@ export function UsuariosPage() {
   const [salvandoEdicaoUsuario, setSalvandoEdicaoUsuario] = React.useState(false);
   const [processandoStatusId, setProcessandoStatusId] = React.useState(null);
   const [processandoPapelClinicoId, setProcessandoPapelClinicoId] = React.useState(null);
+  // Regras de repasse por profissional, indexadas pelo id do perfil.
+  const [repasses, setRepasses] = React.useState({});
+  const [erroRepasses, setErroRepasses] = React.useState(false);
 
   React.useEffect(() => {
     usuariosService.listar()
       .then(setUsuarios)
       .catch(() => toast.error('Não foi possível carregar os usuários. Recarregue a página para tentar novamente.'))
       .finally(() => setCarregando(false));
+    repasseService.listar()
+      .then(lista => setRepasses(Object.fromEntries(lista.map(r => [r.profissionalId, r]))))
+      .catch(() => setErroRepasses(true));
   }, [toast]);
 
   const criarUsuario = async (e) => {
@@ -166,10 +180,20 @@ export function UsuariosPage() {
 
   const salvarEdicao = async () => {
     if (!editando?.nome.trim()) return;
+    const { repasse, ...dados } = editando;
+    const repasseMudou = repasse && ['consulta', 'exame', 'procedimento'].some(k => Number(repasse[k]) !== (repasses[editando.id] || REPASSE_VAZIO)[k]);
+    if (repasse && ['consulta', 'exame', 'procedimento'].some(k => repasse[k] === '' || !(Number(repasse[k]) >= 0 && Number(repasse[k]) <= 100))) {
+      toast.warning('Os percentuais de repasse vão de 0 a 100.');
+      return;
+    }
     setSalvandoEdicaoUsuario(true);
     try {
-      await comTimeout(usuariosService.atualizar(editando.id, editando));
-      setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...editando } : u));
+      await comTimeout(usuariosService.atualizar(editando.id, dados));
+      setUsuarios(prev => prev.map(u => u.id === editando.id ? { ...u, ...dados } : u));
+      if (repasseMudou) {
+        const salvo = await comTimeout(repasseService.salvar(editando.id, repasse));
+        setRepasses(prev => ({ ...prev, [editando.id]: salvo }));
+      }
       setEditando(null);
     } catch (err) {
       toast.error('Erro ao salvar: ' + err.message);
@@ -321,6 +345,11 @@ export function UsuariosPage() {
                         {u.funcao}{u.crm ? ` · ${CONSELHO_POR_FUNCAO[u.papel_clinico_administrador || u.funcao] || 'Conselho'} ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}{u.rqe ? ` · RQE ${u.rqe}` : ''}
                         {u.funcao === 'Administrador' && u.papel_clinico_administrador ? ` · atua como ${u.papel_clinico_administrador}` : ''}
                       </div>
+                      {ehProfissional(u) && (
+                        <div style={{ fontSize: '15px', color: '#6b7280', marginTop: '2px' }}>
+                          Repasse: {erroRepasses ? 'não foi possível carregar' : textoRepasse(repasses[u.id])}
+                        </div>
+                      )}
                       {u.funcao === 'Administrador' && u.id !== user?.id && (
                         <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <label style={{ fontSize: '15px', color: '#6b7280' }}>Papel clínico adicional:</label>
@@ -339,7 +368,7 @@ export function UsuariosPage() {
                       <span style={{ fontSize: '16px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
-                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '', cbo: u.cbo || '', rqe: u.rqe || '' })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
+                      <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '', cbo: u.cbo || '', rqe: u.rqe || '', repasse: ehProfissional(u) ? (({ consulta, exame, procedimento }) => ({ consulta, exame, procedimento }))(repasses[u.id] || REPASSE_VAZIO) : null })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>
                       <button
@@ -417,6 +446,25 @@ export function UsuariosPage() {
                         <input value={editando.cbo || ''} onChange={e => setEditando({ ...editando, cbo: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Ex: 225125 — sai na guia SP/SADT" inputMode="numeric" style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
                       </div>
                     </div>
+                    {editando.repasse && (
+                      <fieldset style={{ border: '1px solid #bae6fd', borderRadius: '6px', padding: '8px 12px', marginBottom: '10px' }}>
+                        <legend style={{ fontSize: '16px', fontWeight: 'bold' }}>Repasse ao profissional (% sobre o valor de cada atendimento)</legend>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
+                          {[['consulta', 'Consultas'], ['exame', 'Exames'], ['procedimento', 'Procedimentos']].map(([k, nome]) => (
+                            <div key={k}>
+                              <label htmlFor={`repasse-${k}`} style={{ fontSize: '16px', display: 'block', marginBottom: '3px' }}>{nome} (%)</label>
+                              <input id={`repasse-${k}`} type="number" min="0" max="100" step="0.01" value={editando.repasse[k]}
+                                onChange={e => setEditando({ ...editando, repasse: { ...editando.repasse, [k]: e.target.value } })}
+                                style={{ width: '100%', padding: '7px', fontSize: '16px' }} />
+                            </div>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: '14px', color: '#6b7280', margin: '6px 0 0' }}>
+                          Vale para as cobranças lançadas daqui em diante; as já lançadas guardam o percentual da época.
+                          O tipo de cada procedimento está em Financeiro → Convênios e tabelas → Procedimentos.
+                        </p>
+                      </fieldset>
+                    )}
                     <div style={{ fontSize: '16px', color: '#6b7280', marginBottom: '10px' }}>
                       E-mail: <strong>{u.email}</strong> <span style={{ color: '#9ca3af' }}>(não editável)</span>
                     </div>
@@ -446,6 +494,8 @@ const ROTULOS_TABELA = {
   perfis: 'Usuário',
   configuracoes_clinica: 'Configurações da clínica',
   filiais: 'Filial',
+  cobrancas: 'Cobrança',
+  repasse_profissional: 'Regra de repasse',
 };
 
 const ROTULOS_OPERACAO = {

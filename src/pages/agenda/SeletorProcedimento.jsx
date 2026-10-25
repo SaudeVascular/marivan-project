@@ -14,7 +14,7 @@ export function useConvenios() {
   return convenios;
 }
 
-// Procedimentos com o valor da tabela do convênio (migração 49).
+// Procedimentos com o valor da tabela do convênio (migrações 49/50).
 export function useCatalogo(convenioId) {
   const [estado, setEstado] = React.useState({ itens: [], erro: false });
   React.useEffect(() => {
@@ -27,6 +27,42 @@ export function useCatalogo(convenioId) {
   return estado;
 }
 
+export const rotuloProcedimento = (p) => (p.codigo ? `${p.codigo} — ${p.nome}` : p.nome);
+
+const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const LIMITE_OPCOES = 200;
+
+// Lista de procedimentos com busca por nome ou código: tabelas importadas
+// têm milhares de itens. Os que têm valor neste convênio vêm primeiro.
+export function EscolhaProcedimento({ itens, procedimentoId, onChange, rotuloVazio = 'A definir', estilo }) {
+  const [busca, setBusca] = React.useState('');
+  const opcoes = React.useMemo(() => {
+    const termo = semAcento(busca.trim());
+    const codigo = busca.toUpperCase().replace(/[^0-9A-Z]/g, '');
+    const filtrados = !termo ? itens : itens.filter(p => semAcento(p.nome).includes(termo) || (codigo && p.codigo.startsWith(codigo)));
+    const ordenados = [...filtrados].sort((a, b) => (a.valor == null) - (b.valor == null) || a.nome.localeCompare(b.nome));
+    const visiveis = ordenados.slice(0, LIMITE_OPCOES);
+    const escolhido = itens.find(p => p.id === procedimentoId);
+    if (escolhido && !visiveis.includes(escolhido)) visiveis.unshift(escolhido);
+    return { visiveis, ocultos: ordenados.length - Math.min(ordenados.length, LIMITE_OPCOES) };
+  }, [itens, busca, procedimentoId]);
+  return (
+    <div>
+      {itens.length > 15 && (
+        <input aria-label="Buscar procedimento" value={busca} onChange={e => setBusca(e.target.value)}
+          placeholder="Buscar por nome ou código" style={{ ...estilo, marginBottom: '4px' }} />
+      )}
+      <select aria-label="Procedimento" value={procedimentoId || ''} onChange={e => onChange(e.target.value || null)} style={estilo}>
+        <option value="">{rotuloVazio}</option>
+        {opcoes.visiveis.map(p => <option key={p.id} value={p.id}>{rotuloProcedimento(p)}</option>)}
+      </select>
+      {opcoes.ocultos > 0 && (
+        <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>+{opcoes.ocultos} — refine a busca</div>
+      )}
+    </div>
+  );
+}
+
 // Convênio + procedimento, com o valor que irá para a cobrança quando o
 // atendimento for concluído.
 export function SeletorProcedimento({ convenioId, procedimentoId, onChange, convenios }) {
@@ -37,17 +73,16 @@ export function SeletorProcedimento({ convenioId, procedimentoId, onChange, conv
     <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
       <div>
         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
-        <select aria-label="Convênio" value={convenioId || ''} onChange={e => onChange({ convenioId: e.target.value || null, procedimentoId })} style={estilo}>
+        {/* O convênio "Particular" do cadastro do paciente é a opção vazia. */}
+        <select aria-label="Convênio" value={convenios.find(c => c.id === convenioId)?.particular ? '' : (convenioId || '')} onChange={e => onChange({ convenioId: e.target.value || null, procedimentoId })} style={estilo}>
           <option value="">Particular</option>
-          {convenios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          {convenios.filter(c => !c.particular).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
       </div>
       <div>
         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
-        <select aria-label="Procedimento" value={procedimentoId || ''} onChange={e => onChange({ convenioId, procedimentoId: e.target.value || null })} style={estilo}>
-          <option value="">A definir</option>
-          {itens.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-        </select>
+        <EscolhaProcedimento itens={itens} procedimentoId={procedimentoId} estilo={estilo}
+          onChange={id => onChange({ convenioId, procedimentoId: id })} />
       </div>
       <div>
         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Valor da tabela</label>

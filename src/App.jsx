@@ -19,6 +19,7 @@ import {
   SomenteQuemEmite,
   SomenteFinanceiro,
   SomenteFinanceiroOuMedico,
+  SomenteProducao,
   SomenteRecepcao,
   SomenteEnfermagem,
 } from './components/guards';
@@ -37,10 +38,11 @@ import {
 import { AgendaPage } from './pages/agenda/AgendaPages';
 import { RecepcaoPage } from './pages/recepcao/RecepcaoPage';
 import {
-  CatalogoFinanceiroPage,
   FinanceiroPage,
   ImprimirReciboPage,
 } from './pages/financeiro/FinanceiroPages';
+import { ConveniosTabelasPage } from './pages/financeiro/ConveniosPage';
+import { ProducaoPage } from './pages/financeiro/ProducaoPage';
 import {
   PainelAdministrativoPage,
   UsuariosPage,
@@ -226,8 +228,18 @@ function AppContent() {
         element={
           <ProtectedLayout>
             <SomenteFinanceiro>
-              <CatalogoFinanceiroPage />
+              <ConveniosTabelasPage />
             </SomenteFinanceiro>
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/financeiro/producao"
+        element={
+          <ProtectedLayout>
+            <SomenteProducao>
+              <ProducaoPage />
+            </SomenteProducao>
           </ProtectedLayout>
         }
       />

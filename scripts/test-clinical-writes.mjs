@@ -75,6 +75,8 @@ await executar(await readFile(new URL('../supabase/tests/agenda_cobranca.sql', i
 console.log('OK: procedimento no agendamento; assinar conclui; Realizado gera a cobrança pendente.');
 await executar(await readFile(new URL('../supabase/tests/resumo_cobrancas.sql', import.meta.url), 'utf8'));
 console.log('OK: totais do Financeiro no banco, além de 1000 linhas e sob a RLS.');
+await executar(await readFile(new URL('../supabase/tests/convenios_repasse_producao.sql', import.meta.url), 'utf8'));
+console.log('OK: operadora e tabela do convênio importada; repasse por profissional; relatório de produção.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

@@ -1,7 +1,7 @@
 # Documento Mestre do Projeto — PEP
 
 **Responsável clínico:** Dr. Marivan Araujo
-**Versão:** 2.4 — 25/10/2026
+**Versão:** 2.5 — 25/10/2026
 **Estado:** publicado em produção (https://marivan-project.vercel.app) e em uso; validação operacional com a equipe em andamento.
 
 Este documento distingue implementação de validação operacional. Um recurso
@@ -56,7 +56,10 @@ Dados reais de pacientes ficam só na produção. Procedimento em
 | Cadastro | IMPLEMENTADO | Identificação, endereço, convênio, CNS e dados clínicos separados por view e triggers; busca de pacientes no servidor. CPF opcional, mas validado, padronizado e único pelos dígitos; CNS, nascimento e tamanhos validados no banco (migração 45). Criação idempotente (migração 47). Tela para localizar e reativar desativados. Campos obrigatórios definitivos dependem de decisão clínica. |
 | Perfis e autorização | IMPLEMENTADO | RLS, views mascaradas e proteção de função/status. Administrador clínico só por concessão explícita (migração 30). Profissões não médicas registram só os tipos permitidos (migração 39). |
 | Agenda e recepção | IMPLEMENTADO | Agendamento com procedimento e convênio (o convênio vem do cadastro; a Recepção confirma ou ajusta na chegada) e fluxo de status/check-in, com transições e versão no banco e criação idempotente (migrações 47 e 49). Assinar a Consulta (ou Evolução de Enfermagem) conclui o agendamento do dia, do mesmo profissional, que esteja Aguardando ou Em atendimento. A agenda admite toda conta ativa (Financeiro só lê); restrição adicional por função exige decisão explícita. |
-| Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura do próprio repasse pelo médico. Totais calculados no banco (`resumo_cobrancas`) e lista paginada, sem o limite de 1000 linhas da API. Criação idempotente, versão nas alterações, transições de status e data de pagamento definida pelo banco (apagada ao desfazer o pagamento) — migração 47. Agendamento Realizado gera a cobrança Pendente com procedimento, convênio, profissional, valor da tabela do convênio e repasse (uma por agendamento); sem procedimento, nasce "valor a definir" e só pode ser paga depois de ajustada — migração 49. |
+| Convênios e tabelas | IMPLEMENTADO / EM VALIDAÇÃO | Cada convênio guarda os dados da operadora (razão social, CNPJ — inclusive alfanumérico —, registro ANS, código da clínica na operadora, contato, endereço, prazo de pagamento, tabela de referência) e a própria tabela: código, procedimento e valor acordado. A tabela é importada de planilha (.xls, .xlsx, .ods ou .csv) com prévia e erros por linha, gravada de uma vez (tudo ou nada), acrescentando/atualizando ou substituindo; também é exportada em .xlsx. O "Particular" é a tabela da própria clínica. Procedimento tem código (TUSS/CBHPM, sem pontos) e tipo — Consulta, Exame ou Procedimento —, que decide o repasse (migração 50). |
+| Repasse | IMPLEMENTADO / EM VALIDAÇÃO | Por profissional, não por procedimento: cada um tem o percentual de consultas, de exames e de procedimentos, definido só pelo Administrador no cadastro do usuário. O banco calcula o percentual da cobrança ao lançá-la (e se o profissional ou o procedimento mudar enquanto Pendente); mudar a regra não reescreve cobranças já lançadas. Regras auditadas (migração 50). |
+| Relatório de produção | IMPLEMENTADO / EM VALIDAÇÃO | Cada profissional de saúde vê a própria produção; Financeiro e Administrador, a de todos. Mês ou intervalo de dias, por profissional, tipo, procedimento, convênio e situação; totais de produção, repasse, parte da clínica, recebido, a receber e glosado, por profissional, por procedimento e por convênio; impressão. O alcance é decidido no banco (`relatorio_producao`); canceladas não entram (migração 50). |
+| Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura das próprias cobranças por todo profissional de saúde (migração 50). Totais calculados no banco (`resumo_cobrancas`) e lista paginada, sem o limite de 1000 linhas da API. Criação idempotente, versão nas alterações, transições de status e data de pagamento definida pelo banco (apagada ao desfazer o pagamento) — migração 47. Agendamento Realizado gera a cobrança Pendente com procedimento, convênio, profissional, valor da tabela do convênio e repasse (uma por agendamento); sem procedimento, nasce "valor a definir" e só pode ser paga depois de ajustada — migração 49. |
 | Usuários | IMPLEMENTADO / EM VALIDAÇÃO | Convites por Edge Function com Administrador ativo e origens explícitas, publicada em produção. Falta acompanhar o fluxo completo de convite por e-mail com cada novo membro. |
 | Clínica e filiais | IMPLEMENTADO | Cadastro/configuração e múltiplas filiais. Não representa isolamento entre organizações independentes. |
 | Exportação | IMPLEMENTADO | Prontuário de um paciente (quem lê o prontuário) e clínica inteira (Administrador com papel clínico), em JSON com registros, autoria, datas, retificações e retrato das emissões; montado no navegador, sem cópia no servidor; registrado na auditoria (migração 48). |
@@ -65,7 +68,7 @@ Dados reais de pacientes ficam só na produção. Procedimento em
 
 ## Matriz de autorização atual
 
-A matriz descreve o banco após a migração 48. Restrições devem existir no
+A matriz descreve o banco após a migração 50. Restrições devem existir no
 backend mesmo quando uma rota está escondida no frontend. A matriz e suas
 ressalvas estão detalhadas em [AUTORIZACAO.md](docs/AUTORIZACAO.md).
 
@@ -77,7 +80,10 @@ ressalvas estão detalhadas em [AUTORIZACAO.md](docs/AUTORIZACAO.md).
 | Receita e prescrição | Sim | Não | Não | Não | Não | Só com papel clínico Médico concedido |
 | Modelos de receita | Próprios | Não | Não | Não | Não | Próprios, só com papel clínico Médico concedido |
 | Agenda | Sim | Sim | Sim | Sim | Só leitura | Sim |
-| Cobranças | Leitura das próprias | Não | Não | Não | Gerenciar | Gerenciar/excluir |
+| Cobranças | Leitura das próprias | Leitura das próprias | Leitura das próprias | Não | Gerenciar | Gerenciar/excluir |
+| Convênios e tabelas | Não | Não | Não | Não | Gerenciar | Gerenciar |
+| Regras de repasse | A própria | A própria | A própria | Não | Ler | Gerenciar |
+| Relatório de produção | O próprio | O próprio | O próprio | Não | Todos | Todos |
 | Configuração e filiais | Ler | Ler | Ler | Ler | Ler | Gerenciar |
 | Auditoria (alterações e acessos) | Não | Não | Não | Não | Não | Ler, mascarada sem papel clínico |
 
@@ -171,3 +177,4 @@ Evidências, commits, URLs e estado por ambiente estão em
 | 2.2 | 24/10/2026 | Publicação em produção (migrações 31–42): autosave remoto, versão obrigatória do paciente, totais do Financeiro no banco, histórico paginado, auditoria mascarada e de acessos, Psicologia/Fisioterapia com tipos permitidos, assinatura digitalizada, catálogo TUSS e guia SP/SADT. Frontend migrado para Vite. Tabela de ambientes. |
 | 2.3 | 24/10/2026 | Terceira avaliação: saída de sessão sem depender da rede, documentos só com identidade profissional completa, falhas de conexão distintas de "paciente não encontrado" e dos totais do Financeiro; auditoria de leitura registrada como parcial; script de limpeza dos pacientes fictícios retirado (usado uma vez, em 24/10/2026). |
 | 2.4 | 25/10/2026 | Quarta avaliação (migrações 43–48) e agenda → cobrança (49): reimpressão presa ao paciente do registro; formulários de documento por paciente; identidade profissional exigida pelo banco na assinatura; CPF/CNS/nascimento validados e CPF único pelos dígitos; reativação de pacientes; retrato da emissão e 2ª via fiel com código de verificação; criação idempotente e versão em cadastro, agenda e cobranças; leitura clínica auditada no banco; exportação do prontuário e da clínica; testes de navegador no CI. |
+| 2.5 | 25/10/2026 | Convênios com dados da operadora e tabela própria importada de planilha; procedimento com código e tipo; repasse por profissional (consulta, exame, procedimento) definido pelo Administrador; relatório de produção individual e da clínica, com impressão (migração 50). |
