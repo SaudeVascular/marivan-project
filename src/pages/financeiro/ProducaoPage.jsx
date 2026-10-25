@@ -150,33 +150,33 @@ export function ProducaoPage() {
           </fieldset>
           {gestor && (
             <label style={filtroRotulo}>Profissional
-              <select value={profissionalId} onChange={e => setProfissionalId(e.target.value)} style={{ padding: '6px' }}>
+              <select aria-label="Profissional" value={profissionalId} onChange={e => setProfissionalId(e.target.value)} style={{ padding: '6px' }}>
                 <option value="">Todos os profissionais</option>
                 {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}{p.ativo ? '' : ' (inativo)'}</option>)}
               </select>
             </label>
           )}
           <label style={filtroRotulo}>Tipo
-            <select value={tipo} onChange={e => setTipo(e.target.value)} style={{ padding: '6px' }}>
+            <select aria-label="Tipo" value={tipo} onChange={e => setTipo(e.target.value)} style={{ padding: '6px' }}>
               <option value="">Todos</option>
               {TIPOS.map(t => <option key={t}>{t}</option>)}
               <option value="a-definir">A definir</option>
             </select>
           </label>
           <label style={filtroRotulo}>Procedimento
-            <select value={procedimento} onChange={e => setProcedimento(e.target.value)} style={{ padding: '6px', maxWidth: '320px' }}>
+            <select aria-label="Procedimento" value={procedimento} onChange={e => setProcedimento(e.target.value)} style={{ padding: '6px', maxWidth: '320px' }}>
               <option value="">Todos</option>
               {opcoesProcedimento.map(o => <option key={o.chave} value={o.chave}>{o.codigo ? `${o.codigo} — ` : ''}{o.nome}</option>)}
             </select>
           </label>
           <label style={filtroRotulo}>Convênio
-            <select value={convenio} onChange={e => setConvenio(e.target.value)} style={{ padding: '6px' }}>
+            <select aria-label="Convênio" value={convenio} onChange={e => setConvenio(e.target.value)} style={{ padding: '6px' }}>
               <option value="">Todos</option>
               {opcoesConvenio.map(o => <option key={o.chave} value={o.chave}>{o.nome}</option>)}
             </select>
           </label>
           <label style={filtroRotulo}>Situação
-            <select value={situacao} onChange={e => setSituacao(e.target.value)} style={{ padding: '6px' }}>
+            <select aria-label="Situação" value={situacao} onChange={e => setSituacao(e.target.value)} style={{ padding: '6px' }}>
               <option value="">Todas (sem as canceladas)</option>
               {SITUACOES.map(s => <option key={s}>{s}</option>)}
             </select>

@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { entrar, idPaciente, sql } from '../apoio.mjs';
+import { entrar, idPaciente, limparAtendimentos, sql } from '../apoio.mjs';
 
 test('agenda → atendimento → cobrança: a Recepção agenda com o procedimento, a médica assina e o Financeiro vê a cobrança pendente', async ({ page }) => {
   const a = idPaciente('E2E Paciente A');
   const medica = sql("SELECT id FROM auth.users WHERE email = 'e2e-medico@example.invalid'");
+  limparAtendimentos(a);
 
   await entrar(page, 'recepcao');
   await page.goto('/recepcao');

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import * as XLSX from 'xlsx';
-import { entrar, idPaciente, sql } from '../apoio.mjs';
+import { entrar, idPaciente, limparAtendimentos, sql } from '../apoio.mjs';
 
 // Planilha .xls de verdade (formato antigo do Excel), gerada aqui.
 function planilhaXls(linhas) {
@@ -11,6 +11,9 @@ function planilhaXls(linhas) {
 
 test('Financeiro cadastra a operadora e importa a tabela do convênio de uma planilha .xls', async ({ page }) => {
   await entrar(page, 'financeiro');
+  sql("DELETE FROM public.convenios WHERE nome = 'E2E Operadora'");
+  sql("DELETE FROM public.procedimentos WHERE nome = 'E2E Hemograma'");
+  sql("UPDATE public.procedimentos SET codigo = NULL WHERE nome = 'E2E Consulta'");
   await page.goto('/financeiro/config');
   await page.getByLabel('Nome do novo convênio').fill('E2E Operadora');
   await page.getByRole('button', { name: '+ Novo' }).click();
@@ -46,6 +49,7 @@ test('Financeiro cadastra a operadora e importa a tabela do convênio de uma pla
 
 test('relatório de produção: a médica vê e imprime a própria; o Financeiro vê a de todos, com o que fica para a clínica', async ({ page }) => {
   const b = idPaciente('E2E Paciente B');
+  limparAtendimentos(b);
   sql(`INSERT INTO public.cobrancas (paciente_id, medico_id, procedimento_id, valor, data_cobranca)
        SELECT '${b}', u.id, p.id, 300, DATE '2026-01-15' FROM auth.users u, public.procedimentos p
         WHERE u.email = 'e2e-medico@example.invalid' AND p.nome = 'E2E Consulta'`);
@@ -68,7 +72,7 @@ test('relatório de produção: a médica vê e imprime a própria; o Financeiro
   await entrar(page, 'financeiro');
   await page.goto('/financeiro/producao');
   await page.getByLabel('Mês do relatório').fill('2026-01');
-  await page.getByLabel('Profissional').selectOption({ label: 'Médica E2E' });
+  await page.getByLabel('Profissional', { exact: true }).selectOption({ label: 'Médica E2E' });
   await expect(page.getByRole('table', { name: 'Por procedimento' }).getByRole('row', { name: /E2E Consulta/ })).toContainText('R$ 300,00');
   await expect(page.getByRole('group', { name: 'Fica para a clínica' })).toContainText('R$ 120,00');
 });
