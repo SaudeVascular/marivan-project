@@ -452,6 +452,9 @@ export function FinanceiroPage({ pacientes }) {
   const [cobrancas, setCobrancas] = React.useState([]);
   const [totalCobrancas, setTotalCobrancas] = React.useState(0);
   const [resumo, setResumo] = React.useState(null);
+  // Falha nos totais é mostrada como tal (com nova tentativa) — nunca como
+  // zero nem misturada com "sem movimentação".
+  const [erroResumo, setErroResumo] = React.useState(false);
   const [carregandoMais, setCarregandoMais] = React.useState(false);
   const [procedimentos, setProcedimentos] = React.useState([]);
   const [convenios, setConvenios] = React.useState([]);
@@ -472,9 +475,14 @@ export function FinanceiroPage({ pacientes }) {
 
   const carregarResumo = React.useCallback(() => {
     const consulta = consultaAtual.current;
-    cobrancasService.resumo(filtro)
+    setErroResumo(false);
+    comTimeout(cobrancasService.resumo(filtro))
       .then(r => { if (consulta === consultaAtual.current) setResumo(r); })
-      .catch(() => { if (consulta === consultaAtual.current) setResumo(null); });
+      .catch(() => {
+        if (consulta !== consultaAtual.current) return;
+        setResumo(null);
+        setErroResumo(true);
+      });
   }, [filtro]);
 
   const carregar = React.useCallback(() => {
@@ -560,12 +568,20 @@ export function FinanceiroPage({ pacientes }) {
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <div style={{ fontSize: '16px', color: '#666' }}>Total no período</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.total) : '…'}</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.total) : (erroResumo ? 'Indisponível' : '…')}</div>
         </div>
         <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <div style={{ fontSize: '16px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.totalRepasse) : '…'}</div>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.totalRepasse) : (erroResumo ? 'Indisponível' : '…')}</div>
         </div>
+        {erroResumo && (
+          <div role="alert" style={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '10px 14px', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', color: '#991b1b' }}>
+            <span>Não foi possível calcular os totais do período (conexão ou servidor). A lista abaixo pode estar correta; os totais não são zero, só não foram carregados.</span>
+            <button type="button" onClick={carregarResumo} style={{ padding: '6px 12px', border: '1px solid #991b1b', borderRadius: '4px', background: 'white', color: '#991b1b', cursor: 'pointer' }}>
+              Recarregar totais
+            </button>
+          </div>
+        )}
       </div>
 
       {mostrarForm && podeGerenciar && (

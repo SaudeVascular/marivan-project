@@ -216,6 +216,12 @@ Falhas impedem que a alteração seja considerada pronta para homologação.
   da aba;
 - sessões abertas encerram após 15 minutos sem atividade e limpam rascunhos
   clínicos locais;
+- sair (pelo botão ou por inatividade) fecha a tela na hora e apaga o token
+  deste navegador mesmo sem rede (`services/sessao.service.js`). A revogação
+  no servidor é tentada em seguida; sem conexão, a tela de login avisa e a aba
+  tenta de novo quando a rede voltar (o access token fica só em memória até
+  expirar). Se a aba for recarregada antes disso, a sessão não revogada fica
+  só no servidor — sem nenhuma cópia do token no navegador;
 - o atendimento em digitação é salvo sozinho no servidor como rascunho
   (consulta com status "Rascunho", pela mesma RPC versionada): 10 s depois da
   última tecla, ao esconder a aba e ao sair da tela; em falha, nova tentativa

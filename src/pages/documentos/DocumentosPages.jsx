@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useMedicoPerfil } from '../../hooks/useMedicoPerfil';
+import { AvisoIdentidadeProfissional } from '../../components/common/AvisoIdentidadeProfissional';
 import { Header, CabecalhoImpresso, RodapeImpresso } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
@@ -49,10 +51,11 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dias, setDias] = React.useState('1');
   const [dataAtestado, setDataAtestado] = React.useState(hojeISO);
   const [cid, setCid] = React.useState('');
@@ -63,13 +66,14 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const dataFormatada = new Date(dataAtestado + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const diasNum = Number(dias);
     if (!dias || !Number.isInteger(diasNum) || diasNum < 1) {
       toast.warning('Informe um número de dias de afastamento válido (1 ou mais).');
@@ -108,6 +112,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   // navegador não repete cabeçalho/rodapé de forma confiável entre
   // navegadores (Safari em especial).
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -142,6 +147,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -168,10 +174,10 @@ export function AtestadoPage({ pacientes, setPacientes }) {
             <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} rows={2} />
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={salvarNoProntuario} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
-            <button onClick={imprimirDocumento} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={imprimirDocumento} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -216,10 +222,11 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataReceita]                   = React.useState(hojeISO);
   const [salvo, setSalvo]               = React.useState(false);
   const [textoLivre, setTextoLivre]     = React.useState('');
@@ -263,7 +270,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
     }
   };
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const adicionarMed = () => setMedicamentos([...medicamentos, {
     id: Date.now(), nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: ''
@@ -282,6 +289,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const temMedicamento = medicamentos.some(m => m.nome.trim());
     if (!temMedicamento && !textoLivre.trim()) {
       toast.warning('Adicione pelo menos um medicamento ou preencha o texto livre da prescrição.');
@@ -328,6 +336,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   // motivo do Atestado — repetir cabeçalho/rodapé em toda página não é
   // confiável só com CSS de impressão do navegador.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -382,6 +391,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvandoReceituario} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -425,8 +435,8 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
           ))}
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
-            <button onClick={salvarNoProntuario} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{salvandoReceituario ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
-            <button onClick={imprimirDocumento} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
+            <button onClick={salvarNoProntuario} disabled={salvandoReceituario || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: (salvandoReceituario || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoReceituario || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{(salvandoReceituario || !identidade.pronto) ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
+            <button onClick={imprimirDocumento} disabled={salvandoReceituario || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: (salvandoReceituario || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoReceituario || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
 
@@ -567,10 +577,11 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const { user, funcaoClinicaEfetiva } = useAuth();
   const tituloRelatorio = TITULO_RELATORIO[funcaoClinicaEfetiva] || TITULO_RELATORIO['Médico'];
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
   const [finalidade, setFinalidade] = React.useState('');
   const [modo, setModo] = React.useState('estruturado'); // 'estruturado' | 'livre'
@@ -583,13 +594,14 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const dataFormatada = new Date(dataRelatorio + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const temConteudo = modo === 'livre'
       ? textoLivre.trim()
       : [finalidade, diagnostico, historico, exames, conduta, conclusao].some(c => c && c.trim());
@@ -635,6 +647,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   // prontuário. Vira PDF de verdade (utils/documentoPdf) pelo mesmo
   // motivo do Atestado.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -686,6 +699,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -738,10 +752,10 @@ export function RelatorioPage({ pacientes, setPacientes }) {
           )}
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={salvarNoProntuario} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
-            <button onClick={imprimirDocumento} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={imprimirDocumento} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -1076,10 +1090,11 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   const [tipoExame, setTipoExame]         = React.useState('');
   const [tipoOutro, setTipoOutro]         = React.useState('');
@@ -1088,12 +1103,13 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo]                 = React.useState(false);
   const [salvando, setSalvando]           = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const nomeExame = tipoExame === 'Outro' ? tipoOutro : tipoExame;
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     if (!achados && !conclusao) return false;
     setSalvando(true);
     const conteudo = [
@@ -1121,6 +1137,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
   // prontuário. Vira PDF de verdade (utils/documentoPdf) pelo mesmo
   // motivo do Atestado.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -1155,6 +1172,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -1192,10 +1210,10 @@ export function LaudoPage({ pacientes, setPacientes }) {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={salvando || (!achados && !conclusao)} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={salvarNoProntuario} disabled={(salvando || (!achados && !conclusao)) || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) || !identidade.pronto ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
-          <button onClick={imprimirDocumento} disabled={salvando || (!achados && !conclusao)} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={imprimirDocumento} disabled={(salvando || (!achados && !conclusao)) || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) || !identidade.pronto ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             🖨️ Imprimir
           </button>
           {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -1254,10 +1272,11 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem, registroConselho = {} } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem, registroConselho = {} } = identidade;
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   // CNS, Registro ANS e CBO vêm do cadastro (paciente, convênio e perfil
   // — migração 34). null = sem ajuste nesta guia, usa o do cadastro;
@@ -1341,7 +1360,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chavePreviaGuia]);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const catalogoAtivo = catalogo.filter(e => e.ativo);
   const idsNaLista = new Set(itens.map(i => i.id));
@@ -1401,6 +1420,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     if (itens.length === 0) {
       toast.warning('Adicione pelo menos um exame antes de salvar.');
       return false;
@@ -1428,6 +1448,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   // no prontuário. Os dois modos viram PDF: receituário (documentoPdf) e
   // guia SP/SADT no modelo ANS (guiaSadtPdf).
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -1507,6 +1528,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -1656,7 +1678,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
         {/* Ações */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={itens.length === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (itens.length === 0 || salvando) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (itens.length === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+          <button onClick={salvarNoProntuario} disabled={(itens.length === 0 || salvando) || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: ((itens.length === 0 || salvando) || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: ((itens.length === 0 || salvando) || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1664,7 +1686,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
             {btnModo('receituario', '📋 Receituário')}
             {btnModo('tiss', '📄 Guia TISS')}
           </div>
-          <button onClick={imprimirDocumento} disabled={itens.length === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (itens.length === 0 || salvando) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (itens.length === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+          <button onClick={imprimirDocumento} disabled={(itens.length === 0 || salvando) || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: ((itens.length === 0 || salvando) || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: ((itens.length === 0 || salvando) || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             🖨️ Imprimir
           </button>
           {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo!</span>}
@@ -1752,10 +1774,10 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 }
 
 export function DocumentoPage({ titulo, pacientes }) {
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
 
   if (!paciente) {
-    return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+    return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
   }
 
   return (
