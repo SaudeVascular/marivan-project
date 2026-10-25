@@ -117,7 +117,7 @@ describe('salvamento automático no prontuário', () => {
     await waitFor(() => expect(registrosService.criar).toHaveBeenCalledWith(
       expect.objectContaining({ conteudo: 'Primeira parte', status: 'Rascunho' }), 'p1', 'medico-1'));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Salvo no prontuário às/));
-    expect(caixa()).not.toBeDisabled();
+    expect(caixa()).toBeEnabled();
 
     digitar('Primeira parte e mais');
     await avancar(10000);

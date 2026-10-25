@@ -1,5 +1,5 @@
-// src/components/Login.js
-import React, { useState } from 'react';
+// src/components/Login.jsx
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Activity, Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';

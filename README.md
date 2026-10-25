@@ -21,7 +21,7 @@ anonimizados até a revisão de segurança ser concluída.
 
 ## Stack
 
-- React 19 + Create React App
+- React 19 + Vite (build e servidor de desenvolvimento) e Jest (testes)
 - React Router (rotas reais, não troca de tela por estado)
 - Supabase (Postgres + Auth + Row Level Security)
 - Lucide React (ícones)
@@ -71,19 +71,31 @@ Documento Mestre, ainda não feita).
 
 ```bash
 npm run build   # build de produção em build/
+npm run preview # serve o build localmente, para conferir antes de publicar
 npm test        # roda os testes
+npm run lint    # verificação de código (ESLint)
 ```
 
 O banco agora usa migrações versionadas pelo Supabase CLI. O fluxo completo de
 desenvolvimento local, homologação e produção está em
 [`docs/AMBIENTES_E_MIGRACOES.md`](./docs/AMBIENTES_E_MIGRACOES.md).
 
-O `moduleNameMapper` no `jest` de `package.json` não é sobra de configuração — o Jest
-do `react-scripts` 5 não resolve os pacotes `react-router-dom`/`react-router` (que só
-publicam ESM/`exports` map, sem `main` funcional) sem esse contorno. `src/setupTests.js`
-também poliflena `TextEncoder`/`TextDecoder`, que o `react-router` espera encontrar no
-ambiente e o `jsdom` do Jest não expõe. Se atualizar essas dependências e os testes
-voltarem a quebrar com "Cannot find module", comece por aí.
+A configuração do Jest fica em `jest.config.js` (o Vite só monta o app; o Jest usa o
+Babel de `babel.config.js`). Três detalhes dela não são sobra:
+- o `moduleNameMapper` aponta `react-router-dom`/`react-router` para os arquivos
+  CommonJS — esses pacotes publicam só ESM/`exports` map;
+- `customExportConditions` faz o jsdom resolver pacotes como no Node; sem isso o Jest
+  carrega as versões "browser" (só ESM) de dependências do `@supabase/supabase-js`;
+- `src/testes/ambiente.js` define URL e chave fictícias do Supabase, porque gerar um
+  mock automático de um serviço carrega o módulo real uma vez.
+
+`src/setupTests.js` também poliflena `TextEncoder`/`TextDecoder`, que o `react-router`
+espera encontrar no ambiente e o `jsdom` do Jest não expõe. Se atualizar essas
+dependências e os testes voltarem a quebrar com "Cannot find module", comece por aí.
+
+O código lê `process.env.REACT_APP_*` (nomes herdados do Create React App e já
+configurados na Vercel); `vite.config.mjs` injeta só as variáveis com esse prefixo.
+Arquivos com JSX usam a extensão `.jsx`.
 
 Testes que renderizam qualquer coisa sob `<App>` precisam de
 `jest.mock('.../services/supabase')` — sem isso, o `useAuth` real tenta abrir sessão
@@ -91,7 +103,7 @@ pela rede de verdade no mount. O mock mora em `src/services/__mocks__/supabase.j
 exporta `resetSupabaseMockPadrao()` (chame num `beforeEach`) e `criarQueryBuilder()`
 (pra simular um `.from(...).select(...).single()` específico). Duas pegadinhas desse
 mock, já resolvidas mas fáceis de reintroduzir sem querer:
-- o `react-scripts` liga `resetMocks: true` por padrão, que apaga a implementação de
+- o `jest.config.js` liga `resetMocks: true` (como o antigo `react-scripts`), que apaga a implementação de
   qualquer `jest.fn()` — inclusive as do mock — antes de cada teste. Por isso a
   implementação-padrão não fica presa no `jest.fn()` na criação do mock; ela só existe
   dentro de `resetSupabaseMockPadrao()`, chamada de novo a cada teste.
@@ -159,15 +171,15 @@ que realmente importa para segurança, a primeira é só experiência de uso.
 
 ```
 src/
-├── App.js                    # só providers (Auth/Clinica) e rotas — ~300 linhas
+├── App.jsx                   # só providers (Auth/Clinica) e rotas — ~300 linhas
 ├── constants/roles.js        # UFS e FUNCOES_* (quem pode acessar o quê)
 ├── components/
-│   ├── Login.js
-│   ├── guards.js             # SomenteAdmin/SomenteClinico/SomenteMedico/...
+│   ├── Login.jsx
+│   ├── guards.jsx            # SomenteAdmin/SomenteClinico/SomenteMedico/...
 │   └── common/
-│       ├── Layout.js         # Header, LogoClinica, Cabecalho/RodapeImpresso
-│       ├── SaveStatus.js
-│       └── Toast.js          # ToastProvider/useToast — notificação não-bloqueante (substitui alert())
+│       ├── Layout.jsx        # Header, LogoClinica, Cabecalho/RodapeImpresso
+│       ├── SaveStatus.jsx
+│       └── Toast.jsx         # ToastProvider/useToast — notificação não-bloqueante (substitui alert())
 ├── pages/                    # uma pasta por domínio, uma tela (ou telas afins) por arquivo
 │   ├── pacientes/            # PacientesPage, ProntuarioPage
 │   ├── enfermagem/           # SinaisVitaisPage, EnfermagemPage
@@ -178,8 +190,8 @@ src/
 │   ├── administracao/         # Painel, Usuários, Auditoria, Configurações da Clínica, Filiais
 │   └── auth/                  # RedefinirSenhaPage
 ├── hooks/
-│   ├── useAuth.js            # sessão + perfil/função do usuário logado
-│   ├── useClinica.js         # dados da clínica (nome, logo, endereço) via Context
+│   ├── useAuth.jsx           # sessão + perfil/função do usuário logado
+│   ├── useClinica.jsx        # dados da clínica (nome, logo, endereço) via Context
 │   ├── useMedicoPerfil.js    # autofill de médico/CRM/especialidade nos documentos
 │   ├── usePacienteAtual.js   # paciente atual a partir da URL
 │   └── useAutoSave.js        # debounce de autosave

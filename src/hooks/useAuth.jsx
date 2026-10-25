@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
     limparRascunhosLegados();
     // Verificar sessão atual — com teto de tempo: sem isso, se o lock
     // interno de sessão do Supabase demorar (ex: renovação de token
-    // presa), a tela fica presa em "Carregando pacientes..." (App.js)
+    // presa), a tela fica presa em "Carregando pacientes..." (App.jsx)
     // sem limite algum. `onAuthStateChange` abaixo ainda recebe o
     // resultado real quando ele chegar, então isto é só uma rede de
     // segurança pra liberar a tela, não a fonte definitiva do estado.

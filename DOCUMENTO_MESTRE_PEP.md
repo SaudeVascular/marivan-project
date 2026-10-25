@@ -21,7 +21,7 @@ Prontuário em nuvem para cadastro, atendimento, documentos, agenda e financeiro
 com autoria e acesso por função. Frontend React 19, React Router e CSS próprio;
 backend Supabase Auth, PostgreSQL com RLS e Edge Functions.
 
-O aplicativo oficial está em `prontuario-eletronico`. `src/App.js` reúne providers
+O aplicativo oficial está em `prontuario-eletronico`. `src/App.jsx` reúne providers
 e rotas; `src/pages/` organiza os domínios; `src/services/` concentra acesso ao
 backend; `src/hooks/` e `src/utils/` oferecem lógica compartilhada.
 As migrações versionadas estão em `supabase/migrations/` e os testes de banco

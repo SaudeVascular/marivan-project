@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "PEP",
+  "name": "PEP - Prontuário Eletrônico",
   "icons": [
     {
       "src": "favicon.ico",
