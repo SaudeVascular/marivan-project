@@ -20,6 +20,9 @@ INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta, p
 INSERT INTO public.convenio_valores (convenio_id, procedimento_id, valor)
  VALUES ('ee000000-0000-4000-8000-000000000030', 'ee000000-0000-4000-8000-000000000040', 180);
 INSERT INTO public.pacientes (id, nome) VALUES ('ee000000-0000-4000-8000-000000000010', 'Paciente AC');
+INSERT INTO public.pacientes (id, nome, convenio_id) VALUES
+ ('ee000000-0000-4000-8000-000000000011', 'Paciente sem check-in AC', NULL),
+ ('ee000000-0000-4000-8000-000000000012', 'Paciente sem agendamento AC', 'ee000000-0000-4000-8000-000000000030');
 
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
@@ -34,6 +37,9 @@ $$;
 CREATE FUNCTION pg_temp.cobranca(ag UUID) RETURNS public.cobrancas LANGUAGE sql SECURITY DEFINER AS
   $$ SELECT * FROM public.cobrancas WHERE agendamento_id = ag $$;
 GRANT EXECUTE ON FUNCTION pg_temp.cobranca(UUID) TO authenticated;
+CREATE FUNCTION pg_temp.cobrancas_do_paciente(pac UUID) RETURNS SETOF public.cobrancas LANGUAGE sql SECURITY DEFINER AS
+  $$ SELECT * FROM public.cobrancas WHERE paciente_id = pac $$;
+GRANT EXECUTE ON FUNCTION pg_temp.cobrancas_do_paciente(UUID) TO authenticated;
 
 SET LOCAL ROLE authenticated;
 DO $$
@@ -88,6 +94,29 @@ BEGIN
   UPDATE public.agendamentos SET status = 'Realizado' WHERE id = ag_sem_proc;
   c := pg_temp.cobranca(ag_sem_proc);
   PERFORM pg_temp.assert_ok(c.valor = 0 AND c.descricao = 'Atendimento — procedimento a definir', 'sem procedimento: valor a definir');
+
+  -- Migração 53: agendamento sem check-in (Agendado) também é concluído.
+  PERFORM pg_temp.como('ee000000-0000-4000-8000-000000000002');
+  INSERT INTO public.agendamentos (paciente_id, medico_id, data, hora, procedimento_id, convenio_id, created_by)
+    VALUES ('ee000000-0000-4000-8000-000000000011', medica, hoje, '14:00', proc, NULL, 'ee000000-0000-4000-8000-000000000002') RETURNING id INTO ag_sem_proc;
+  PERFORM pg_temp.como(medica);
+  PERFORM public.salvar_registro_clinico(gen_random_uuid(), 'criar', 'ee000000-0000-4000-8000-000000000011', NULL, NULL,
+    '{"tipo":"Consulta","titulo":"Consulta","conteudo":"Sem check-in","status":"Assinado"}');
+  PERFORM pg_temp.assert_ok((SELECT status FROM public.agendamentos WHERE id = ag_sem_proc) = 'Realizado', 'sem check-in: assinar conclui o agendamento');
+  c := pg_temp.cobranca(ag_sem_proc);
+  PERFORM pg_temp.assert_ok(c.valor = 300 AND c.status = 'Pendente', 'sem check-in: cobrança com o valor particular');
+
+  -- Sem agendamento: a consulta assinada gera a cobrança direto, uma por dia.
+  PERFORM public.salvar_registro_clinico(gen_random_uuid(), 'criar', 'ee000000-0000-4000-8000-000000000012', NULL, NULL,
+    '{"tipo":"Consulta","titulo":"Consulta","conteudo":"Sem agendamento","status":"Assinado"}');
+  PERFORM public.salvar_registro_clinico(gen_random_uuid(), 'criar', 'ee000000-0000-4000-8000-000000000012', NULL, NULL,
+    '{"tipo":"Consulta","titulo":"Consulta","conteudo":"Segunda do dia","status":"Assinado"}');
+  PERFORM pg_temp.assert_ok((SELECT count(*) FROM pg_temp.cobrancas_do_paciente('ee000000-0000-4000-8000-000000000012')) = 1,
+    'sem agendamento: uma cobrança por paciente, profissional e dia');
+  PERFORM pg_temp.assert_ok((SELECT c2.valor = 0 AND c2.status = 'Pendente' AND c2.medico_id = medica AND c2.convenio_id = conv
+                               AND c2.agendamento_id IS NULL AND c2.descricao LIKE 'Consulta sem agendamento%'
+                               FROM pg_temp.cobrancas_do_paciente('ee000000-0000-4000-8000-000000000012') c2),
+    'sem agendamento: pendente, a definir, com o convênio do cadastro');
 
   -- Recepção ajusta o procedimento na chegada (antes de concluir).
   UPDATE public.agendamentos SET procedimento_id = NULL WHERE id = ag_outro;
