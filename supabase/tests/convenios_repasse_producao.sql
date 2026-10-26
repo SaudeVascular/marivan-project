@@ -130,6 +130,15 @@ BEGIN
     'valor inválido recusa');
   UPDATE public.procedimentos SET nome = 'Consulta CRP' WHERE id = consulta;
 
+  -- Tabela do tamanho da TUSS dentro do limite de 8 s da Supabase (migração 52).
+  PERFORM set_config('statement_timeout', '8s', true);
+  r := public.importar_procedimentos((SELECT jsonb_agg(jsonb_build_object('codigo', 'Z' || k, 'descricao', 'Item de carga ' || k || repeat(' termo longo', 25)))
+                                        FROM generate_series(1, 6000) k));
+  PERFORM pg_temp.assert_ok((r->>'novos')::INTEGER = 6000, 'carga: 6000 procedimentos novos');
+  r := public.importar_tabela_convenio(conv, (SELECT jsonb_agg(jsonb_build_object('codigo', 'Z' || k, 'valor', '1.50')) FROM generate_series(1, 6000) k));
+  PERFORM pg_temp.assert_ok((r->>'gravados')::INTEGER = 6000, 'carga: 6000 valores no convênio');
+  PERFORM set_config('statement_timeout', '0', true);
+
   -- Repasse por profissional ---------------------------------------------
   PERFORM pg_temp.assert_ok(pg_temp.erro(format($q$INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta) VALUES (%L, 50)$q$, medica)) = '42501',
     'Financeiro não define repasse');

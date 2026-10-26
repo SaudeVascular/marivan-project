@@ -75,7 +75,7 @@ export function interpretarLinhas(linhas, { exigeValor = true } = {}) {
     if (!codigo && !descricao && (valorBruto === undefined || valorBruto === '')) continue; // linha vazia
     if (!codigo && !descricao) { erros.push({ linha: numero, motivo: 'sem código nem descrição' }); continue; }
     if (codigo.length > 20) { erros.push({ linha: numero, motivo: `código com mais de 20 caracteres (${codigo})` }); continue; }
-    if (descricao.length > 300) { erros.push({ linha: numero, motivo: 'descrição com mais de 300 caracteres' }); continue; }
+    if (descricao.length > 1000) { erros.push({ linha: numero, motivo: 'descrição com mais de 1000 caracteres' }); continue; }
     const valorVazio = valorBruto === undefined || valorBruto === '';
     const valor = lerValor(valorBruto);
     if (valor === null && (exigeValor || !valorVazio)) { erros.push({ linha: numero, motivo: `valor inválido (${valorBruto === undefined || valorBruto === '' ? 'vazio' : valorBruto})` }); continue; }
