@@ -10,7 +10,7 @@ import { cnpjValido } from '../../utils/validacaoCadastro';
 import { formatarCNPJ } from '../../utils/mascaras';
 import { lerPlanilha, baixarPlanilha } from '../../utils/planilha';
 import { UFS } from '../../constants/roles';
-import { EscolhaProcedimento, rotuloProcedimento } from '../agenda/SeletorProcedimento';
+import { EscolhaProcedimento, rotuloProcedimento, SEM_AUTOPREENCHIMENTO } from '../agenda/SeletorProcedimento';
 
 const cartao = { backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' };
 const rotulo = { fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' };
@@ -359,7 +359,7 @@ function TabelaConvenio({ convenio, procedimentos, onProcedimentosMudaram }) {
         Procedimento que ainda não existe: cadastre na aba Procedimentos, ou venha na planilha (é criado na importação).
       </p>
 
-      <input aria-label="Buscar na tabela" placeholder="Buscar na tabela por nome ou código" value={busca} onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, marginBottom: '8px' }} />
+      <input aria-label="Buscar na tabela" {...SEM_AUTOPREENCHIMENTO('busca-tabela-convenio-pep')} placeholder="Buscar na tabela por nome ou código" value={busca} onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, marginBottom: '8px' }} />
       {erro && <p role="alert" style={{ color: '#dc2626' }}>{erro}</p>}
       {carregando ? <p>Carregando...</p> : filtrados.length === 0 ? (
         <p style={{ color: '#6b7280' }}>{itens.length === 0 ? 'Tabela vazia. Importe uma planilha ou acrescente procedimentos.' : 'Nada encontrado.'}</p>
@@ -669,7 +669,7 @@ function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
         {camposEdicao(novo, setNovo)}
         <button type="submit" disabled={salvando} style={botao('#28a745')}>+ Cadastrar</button>
       </form>
-      <input aria-label="Buscar procedimento no catálogo" placeholder="Buscar por nome ou código" value={busca} onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, marginBottom: '8px' }} />
+      <input aria-label="Buscar procedimento no catálogo" {...SEM_AUTOPREENCHIMENTO('busca-catalogo-procedimentos-pep')} placeholder="Buscar por nome ou código" value={busca} onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, marginBottom: '8px' }} />
       {filtrados.slice(0, mostrar).map(p => (
         <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: p.ativo ? 1 : 0.5 }}>
           {editando?.id === p.id ? (

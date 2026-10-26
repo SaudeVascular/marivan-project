@@ -29,6 +29,13 @@ export function useCatalogo(convenioId) {
 
 export const rotuloProcedimento = (p) => (p.codigo ? `${p.codigo} — ${p.nome}` : p.nome);
 
+// Campos de busca: o Safari ignora autoComplete="off" sozinho e cobre a
+// lista com contatos e valores salvos (mesma solução da busca de exames,
+// em DocumentosPages). Um `name` incomum desliga o preenchimento.
+export const SEM_AUTOPREENCHIMENTO = (nome) => ({
+  name: nome, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: false,
+});
+
 const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const LIMITE_OPCOES = 200;
 
@@ -50,7 +57,7 @@ export function EscolhaProcedimento({ itens, procedimentoId, onChange, rotuloVaz
     <div>
       {itens.length > 15 && (
         <input aria-label="Buscar procedimento" value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder="Buscar por nome ou código" style={{ ...estilo, marginBottom: '4px' }} />
+          placeholder="Buscar por nome ou código" style={{ ...estilo, marginBottom: '4px' }} {...SEM_AUTOPREENCHIMENTO('busca-procedimento-pep')} />
       )}
       <select aria-label="Procedimento" value={procedimentoId || ''} onChange={e => onChange(e.target.value || null)} style={estilo}>
         <option value="">{rotuloVazio}</option>
