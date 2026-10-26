@@ -62,6 +62,17 @@ test('Administrador: produção de todos no mês, por profissional e por procedi
   expect(screen.queryByRole('option', { name: 'Recepção' })).not.toBeInTheDocument();
 });
 
+test('mês e ano escolhidos em listas', async () => {
+  mockAuth = { user: { id: 'med-1' }, funcao: 'Médico', perfil: { nome: 'Dra. Ana' } };
+  producaoService.relatorio.mockResolvedValue([]);
+  tela();
+  expect(await screen.findByText(/Nenhum atendimento/)).toBeInTheDocument();
+  expect(screen.getByLabelText('Mês do relatório')).toHaveDisplayValue('Outubro');
+  fireEvent.change(screen.getByLabelText('Mês do relatório'), { target: { value: '02' } });
+  fireEvent.change(screen.getByLabelText('Ano do relatório'), { target: { value: '2024' } });
+  expect(producaoService.relatorio).toHaveBeenLastCalledWith({ de: '2024-02-01', ate: '2024-02-29', profissionalId: null });
+});
+
 test('profissional: só a própria produção, com intervalo de dias, sem a parte da clínica', async () => {
   mockAuth = { user: { id: 'enf-1' }, funcao: 'Enfermeiro(a)', perfil: { nome: 'Enf. Bia' } };
   producaoService.relatorio.mockResolvedValue([LINHAS[3]]);

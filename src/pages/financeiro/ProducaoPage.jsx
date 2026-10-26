@@ -8,6 +8,7 @@ import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { dataLocalISO, formatarMoeda } from '../../utils/formatters';
 
 const SITUACOES = ['Pago', 'Pendente', 'Glosado'];
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const TIPOS = ['Consulta', 'Exame', 'Procedimento'];
 
 const ultimoDiaDoMes = (mes) => {
@@ -74,6 +75,9 @@ export function ProducaoPage() {
   const [erro, setErro] = React.useState('');
   const [profissionais, setProfissionais] = React.useState([]);
 
+  // Do ano corrente até 5 anos antes (e o próximo, para agendas futuras).
+  const anoAtual = Number(hoje.slice(0, 4));
+  const anos = Array.from({ length: 7 }, (_, i) => String(anoAtual + 1 - i));
   const periodo = modo === 'mes' ? { de: `${mes}-01`, ate: ultimoDiaDoMes(mes) } : { de, ate };
   const periodoValido = periodo.de && periodo.ate && periodo.de <= periodo.ate;
 
@@ -139,12 +143,25 @@ export function ProducaoPage() {
             <legend style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>Período</legend>
             <label style={{ fontSize: '16px' }}><input type="radio" name="modo-periodo" checked={modo === 'mes'} onChange={() => setModo('mes')} /> Mês</label>
             <label style={{ fontSize: '16px' }}><input type="radio" name="modo-periodo" checked={modo === 'intervalo'} onChange={() => setModo('intervalo')} /> Intervalo de dias</label>
+            {/* Mês e ano em listas: o Safari não tem seletor de mês (o campo
+                type="month" vira texto livre). Datas com o calendário do navegador. */}
             {modo === 'mes' ? (
-              <input aria-label="Mês do relatório" type="month" value={mes} onChange={e => setMes(e.target.value)} style={{ padding: '6px' }} />
+              <>
+                <select aria-label="Mês do relatório" value={mes.slice(5, 7)} onChange={e => setMes(`${mes.slice(0, 4)}-${e.target.value}`)} style={{ padding: '6px', fontSize: '16px' }}>
+                  {MESES.map((nome, i) => <option key={nome} value={String(i + 1).padStart(2, '0')}>{nome}</option>)}
+                </select>
+                <select aria-label="Ano do relatório" value={mes.slice(0, 4)} onChange={e => setMes(`${e.target.value}-${mes.slice(5, 7)}`)} style={{ padding: '6px', fontSize: '16px' }}>
+                  {anos.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </>
             ) : (
               <>
-                <label style={{ fontSize: '16px' }}>De <input aria-label="De" type="date" value={de} onChange={e => setDe(e.target.value)} style={{ padding: '6px' }} /></label>
-                <label style={{ fontSize: '16px' }}>Até <input aria-label="Até" type="date" value={ate} onChange={e => setAte(e.target.value)} style={{ padding: '6px' }} /></label>
+                <label style={{ fontSize: '16px', display: 'flex', flexDirection: 'column', gap: '2px' }}>De
+                  <input aria-label="De" type="date" value={de} max={ate || undefined} onChange={e => setDe(e.target.value)} style={{ padding: '6px', fontSize: '16px' }} />
+                </label>
+                <label style={{ fontSize: '16px', display: 'flex', flexDirection: 'column', gap: '2px' }}>Até
+                  <input aria-label="Até" type="date" value={ate} min={de || undefined} onChange={e => setAte(e.target.value)} style={{ padding: '6px', fontSize: '16px' }} />
+                </label>
               </>
             )}
           </fieldset>

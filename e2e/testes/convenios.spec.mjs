@@ -80,7 +80,8 @@ test('relatório de produção: a médica vê e imprime a própria; o Financeiro
   await entrar(page, 'medico');
   await page.goto('/financeiro');
   await page.getByRole('link', { name: /Relatório de produção/ }).click();
-  await page.getByLabel('Mês do relatório').fill('2026-01');
+  await page.getByLabel('Mês do relatório').selectOption({ label: 'Janeiro' });
+  await page.getByLabel('Ano do relatório').selectOption('2026');
   const atendimentos = page.getByRole('table', { name: /Atendimentos/ });
   await expect(atendimentos.getByRole('row', { name: /E2E Paciente B/i })).toContainText('R$ 180,00'); // 60% da consulta
   await expect(page.getByRole('group', { name: 'Seu repasse' })).toContainText('R$ 180,00');
@@ -94,7 +95,8 @@ test('relatório de produção: a médica vê e imprime a própria; o Financeiro
 
   await entrar(page, 'financeiro');
   await page.goto('/financeiro/producao');
-  await page.getByLabel('Mês do relatório').fill('2026-01');
+  await page.getByLabel('Mês do relatório').selectOption({ label: 'Janeiro' });
+  await page.getByLabel('Ano do relatório').selectOption('2026');
   await page.getByLabel('Profissional', { exact: true }).selectOption({ label: 'Médica E2E' });
   await expect(page.getByRole('table', { name: 'Por procedimento' }).getByRole('row', { name: /E2E Consulta/ })).toContainText('R$ 300,00');
   await expect(page.getByRole('group', { name: 'Fica para a clínica' })).toContainText('R$ 120,00');
