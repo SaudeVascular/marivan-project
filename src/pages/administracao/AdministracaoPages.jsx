@@ -61,8 +61,8 @@ export function PainelAdministrativoPage() {
         </Link>
         <Link to="/financeiro/config" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>💳</div>
-          <h3 style={{ margin: '0 0 6px' }}>Convênios e Procedimentos</h3>
-          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Cadastro de convênios, procedimentos e valores praticados por cada um.</p>
+          <h3 style={{ margin: '0 0 6px' }}>Convênios e tabelas</h3>
+          <p style={{ margin: 0, fontSize: '16px', color: '#666' }}>Dados das operadoras, tabela de cada convênio e catálogo de procedimentos — importáveis de planilha.</p>
         </Link>
         <Link to="/catalogo-exames" style={cardStyle}>
           <div style={{ fontSize: '28px', marginBottom: '8px' }}>🧪</div>
@@ -109,7 +109,7 @@ function ExportarClinica() {
         </button>
       ) : (
         <p style={{ margin: 0, fontSize: '16px', color: '#92400e' }}>
-          Exige uma conta de Administrador com papel clínico concedido por outro administrador (Usuários).
+          Para exportar, esta conta precisa de um papel clínico (os prontuários são dados clínicos). Outro Administrador concede em Usuários → "Papel clínico adicional" — ninguém concede a si mesmo.
         </p>
       )}
     </div>
