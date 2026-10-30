@@ -64,6 +64,9 @@ Ferramentas do desenvolvedor → Rede → "Off-line".
 | 5.8 | Agendar e atender um paciente de cada profissional | A cobrança pendente traz o repasse do profissional e do tipo do procedimento |
 | 5.9 | Como profissional, Relatório de produção do mês; trocar para intervalo de dias; imprimir | Só a própria produção; o papel traz o cabeçalho da clínica e o período |
 | 5.10 | Como Administrador, relatório de todos e depois de um profissional e de um procedimento | Totais por profissional e por procedimento conferem com a lista; "Fica para a clínica" = produção − repasse |
+| 5.11 | Recepção: paciente particular do dia → **Receber**, desconto de 10% e PIX | Mostra "Recebido R$ …"; no Financeiro, desconto R$ e %, valor pago e as partes da clínica e do profissional |
+| 5.12 | Financeiro: cobrança de convênio → **Receber** com glosa parcial | Recebido = valor − glosa; repasse calculado sobre o recebido |
+| 5.13 | Relatório de produção: trocar a visão (completo, só clínica, só profissional, por profissional, por especialidade, por tipo) | Cada visão traz as colunas certas e a soma no fim |
 
 ## 6. Backup e restauração (com quem administra a Supabase)
 

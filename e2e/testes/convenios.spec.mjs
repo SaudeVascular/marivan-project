@@ -73,19 +73,23 @@ test('Financeiro importa o catálogo de procedimentos de uma planilha (sem valor
 test('relatório de produção: a médica vê e imprime a própria; o Financeiro vê a de todos, com o que fica para a clínica', async ({ page }) => {
   const b = idPaciente('E2E Paciente B');
   limparAtendimentos(b);
-  sql(`INSERT INTO public.cobrancas (paciente_id, medico_id, procedimento_id, valor, data_cobranca)
-       SELECT '${b}', u.id, p.id, 300, DATE '2026-01-15' FROM auth.users u, public.procedimentos p
-        WHERE u.email = 'e2e-medico@example.invalid' AND p.nome = 'E2E Consulta'`);
+  // Particular de R$ 300 com R$ 30 de desconto, já pago: recebido 270,
+  // 60% (162) para a médica e 108 para a clínica.
+  sql(`INSERT INTO public.cobrancas (paciente_id, medico_id, procedimento_id, valor, desconto, data_cobranca)
+       SELECT '${b}', u.id, p.id, 300, 30, DATE '2026-01-15' FROM auth.users u, public.procedimentos p
+        WHERE u.email = 'e2e-medico@example.invalid' AND p.nome = 'E2E Consulta';
+       UPDATE public.cobrancas SET status = 'Pago' WHERE paciente_id = '${b}' AND data_cobranca = DATE '2026-01-15'`);
 
   await entrar(page, 'medico');
   await page.goto('/financeiro');
   await page.getByRole('link', { name: /Relatório de produção/ }).click();
   await page.getByLabel('Mês do relatório').selectOption({ label: 'Janeiro' });
   await page.getByLabel('Ano do relatório').selectOption('2026');
-  const atendimentos = page.getByRole('table', { name: /Atendimentos/ });
-  await expect(atendimentos.getByRole('row', { name: /E2E Paciente B/i })).toContainText('R$ 180,00'); // 60% da consulta
-  await expect(page.getByRole('group', { name: 'Seu repasse' })).toContainText('R$ 180,00');
-  await expect(page.getByRole('group', { name: 'Fica para a clínica' })).toHaveCount(0);
+  const atendimentos = page.getByRole('table', { name: /Meus atendimentos/ });
+  await expect(atendimentos.getByRole('row', { name: /E2E Paciente B/i })).toContainText('R$ 30,00 (10%)');
+  await expect(atendimentos.getByRole('row', { name: /E2E Paciente B/i })).toContainText('R$ 162,00'); // 60% do recebido
+  await expect(page.getByRole('group', { name: 'Seu repasse' })).toContainText('R$ 162,00');
+  await expect(page.getByRole('group', { name: 'Recebido pela clínica' })).toHaveCount(0);
   await page.emulateMedia({ media: 'print' });
   await expect(page.getByText('RELATÓRIO DE PRODUÇÃO', { exact: true })).toBeVisible();
   await expect(page.getByText('Relatório de produção', { exact: true })).toBeHidden();
@@ -98,6 +102,7 @@ test('relatório de produção: a médica vê e imprime a própria; o Financeiro
   await page.getByLabel('Mês do relatório').selectOption({ label: 'Janeiro' });
   await page.getByLabel('Ano do relatório').selectOption('2026');
   await page.getByLabel('Profissional', { exact: true }).selectOption({ label: 'Médica E2E' });
-  await expect(page.getByRole('table', { name: 'Por procedimento' }).getByRole('row', { name: /E2E Consulta/ })).toContainText('R$ 300,00');
-  await expect(page.getByRole('group', { name: 'Fica para a clínica' })).toContainText('R$ 120,00');
+  await page.getByLabel('Visão do relatório').selectOption({ label: 'Por tipo de atendimento' });
+  await expect(page.getByRole('table', { name: 'Por tipo de atendimento' }).getByRole('row', { name: /^Consulta/ })).toContainText('R$ 270,00');
+  await expect(page.getByRole('group', { name: 'Recebido pela clínica' })).toContainText('R$ 108,00');
 });

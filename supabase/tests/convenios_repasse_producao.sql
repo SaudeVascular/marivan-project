@@ -189,9 +189,12 @@ BEGIN
   PERFORM pg_temp.como(medica);
   SELECT count(*) INTO n FROM public.relatorio_producao(DATE '2031-03-01', DATE '2031-03-31');
   PERFORM pg_temp.assert_ok(n = 2, 'médica: 2 atendimentos, sem o cancelado (' || n || ')');
-  PERFORM pg_temp.assert_ok((SELECT codigo = '40304361' AND tipo = 'Exame' AND convenio = 'Operadora CRP' AND valor_clinica = 12.6
+  PERFORM pg_temp.assert_ok((SELECT codigo = '40304361' AND tipo = 'Exame' AND convenio = 'Operadora CRP' AND valor_pago = 14 AND recebido = 0
                                FROM public.relatorio_producao(DATE '2031-03-01', DATE '2031-03-31') WHERE cobranca_id = c2),
-    'linha do exame: código, tipo, convênio e parte da clínica');
+    'linha do exame: código, tipo, convênio; pendente não conta como recebido');
+  PERFORM pg_temp.assert_ok((SELECT recebido = 300 AND recebido_profissional = 180 AND recebido_clinica = 120
+                               FROM public.relatorio_producao(DATE '2031-03-01', DATE '2031-03-31') WHERE cobranca_id = c1),
+    'consulta paga: recebido dividido pelo percentual da época (60%)');
 
   PERFORM pg_temp.como('ef000000-0000-4000-8000-000000000004');
   PERFORM pg_temp.assert_ok((SELECT count(*) FROM public.relatorio_producao(DATE '2031-03-01', DATE '2031-03-31')) = 3, 'Administrador vê todos');

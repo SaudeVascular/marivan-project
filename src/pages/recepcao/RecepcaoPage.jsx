@@ -5,6 +5,9 @@ import { FUNCOES_CLINICAS } from '../../constants/roles';
 import { Header } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { agendamentosService } from '../../services/agendamentos.service';
+import { cobrancasService } from '../../services/cobrancas.service';
+import { formatarMoeda } from '../../utils/formatters';
+import { descontoEmReais, textoDesconto, FORMAS_PAGAMENTO } from '../financeiro/valores';
 import { usuariosService } from '../../services/usuarios.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { usePacientesPorIds } from '../../hooks/usePacientesCache';
@@ -32,13 +35,44 @@ export function RecepcaoPage({ pacientes }) {
   // Procedimento e convênio do agendamento — viram a cobrança ao concluir.
   const rotuloCobranca = (ag) => `${catalogo.find(p => p.id === ag.procedimentoId)?.nome || 'Procedimento a definir'} · ${convenios.find(c => c.id === ag.convenioId)?.nome || 'Particular'}`;
 
+  // O que já foi recebido em cada agendamento do dia (migração 54).
+  const [pagamentos, setPagamentos] = React.useState({});
+  const [erroPagamentos, setErroPagamentos] = React.useState(false);
+  const [recebendo, setRecebendo] = React.useState(null); // { id, desconto, tipoDesconto, forma }
+
   const carregar = React.useCallback(() => {
     setCarregando(true);
     agendamentosService.listarPorData(dataSelecionada)
       .then(setAgendamentos)
       .catch(err => setErro(err.message || 'Erro ao carregar agenda.'))
       .finally(() => setCarregando(false));
+    setErroPagamentos(false);
+    cobrancasService.pagamentosDoDia(dataSelecionada)
+      .then(lista => setPagamentos(Object.fromEntries(lista.map(p => [p.agendamentoId, p]))))
+      .catch(() => { setPagamentos({}); setErroPagamentos(true); });
   }, [dataSelecionada]);
+
+  // Particular: sem convênio, ou o convênio "Particular". Convênio quem
+  // paga é a operadora — a Recepção não recebe.
+  const ehParticular = (ag) => !ag.convenioId || !!convenios.find(c => c.id === ag.convenioId)?.particular;
+  const valorTabela = (ag) => catalogo.find(p => p.id === ag.procedimentoId)?.valor ?? null;
+
+  const confirmarRecebimento = async (ag) => {
+    const valor = valorTabela(ag);
+    const desconto = descontoEmReais(valor, recebendo.desconto, recebendo.tipoDesconto);
+    if (!recebendo.forma) { toast.warning('Escolha a forma de pagamento.'); return; }
+    setProcessandoId(ag.id);
+    try {
+      const r = await comTimeout(cobrancasService.receber(ag.id, { desconto, formaPagamento: recebendo.forma }));
+      setPagamentos(prev => ({ ...prev, [ag.id]: { agendamentoId: ag.id, cobrancaId: r.cobrancaId, status: 'Pago', valor: r.valor, desconto: r.desconto, formaPagamento: r.formaPagamento } }));
+      setRecebendo(null);
+      toast.success(`Recebido ${formatarMoeda(r.valorPago)} (${r.formaPagamento}).`);
+    } catch (err) {
+      toast.error('Não foi possível registrar o pagamento: ' + err.message);
+    } finally {
+      setProcessandoId(null);
+    }
+  };
 
   React.useEffect(() => { carregar(); }, [carregar]);
 
@@ -160,6 +194,60 @@ export function RecepcaoPage({ pacientes }) {
                       <button type="button" onClick={() => setAjustando(null)} style={{ padding: '6px 14px', cursor: 'pointer' }}>Cancelar</button>
                     </div>
                   )}
+                  {ehParticular(ag) && !['Cancelado', 'Faltou'].includes(ag.status) && (() => {
+                    const pag = pagamentos[ag.id];
+                    if (pag?.status === 'Pago') {
+                      return (
+                        <div style={{ marginTop: '4px', fontSize: '15px', color: '#065f46' }}>
+                          ✓ Recebido {formatarMoeda(pag.valor - pag.desconto)}
+                          {pag.desconto > 0 && <> (desconto {textoDesconto(pag.desconto, pag.valor)})</>}
+                          {pag.formaPagamento && <> · {pag.formaPagamento}</>}
+                        </div>
+                      );
+                    }
+                    const valor = valorTabela(ag);
+                    if (recebendo?.id !== ag.id) {
+                      return (
+                        <div style={{ marginTop: '4px' }}>
+                          <button type="button" disabled={erroPagamentos || processandoId === ag.id}
+                            onClick={() => setRecebendo({ id: ag.id, desconto: '', tipoDesconto: 'R$', forma: '' })}
+                            style={{ padding: '4px 12px', fontSize: '15px', backgroundColor: '#ecfdf5', color: '#065f46', border: '1px solid #6ee7b7', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                            💵 Receber
+                          </button>
+                          {erroPagamentos && <span style={{ marginLeft: '6px', fontSize: '14px', color: '#991b1b' }}>não foi possível ver o que já foi recebido — recarregue</span>}
+                        </div>
+                      );
+                    }
+                    if (!ag.procedimentoId || !(valor > 0)) {
+                      return (
+                        <div style={{ marginTop: '6px', padding: '8px', border: '1px solid #fde68a', backgroundColor: '#fffbeb', borderRadius: '6px', fontSize: '15px' }}>
+                          Defina o procedimento (com valor particular na tabela) antes de receber — "Confirmar/ajustar procedimento".{' '}
+                          <button type="button" onClick={() => setRecebendo(null)} style={{ padding: '2px 8px' }}>Fechar</button>
+                        </div>
+                      );
+                    }
+                    const desconto = descontoEmReais(valor, recebendo.desconto, recebendo.tipoDesconto);
+                    return (
+                      <div style={{ marginTop: '6px', padding: '10px', border: '1px solid #6ee7b7', backgroundColor: '#f0fdf4', borderRadius: '6px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', maxWidth: '760px' }}>
+                        <span>Valor da tabela: <strong>{formatarMoeda(valor)}</strong></span>
+                        <label>Desconto <input aria-label="Desconto" type="number" min="0" step="0.01" value={recebendo.desconto}
+                          onChange={e => setRecebendo(r => ({ ...r, desconto: e.target.value }))} style={{ width: '90px', padding: '5px' }} /></label>
+                        <select aria-label="Tipo do desconto" value={recebendo.tipoDesconto} onChange={e => setRecebendo(r => ({ ...r, tipoDesconto: e.target.value }))} style={{ padding: '5px' }}>
+                          <option>R$</option><option>%</option>
+                        </select>
+                        <strong>A pagar: {formatarMoeda(valor - desconto)}</strong>
+                        <select aria-label="Forma de pagamento" value={recebendo.forma} onChange={e => setRecebendo(r => ({ ...r, forma: e.target.value }))} style={{ padding: '5px' }}>
+                          <option value="">Forma de pagamento...</option>
+                          {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+                        </select>
+                        <button type="button" onClick={() => confirmarRecebimento(ag)} disabled={processandoId === ag.id}
+                          style={{ padding: '6px 14px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                          {processandoId === ag.id ? 'Registrando...' : 'Confirmar recebimento'}
+                        </button>
+                        <button type="button" onClick={() => setRecebendo(null)} style={{ padding: '6px 10px' }}>Fechar</button>
+                      </div>
+                    );
+                  })()}
                   <div style={{ fontSize: '16px', color: '#444', marginTop: '2px' }}>
                     {paciente?.telefone
                       ? <a href={`tel:${paciente.telefone.replace(/\D/g, '')}`} style={{ color: '#0369a1', textDecoration: 'none' }}>📞 {paciente.telefone}</a>

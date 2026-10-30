@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { criarComOperacao } from '../utils/operacaoCriacao';
 
-const CAMPOS = 'id, paciente_id, agendamento_id, procedimento_id, medico_id, convenio_id, descricao, valor, percentual_repasse, valor_repasse, forma_pagamento, status, data_cobranca, data_pagamento, observacoes, created_by, created_at, versao';
+const CAMPOS = 'id, paciente_id, agendamento_id, procedimento_id, medico_id, convenio_id, descricao, valor, desconto, valor_glosa, percentual_repasse, valor_repasse, forma_pagamento, status, data_cobranca, data_pagamento, observacoes, created_by, created_at, versao';
 
 const fromDb = (c) => ({
   id: c.id,
@@ -12,6 +12,14 @@ const fromDb = (c) => ({
   convenioId: c.convenio_id,
   descricao: c.descricao || '',
   valor: c.valor,
+  // Migração 54: valor − desconto = pago; pago − glosa = recebido (só
+  // quando Pago), dividido entre profissional (repasse) e clínica.
+  desconto: Number(c.desconto) || 0,
+  glosa: Number(c.valor_glosa) || 0,
+  valorPago: (Number(c.valor) || 0) - (Number(c.desconto) || 0),
+  recebido: c.status === 'Pago' ? (Number(c.valor) || 0) - (Number(c.desconto) || 0) - (Number(c.valor_glosa) || 0) : 0,
+  recebidoProfissional: c.status === 'Pago' ? Number(c.valor_repasse) || 0 : 0,
+  recebidoClinica: c.status === 'Pago' ? (Number(c.valor) || 0) - (Number(c.desconto) || 0) - (Number(c.valor_glosa) || 0) - (Number(c.valor_repasse) || 0) : 0,
   percentualRepasse: c.percentual_repasse,
   valorRepasse: c.valor_repasse,
   formaPagamento: c.forma_pagamento || '',
@@ -54,6 +62,53 @@ export const cobrancasService = {
       total: Number(linha?.total || 0),
       totalRepasse: Number(linha?.total_repasse || 0),
     };
+  },
+
+  // Totais de todas as colunas do Financeiro (migração 54), sob a RLS.
+  async resumoFinanceiro({ de, ate, medicoId } = {}) {
+    const { data, error } = await supabase.rpc('resumo_financeiro', {
+      p_de: de || null, p_ate: ate || null, p_medico_id: medicoId || null,
+    });
+    if (error) throw error;
+    const l = (Array.isArray(data) ? data[0] : data) || {};
+    const n = (v) => Number(v || 0);
+    return {
+      quantidade: n(l.quantidade), valor: n(l.valor), desconto: n(l.desconto), valorPago: n(l.valor_pago),
+      glosa: n(l.glosa), recebido: n(l.recebido), recebidoClinica: n(l.recebido_clinica), recebidoProfissional: n(l.recebido_profissional),
+    };
+  },
+
+  // Recepção recebe o particular do dia, com desconto (migração 54).
+  async receber(agendamentoId, { desconto, formaPagamento }) {
+    const { data, error } = await supabase.rpc('receber_atendimento', {
+      p_agendamento_id: agendamentoId, p_desconto: Number(desconto) || 0, p_forma_pagamento: formaPagamento,
+    });
+    if (error) throw error;
+    return { cobrancaId: data.cobranca_id, valor: Number(data.valor), desconto: Number(data.desconto), valorPago: Number(data.valor_pago), formaPagamento: data.forma_pagamento };
+  },
+
+  async pagamentosDoDia(dataISO) {
+    const { data, error } = await supabase.rpc('pagamentos_do_dia', { p_data: dataISO });
+    if (error) throw error;
+    return (data || []).map(p => ({
+      agendamentoId: p.agendamento_id, cobrancaId: p.cobranca_id, status: p.status,
+      valor: Number(p.valor), desconto: Number(p.desconto), formaPagamento: p.forma_pagamento || '',
+    }));
+  },
+
+  // Financeiro registra o pagamento: particular com desconto; convênio com
+  // a glosa (parcial). Glosa igual ao valor pago = Glosado (glosa total).
+  async registrarPagamento(id, { desconto = 0, glosa = 0, formaPagamento }, versaoEsperada) {
+    if (!Number.isInteger(versaoEsperada)) throw new Error('Recarregue a lista antes de alterar esta cobrança.');
+    const campos = { status: 'Pago', desconto: Number(desconto) || 0, valor_glosa: Number(glosa) || 0 };
+    if (formaPagamento) campos.forma_pagamento = formaPagamento;
+    const { data, error } = await supabase.from('cobrancas').update(campos)
+      .eq('id', id).eq('versao', versaoEsperada).select(CAMPOS).maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      throw Object.assign(new Error('Esta cobrança foi alterada por outra pessoa. A lista foi recarregada; confira e tente de novo.'), { code: 'P4090' });
+    }
+    return fromDb(data);
   },
 
   async buscarPorId(id) {

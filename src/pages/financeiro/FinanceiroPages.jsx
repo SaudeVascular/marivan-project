@@ -16,6 +16,7 @@ import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesC
 import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { EscolhaProcedimento, useCatalogo } from '../agenda/SeletorProcedimento';
 import { formatarMoeda } from '../../utils/formatters';
+import { descontoEmReais, textoDesconto, FORMAS_PAGAMENTO } from './valores';
 
 export { formatarMoeda };
 
@@ -158,6 +159,11 @@ export function NovaCobrancaForm({ pacientes, convenios, medicos, userId, onCria
 }
 
 const PAGINA_COBRANCAS = 100;
+const thTexto = { padding: '8px 10px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' };
+const thNumero = { ...thTexto, textAlign: 'right' };
+const tdTexto = { padding: '8px 10px', verticalAlign: 'middle' };
+const tdNumero = { ...tdTexto, textAlign: 'right', whiteSpace: 'nowrap' };
+const botaoAcao = { padding: '4px 8px', fontSize: '15px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' };
 
 export function FinanceiroPage({ pacientes }) {
   const toast = useToast();
@@ -195,7 +201,7 @@ export function FinanceiroPage({ pacientes }) {
   const carregarResumo = React.useCallback(() => {
     const consulta = consultaAtual.current;
     setErroResumo(false);
-    comTimeout(cobrancasService.resumo(filtro))
+    comTimeout(cobrancasService.resumoFinanceiro(filtro))
       .then(r => { if (consulta === consultaAtual.current) setResumo(r); })
       .catch(() => {
         if (consulta !== consultaAtual.current) return;
@@ -246,7 +252,6 @@ export function FinanceiroPage({ pacientes }) {
   const medicos = usuarios.filter(u => u.ativo && (FUNCOES_CLINICAS.includes(u.funcao) || (u.funcao === 'Administrador' && u.papel_clinico_administrador)));
   const buscandoNomes = usePacientesPorIds(React.useMemo(() => cobrancas.map(c => c.pacienteId), [cobrancas]));
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
-  const nomeMedico = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
   const [ajustandoCobranca, setAjustandoCobranca] = React.useState(null);
   const salvarAjusteCobranca = async (cobranca) => {
@@ -270,6 +275,30 @@ export function FinanceiroPage({ pacientes }) {
     }
   };
 
+  // Receber: particular com desconto (R$ ou %); convênio com a glosa.
+  const ehParticular = (c) => !c.convenioId || !!convenios.find(x => x.id === c.convenioId)?.particular;
+  const [recebendo, setRecebendo] = React.useState(null); // { id, desconto, tipoDesconto, glosa, forma }
+  const confirmarRecebimento = async (c) => {
+    const particular = ehParticular(c);
+    const desconto = particular ? descontoEmReais(Number(c.valor), recebendo.desconto, recebendo.tipoDesconto) : 0;
+    const glosa = particular ? 0 : Number(String(recebendo.glosa || '0').replace(',', '.'));
+    if (!particular && !(glosa >= 0 && glosa <= Number(c.valor))) { toast.warning('A glosa vai de R$ 0,00 até o valor do procedimento.'); return; }
+    if (particular && !recebendo.forma) { toast.warning('Escolha a forma de pagamento.'); return; }
+    setProcessandoId(c.id);
+    try {
+      const atualizada = glosa > 0 && glosa >= Number(c.valor)
+        ? await comTimeout(cobrancasService.atualizarStatus(c.id, 'Glosado', c.versao))
+        : await comTimeout(cobrancasService.registrarPagamento(c.id, { desconto, glosa, formaPagamento: particular ? recebendo.forma : 'Convênio' }, c.versao));
+      setCobrancas(prev => prev.map(x => x.id === c.id ? atualizada : x));
+      setRecebendo(null);
+      carregarResumo();
+    } catch (err) {
+      if (err.code === 'P4090') { toast.warning(err.message); carregar(); } else { toast.error('Erro ao registrar o pagamento: ' + err.message); }
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
   const mudarStatus = async (cobranca, novoStatus) => {
     setProcessandoId(cobranca.id);
     try {
@@ -288,6 +317,17 @@ export function FinanceiroPage({ pacientes }) {
     }
   };
 
+
+  // Colunas pedidas pelo responsável clínico (30/10/2026); a parte da
+  // clínica e as ações são só de quem gerencia.
+  const colunas = [
+    ['paciente', 'Paciente'], ['data', 'Data do atendimento'], ['valor', 'Valor do procedimento'], ['desconto', 'Desconto'],
+    ['valorPago', 'Valor pago'], ['glosa', 'Glosa'], ['recebido', 'Valor recebido'],
+    ...(podeGerenciar ? [['recebidoClinica', 'Recebido pela clínica']] : []),
+    ['recebidoProfissional', podeGerenciar ? 'Recebido pelo profissional' : 'Seu repasse'],
+    ['situacao', 'Situação'],
+    ...(podeGerenciar ? [['acoes', '']] : []),
+  ];
 
   return (
     <div>
@@ -313,25 +353,6 @@ export function FinanceiroPage({ pacientes }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '16px', color: '#666' }}>Total no período</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.total) : (erroResumo ? 'Indisponível' : '…')}</div>
-        </div>
-        <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '16px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.totalRepasse) : (erroResumo ? 'Indisponível' : '…')}</div>
-        </div>
-        {erroResumo && (
-          <div role="alert" style={{ alignSelf: 'center', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', padding: '10px 14px', backgroundColor: '#fee2e2', border: '1px solid #fecaca', borderRadius: '6px', color: '#991b1b' }}>
-            <span>Não foi possível calcular os totais do período (conexão ou servidor). A lista abaixo pode estar correta; os totais não são zero, só não foram carregados.</span>
-            <button type="button" onClick={carregarResumo} style={{ padding: '6px 12px', border: '1px solid #991b1b', borderRadius: '4px', background: 'white', color: '#991b1b', cursor: 'pointer' }}>
-              Recarregar totais
-            </button>
-          </div>
-        )}
-      </div>
-
       {mostrarForm && podeGerenciar && (
         <NovaCobrancaForm
           pacientes={pacientes}
@@ -354,57 +375,126 @@ export function FinanceiroPage({ pacientes }) {
 
       {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
 
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflowX: 'auto' }}>
         {carregando ? (
           <p style={{ padding: '20px', color: '#666' }}>Carregando...</p>
         ) : cobrancas.length === 0 ? (
           <p style={{ padding: '20px', color: '#666' }}>Nenhuma cobrança no período.</p>
         ) : (
-          cobrancas.map(c => (
-            <div key={c.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <strong>{nomePaciente(c.pacienteId)}</strong> — {formatarMoeda(c.valor)}
-                {c.agendamentoId && <span style={{ marginLeft: '8px', fontSize: '14px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#e0f2fe', color: '#075985' }}>da agenda</span>}
-                {c.status === 'Pendente' && !(Number(c.valor) > 0) && <span style={{ marginLeft: '8px', fontSize: '14px', padding: '2px 8px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#92400e' }}>valor a definir</span>}
-                <div style={{ fontSize: '16px', color: '#666' }}>
-                  {new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')} · {c.descricao || 'Sem descrição'} · {nomeMedico(c.medicoId)}
-                  {podeGerenciar && c.valorRepasse > 0 && <> · repasse {formatarMoeda(c.valorRepasse)}</>}
-                </div>
-                {ajustandoCobranca?.id === c.id && (
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: '260px', flex: 2 }}>
-                      <EscolhaProcedimento itens={procedimentos.filter(p => p.ativo || p.id === ajustandoCobranca.procedimentoId).map(p => ({ ...p, valor: p.valorParticular }))}
-                        procedimentoId={ajustandoCobranca.procedimentoId} rotuloVazio="Procedimento a definir" estilo={{ padding: '6px', width: '100%' }}
-                        onChange={id => setAjustandoCobranca(a => ({ ...a, procedimentoId: id, descricao: procedimentos.find(p => p.id === id)?.nome || a.descricao }))} />
-                    </div>
-                    <input aria-label="Descrição" value={ajustandoCobranca.descricao} onChange={e => setAjustandoCobranca(a => ({ ...a, descricao: e.target.value }))} style={{ padding: '6px', minWidth: '200px' }} />
-                    <input aria-label="Valor" type="number" min="0" step="0.01" value={ajustandoCobranca.valor} onChange={e => setAjustandoCobranca(a => ({ ...a, valor: e.target.value }))} style={{ padding: '6px', width: '120px' }} />
-                    <button onClick={() => salvarAjusteCobranca(c)} disabled={processandoId === c.id}>Salvar</button>
-                    <button onClick={() => setAjustandoCobranca(null)}>Cancelar</button>
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
-                  {c.status}
-                </span>
-                {podeGerenciar && c.status === 'Pendente' && (
-                  <>
-                    {ajustandoCobranca?.id !== c.id && (
-                      <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '', procedimentoId: c.procedimentoId || null })} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>Ajustar</button>
+          <table aria-label="Atendimentos do período" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb' }}>
+                {colunas.map(([k, titulo]) => <th key={k} style={k === 'paciente' || k === 'data' || k === 'situacao' || k === 'acoes' ? thTexto : thNumero}>{titulo}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {cobrancas.map(c => (
+                <React.Fragment key={c.id}>
+                  <tr style={{ borderTop: '1px solid #eee' }}>
+                    <td style={tdTexto}>
+                      <strong>{nomePaciente(c.pacienteId)}</strong>
+                      {c.status === 'Pendente' && !(Number(c.valor) > 0) && <span style={{ marginLeft: '6px', fontSize: '13px', padding: '1px 6px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#92400e' }}>valor a definir</span>}
+                    </td>
+                    <td style={tdTexto}>{new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.valor)}</td>
+                    <td style={tdNumero}>{textoDesconto(c.desconto, Number(c.valor))}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.valorPago)}</td>
+                    <td style={tdNumero}>{c.glosa > 0 ? formatarMoeda(c.glosa) : '—'}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.recebido)}</td>
+                    {podeGerenciar && <td style={tdNumero}>{formatarMoeda(c.recebidoClinica)}</td>}
+                    <td style={tdNumero}>{formatarMoeda(c.recebidoProfissional)}</td>
+                    <td style={tdTexto}>
+                      <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold' }}>{c.status}</span>
+                    </td>
+                    {podeGerenciar && (
+                      <td style={{ ...tdTexto, whiteSpace: 'nowrap' }}>
+                        {c.status === 'Pendente' && recebendo?.id !== c.id && ajustandoCobranca?.id !== c.id && (
+                          <>
+                            <button onClick={() => setRecebendo({ id: c.id, desconto: '', tipoDesconto: 'R$', glosa: '', forma: '' })} disabled={processandoId === c.id || !(Number(c.valor) > 0)}
+                              title={Number(c.valor) > 0 ? '' : 'Defina o valor antes de receber'} style={botaoAcao}>Receber</button>{' '}
+                            <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '', procedimentoId: c.procedimentoId || null })} disabled={processandoId === c.id} style={botaoAcao}>Ajustar</button>{' '}
+                            <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={botaoAcao}>Cancelar</button>{' '}
+                          </>
+                        )}
+                        <Link to={`/financeiro/recibo/${c.id}`} title="Recibo" aria-label="Recibo" style={{ ...botaoAcao, textDecoration: 'none', display: 'inline-block' }}>🖨️</Link>
+                      </td>
                     )}
-                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id || !(Number(c.valor) > 0)} title={Number(c.valor) > 0 ? '' : 'Defina o valor antes de marcar como pago'} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
-                    <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>
+                  </tr>
+                  {recebendo?.id === c.id && (
+                    <tr><td colSpan={colunas.length} style={{ ...tdTexto, backgroundColor: '#f0fdf4' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {ehParticular(c) ? (
+                          <>
+                            <span>Particular · {formatarMoeda(c.valor)}</span>
+                            <label>Desconto <input aria-label="Desconto" type="number" min="0" step="0.01" value={recebendo.desconto} onChange={e => setRecebendo(r => ({ ...r, desconto: e.target.value }))} style={{ width: '90px', padding: '5px' }} /></label>
+                            <select aria-label="Tipo do desconto" value={recebendo.tipoDesconto} onChange={e => setRecebendo(r => ({ ...r, tipoDesconto: e.target.value }))} style={{ padding: '5px' }}>
+                              <option>R$</option><option>%</option>
+                            </select>
+                            <strong>A pagar: {formatarMoeda(Number(c.valor) - descontoEmReais(Number(c.valor), recebendo.desconto, recebendo.tipoDesconto))}</strong>
+                            <select aria-label="Forma de pagamento" value={recebendo.forma} onChange={e => setRecebendo(r => ({ ...r, forma: e.target.value }))} style={{ padding: '5px' }}>
+                              <option value="">Forma de pagamento...</option>
+                              {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          </>
+                        ) : (
+                          <>
+                            <span>Convênio · {formatarMoeda(c.valor)}</span>
+                            <label>Glosa (R$) <input aria-label="Glosa" type="number" min="0" step="0.01" value={recebendo.glosa} onChange={e => setRecebendo(r => ({ ...r, glosa: e.target.value }))} style={{ width: '100px', padding: '5px' }} /></label>
+                            <strong>Recebido: {formatarMoeda(Number(c.valor) - (Number(String(recebendo.glosa || '0').replace(',', '.')) || 0))}</strong>
+                          </>
+                        )}
+                        <button onClick={() => confirmarRecebimento(c)} disabled={processandoId === c.id} style={{ ...botaoAcao, backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}>Confirmar</button>
+                        <button onClick={() => setRecebendo(null)} style={botaoAcao}>Fechar</button>
+                      </div>
+                    </td></tr>
+                  )}
+                  {ajustandoCobranca?.id === c.id && (
+                    <tr><td colSpan={colunas.length} style={{ ...tdTexto, backgroundColor: '#f0f9ff' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: '260px', flex: 2 }}>
+                          <EscolhaProcedimento itens={procedimentos.filter(p => p.ativo || p.id === ajustandoCobranca.procedimentoId).map(p => ({ ...p, valor: p.valorParticular }))}
+                            procedimentoId={ajustandoCobranca.procedimentoId} rotuloVazio="Procedimento a definir" estilo={{ padding: '6px', width: '100%' }}
+                            onChange={id => setAjustandoCobranca(a => ({ ...a, procedimentoId: id, descricao: procedimentos.find(p => p.id === id)?.nome || a.descricao }))} />
+                        </div>
+                        <input aria-label="Descrição" value={ajustandoCobranca.descricao} onChange={e => setAjustandoCobranca(a => ({ ...a, descricao: e.target.value }))} style={{ padding: '6px', minWidth: '200px' }} />
+                        <input aria-label="Valor" type="number" min="0" step="0.01" value={ajustandoCobranca.valor} onChange={e => setAjustandoCobranca(a => ({ ...a, valor: e.target.value }))} style={{ padding: '6px', width: '120px' }} />
+                        <button onClick={() => salvarAjusteCobranca(c)} disabled={processandoId === c.id}>Salvar</button>
+                        <button onClick={() => setAjustandoCobranca(null)}>Cancelar</button>
+                      </div>
+                    </td></tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
+                <td style={tdTexto} colSpan={2}>
+                  {resumo ? `Total — ${resumo.quantidade} atendimento${resumo.quantidade === 1 ? '' : 's'}` : (erroResumo ? 'Total indisponível' : 'Total…')}
+                </td>
+                {resumo ? (
+                  <>
+                    <td style={tdNumero}>{formatarMoeda(resumo.valor)}</td>
+                    <td style={tdNumero}>{textoDesconto(resumo.desconto, resumo.valor)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.valorPago)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.glosa)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.recebido)}</td>
+                    {podeGerenciar && <td style={tdNumero}>{formatarMoeda(resumo.recebidoClinica)}</td>}
+                    <td style={tdNumero}>{formatarMoeda(resumo.recebidoProfissional)}</td>
+                    <td colSpan={podeGerenciar ? 2 : 1} />
                   </>
+                ) : (
+                  <td colSpan={colunas.length - 2} style={tdTexto}>
+                    {erroResumo && (
+                      <span role="alert" style={{ color: '#991b1b', fontWeight: 'normal' }}>
+                        Não foi possível calcular os totais do período (conexão ou servidor). Os totais não são zero, só não foram carregados.{' '}
+                        <button type="button" onClick={carregarResumo} style={botaoAcao}>Recarregar totais</button>
+                      </span>
+                    )}
+                  </td>
                 )}
-                {podeGerenciar && (
-                  <Link to={`/financeiro/recibo/${c.id}`} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}>
-                    🖨️ Recibo
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))
+              </tr>
+            </tfoot>
+          </table>
         )}
         {!carregando && cobrancas.length > 0 && (
           <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '15px', color: '#666' }}>

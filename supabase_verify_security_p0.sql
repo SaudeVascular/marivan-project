@@ -77,6 +77,13 @@ BEGIN
      OR has_function_privilege('anon', 'public.importar_procedimentos(jsonb)', 'EXECUTE') THEN
     RAISE EXCEPTION 'P0 inseguro: repasse por profissional ou relatório de produção ausente ou aberto a anon (aplique as migrações 50 e 51)';
   END IF;
+  IF to_regprocedure('public.receber_atendimento(uuid,numeric,text)') IS NULL
+     OR has_function_privilege('anon', 'public.receber_atendimento(uuid,numeric,text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.pagamentos_do_dia(date)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.resumo_financeiro(date,date,uuid)', 'EXECUTE')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_desconto_glosa' AND tgrelid = 'public.cobrancas'::regclass) THEN
+    RAISE EXCEPTION 'P0 inseguro: recebimento/desconto/glosa ausente ou aberto a anon (aplique a migração 54)';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'pacientes_operacao_id_key') THEN

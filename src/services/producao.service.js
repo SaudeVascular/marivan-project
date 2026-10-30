@@ -13,17 +13,24 @@ const fromDb = (l) => ({
   paciente: l.paciente_nome || '',
   profissionalId: l.profissional_id,
   profissional: l.profissional_nome || '',
+  especialidade: l.especialidade || '',
   procedimentoId: l.procedimento_id,
   codigo: l.codigo || '',
   procedimento: l.procedimento || '',
   tipo: l.tipo || '',
   convenioId: l.convenio_id,
   convenio: l.convenio || '',
+  particular: !!l.particular,
   formaPagamento: l.forma_pagamento || '',
+  // Migração 54: valor − desconto = pago; pago − glosa = recebido (só Pago).
   valor: Number(l.valor) || 0,
+  desconto: Number(l.desconto) || 0,
+  valorPago: Number(l.valor_pago) || 0,
+  glosa: Number(l.glosa) || 0,
   percentualRepasse: Number(l.percentual_repasse) || 0,
-  valorRepasse: Number(l.valor_repasse) || 0,
-  valorClinica: Number(l.valor_clinica) || 0,
+  recebido: Number(l.recebido) || 0,
+  recebidoClinica: Number(l.recebido_clinica) || 0,
+  recebidoProfissional: Number(l.recebido_profissional) || 0,
 });
 
 export const producaoService = {

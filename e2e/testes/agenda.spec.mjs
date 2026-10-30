@@ -33,7 +33,29 @@ test('agenda → atendimento → cobrança: a Recepção agenda com o procedimen
 
   await entrar(page, 'financeiro');
   await page.goto('/financeiro');
-  await expect(page.getByText('da agenda')).toBeVisible();
-  await expect(page.getByText(/R\$\s*180,00/).first()).toBeVisible();
+  const linha = page.getByRole('table', { name: 'Atendimentos do período' }).getByRole('row', { name: /E2E Paciente A/i });
+  await expect(linha).toContainText('R$ 180,00');
+  await expect(linha).toContainText('Pendente');
   expect(sql(`SELECT status || ' ' || valor || ' ' || valor_repasse FROM public.cobrancas WHERE paciente_id = '${a}'`)).toBe('Pendente 180.00 108.00');
+});
+
+test('Recepção recebe o particular com 10% de desconto; o repasse sai do que entrou', async ({ page }) => {
+  const b = idPaciente('E2E Paciente B');
+  limparAtendimentos(b);
+  sql(`INSERT INTO public.agendamentos (paciente_id, medico_id, data, hora, procedimento_id, convenio_id)
+       SELECT '${b}', u.id, (now() AT TIME ZONE 'America/Sao_Paulo')::date, '07:30', p.id, NULL
+         FROM auth.users u, public.procedimentos p WHERE u.email = 'e2e-medico@example.invalid' AND p.nome = 'E2E Consulta'`);
+
+  await entrar(page, 'recepcao');
+  await page.goto('/recepcao');
+  await page.getByRole('button', { name: /Receber/ }).click();
+  await expect(page.getByText(/Valor da tabela/)).toContainText('R$ 300,00');
+  await page.getByLabel('Desconto', { exact: true }).fill('10');
+  await page.getByLabel('Tipo do desconto').selectOption('%');
+  await expect(page.getByText(/A pagar:/)).toContainText('R$ 270,00');
+  await page.getByLabel('Forma de pagamento').selectOption('PIX');
+  await page.getByRole('button', { name: 'Confirmar recebimento' }).click();
+  await expect(page.getByText(/✓ Recebido R\$\s*270,00/)).toBeVisible();
+  expect(sql(`SELECT status || ' ' || valor || ' ' || desconto || ' ' || forma_pagamento || ' ' || valor_repasse FROM public.cobrancas WHERE paciente_id = '${b}'`))
+    .toBe('Pago 300.00 30.00 PIX 162.00');
 });
