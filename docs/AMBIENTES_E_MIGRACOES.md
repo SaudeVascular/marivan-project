@@ -126,7 +126,7 @@ e faça os testes de interface com dados fictícios.
 
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
-| Homologação | `snhmydckyypgucwbsaus` | 01–53 | — (30/10) |
+| Homologação | `snhmydckyypgucwbsaus` | 01–54 | — (30/10) |
 | Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–54 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
