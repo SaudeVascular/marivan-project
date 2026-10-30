@@ -560,6 +560,8 @@ export function ImportadorTabela({ convenio, temTabela, onImportado, onCancelar 
 function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
   const toast = useToast();
   const [importando, setImportando] = React.useState(false);
+  const [cadastrando, setCadastrando] = React.useState(false);
+  const [filtroTipo, setFiltroTipo] = React.useState('');
   const vazio = { codigo: '', nome: '', tipo: 'Consulta', valorParticular: '' };
   const [novo, setNovo] = React.useState(vazio);
   const [editando, setEditando] = React.useState(null);
@@ -627,11 +629,17 @@ function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
     }
   };
 
+  // Palavras em qualquer ordem ("vitamina d dosagem"), ou o começo do
+  // código ("40305" ou "4.03.05").
   const filtrados = React.useMemo(() => {
-    const termo = semAcento(busca.trim());
+    const palavras = semAcento(busca).split(/\s+/).filter(Boolean);
     const codigo = busca.toUpperCase().replace(/[^0-9A-Z]/g, '');
-    return !termo ? procedimentos : procedimentos.filter(p => semAcento(p.nome).includes(termo) || (codigo && p.codigo.startsWith(codigo)));
-  }, [procedimentos, busca]);
+    return procedimentos.filter(p =>
+      (!filtroTipo || p.tipo === filtroTipo)
+      && (palavras.length === 0
+        || palavras.every(w => semAcento(p.nome).includes(w))
+        || (/\d/.test(codigo) && p.codigo.startsWith(codigo))));
+  }, [procedimentos, busca, filtroTipo]);
 
   const camposEdicao = (p, set) => (
     <>
@@ -665,11 +673,38 @@ function CatalogoProcedimentos({ procedimentos, setProcedimentos }) {
         O <strong>tipo</strong> decide o percentual de repasse de cada profissional (Administração → Usuários).
         Os valores de cada convênio ficam na tabela do convênio.
       </p>
-      <form onSubmit={criar} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-        {camposEdicao(novo, setNovo)}
-        <button type="submit" disabled={salvando} style={botao('#28a745')}>+ Cadastrar</button>
-      </form>
-      <input aria-label="Buscar procedimento no catálogo" {...SEM_AUTOPREENCHIMENTO('busca-catalogo-procedimentos-pep')} placeholder="Buscar por nome ou código" value={busca} onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, marginBottom: '8px' }} />
+      <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '14px' }}>
+        <label htmlFor="pesquisa-procedimentos" style={{ ...rotulo, marginBottom: '6px' }}>🔍 Pesquisar procedimentos cadastrados</label>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <input id="pesquisa-procedimentos" type="search" {...SEM_AUTOPREENCHIMENTO('busca-catalogo-procedimentos-pep')}
+            placeholder="Nome (palavras em qualquer ordem) ou código TUSS" value={busca}
+            onChange={e => { setBusca(e.target.value); setMostrar(POR_PAGINA); }}
+            style={{ ...campo, flex: 1, minWidth: '220px', width: 'auto', fontSize: '16px', border: '2px solid #0369a1', borderRadius: '6px' }} />
+          <select aria-label="Filtrar por tipo" value={filtroTipo} onChange={e => { setFiltroTipo(e.target.value); setMostrar(POR_PAGINA); }} style={{ ...campo, width: '190px' }}>
+            <option value="">Todos os tipos</option>
+            {TIPOS_PROCEDIMENTO.map(t => <option key={t}>{t}</option>)}
+          </select>
+          {(busca || filtroTipo) && (
+            <button type="button" onClick={() => { setBusca(''); setFiltroTipo(''); setMostrar(POR_PAGINA); }} style={botaoClaro}>Limpar</button>
+          )}
+        </div>
+        <div role="status" style={{ fontSize: '15px', color: '#075985', marginTop: '6px' }}>
+          {busca || filtroTipo ? `${filtrados.length} de ${procedimentos.length} procedimentos` : `${procedimentos.length} procedimentos cadastrados`}
+        </div>
+      </div>
+
+      {cadastrando ? (
+        <form onSubmit={criar} style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          {camposEdicao(novo, setNovo)}
+          <button type="submit" disabled={salvando} style={botao('#28a745')}>+ Cadastrar</button>
+          <button type="button" onClick={() => { setCadastrando(false); setNovo(vazio); }} style={botaoClaro}>Fechar</button>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setCadastrando(true)} style={{ ...botaoClaro, marginBottom: '14px' }}>+ Novo procedimento</button>
+      )}
+      {filtrados.length === 0 && (busca || filtroTipo) && (
+        <p style={{ color: '#6b7280' }}>Nenhum procedimento encontrado.</p>
+      )}
       {filtrados.slice(0, mostrar).map(p => (
         <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: p.ativo ? 1 : 0.5 }}>
           {editando?.id === p.id ? (

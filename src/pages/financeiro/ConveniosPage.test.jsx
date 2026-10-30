@@ -104,6 +104,7 @@ test('catálogo de procedimentos: código, tipo e valor particular, sem repasse'
   fireEvent.click(await screen.findByRole('tab', { name: 'Procedimentos' }));
   expect(screen.getByText('10101012 — Consulta')).toBeInTheDocument();
   expect(screen.queryByText(/repasse/i, { selector: 'div' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '+ Novo procedimento' }));
   fireEvent.change(screen.getByLabelText('Código'), { target: { value: '40304361' } });
   fireEvent.change(screen.getByLabelText('Nome do procedimento'), { target: { value: 'Hemograma' } });
   fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'Exame' } });
@@ -131,4 +132,32 @@ test('catálogo importado de planilha: valor opcional, sem modo substituir, list
   fireEvent.click(screen.getByRole('button', { name: 'Importar 2 linhas' }));
   await waitFor(() => expect(procedimentosService.importar).toHaveBeenCalledWith(expect.any(Array)));
   expect(await screen.findByText('40301620 — Glicose')).toBeInTheDocument();
+});
+
+test('pesquisa no catálogo: palavras em qualquer ordem, código e tipo', async () => {
+  procedimentosService.listar.mockResolvedValue([
+    CONSULTA,
+    { id: 'p2', nome: '1,25-DIHIDROXI VITAMINA D - PESQUISA E/OU DOSAGEM', codigo: '40305015', tipo: 'Exame', valorParticular: null, ativo: true },
+    { id: 'p3', nome: 'Curativo simples', codigo: '', tipo: 'Procedimento', valorParticular: 40, ativo: true },
+  ]);
+  render(<MemoryRouter><ConveniosTabelasPage /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'Procedimentos' }));
+  const pesquisa = screen.getByLabelText(/Pesquisar procedimentos cadastrados/);
+  expect(screen.getByRole('status')).toHaveTextContent('3 procedimentos cadastrados');
+
+  fireEvent.change(pesquisa, { target: { value: 'dosagem vitamina' } });
+  expect(screen.getByRole('status')).toHaveTextContent('1 de 3');
+  expect(screen.getByText(/VITAMINA D/)).toBeInTheDocument();
+
+  fireEvent.change(pesquisa, { target: { value: '4.03.05' } });
+  expect(screen.getByText(/VITAMINA D/)).toBeInTheDocument();
+  expect(screen.queryByText(/Consulta/, { selector: 'strong' })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Limpar' }));
+  fireEvent.change(screen.getByLabelText('Filtrar por tipo'), { target: { value: 'Procedimento' } });
+  expect(screen.getByRole('status')).toHaveTextContent('1 de 3');
+  expect(screen.getByText('Curativo simples')).toBeInTheDocument();
+
+  fireEvent.change(pesquisa, { target: { value: 'inexistente' } });
+  expect(screen.getByText('Nenhum procedimento encontrado.')).toBeInTheDocument();
 });
