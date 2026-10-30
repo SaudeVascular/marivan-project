@@ -40,22 +40,30 @@ const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, ''
 const LIMITE_OPCOES = 200;
 
 // Lista de procedimentos com busca por nome ou código: tabelas importadas
-// têm milhares de itens. Os que têm valor neste convênio vêm primeiro.
-export function EscolhaProcedimento({ itens, procedimentoId, onChange, rotuloVazio = 'A definir', estilo }) {
+// têm milhares de itens. Com `soComValor`, mostra só o que tem valor na
+// tabela do convênio escolhido (ou valor particular) — o que o contrato
+// paga; os demais, só marcando "mostrar também os sem valor".
+export function EscolhaProcedimento({ itens, procedimentoId, onChange, rotuloVazio = 'A definir', estilo, soComValor = false }) {
   const [busca, setBusca] = React.useState('');
+  const [mostrarTodos, setMostrarTodos] = React.useState(false);
+  const semValor = soComValor ? itens.filter(p => p.valor == null).length : 0;
+  const base = React.useMemo(
+    () => (soComValor && !mostrarTodos ? itens.filter(p => p.valor != null) : itens),
+    [itens, soComValor, mostrarTodos]);
   const opcoes = React.useMemo(() => {
     const termo = semAcento(busca.trim());
     const codigo = busca.toUpperCase().replace(/[^0-9A-Z]/g, '');
-    const filtrados = !termo ? itens : itens.filter(p => semAcento(p.nome).includes(termo) || (codigo && p.codigo.startsWith(codigo)));
+    const filtrados = !termo ? base : base.filter(p => semAcento(p.nome).includes(termo) || (codigo && (p.codigo || '').startsWith(codigo)));
     const ordenados = [...filtrados].sort((a, b) => (a.valor == null) - (b.valor == null) || a.nome.localeCompare(b.nome));
     const visiveis = ordenados.slice(0, LIMITE_OPCOES);
+    // O já escolhido aparece sempre, mesmo fora do filtro.
     const escolhido = itens.find(p => p.id === procedimentoId);
     if (escolhido && !visiveis.includes(escolhido)) visiveis.unshift(escolhido);
     return { visiveis, ocultos: ordenados.length - Math.min(ordenados.length, LIMITE_OPCOES) };
-  }, [itens, busca, procedimentoId]);
+  }, [base, itens, busca, procedimentoId]);
   return (
     <div>
-      {itens.length > 15 && (
+      {base.length > 15 && (
         <input aria-label="Buscar procedimento" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="Buscar por nome ou código" style={{ ...estilo, marginBottom: '4px' }} {...SEM_AUTOPREENCHIMENTO('busca-procedimento-pep')} />
       )}
@@ -65,6 +73,14 @@ export function EscolhaProcedimento({ itens, procedimentoId, onChange, rotuloVaz
       </select>
       {opcoes.ocultos > 0 && (
         <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>+{opcoes.ocultos} — refine a busca</div>
+      )}
+      {soComValor && itens.length > 0 && base.length === 0 && (
+        <div style={{ fontSize: '14px', color: '#92400e', marginTop: '2px' }}>Nenhum procedimento com valor nesta tabela.</div>
+      )}
+      {semValor > 0 && (
+        <label style={{ display: 'block', fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+          <input type="checkbox" checked={mostrarTodos} onChange={e => setMostrarTodos(e.target.checked)} /> Mostrar também os sem valor nesta tabela ({semValor})
+        </label>
       )}
     </div>
   );
@@ -88,7 +104,7 @@ export function SeletorProcedimento({ convenioId, procedimentoId, onChange, conv
       </div>
       <div>
         <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
-        <EscolhaProcedimento itens={itens} procedimentoId={procedimentoId} estilo={estilo}
+        <EscolhaProcedimento itens={itens} procedimentoId={procedimentoId} estilo={estilo} soComValor
           onChange={id => onChange({ convenioId, procedimentoId: id })} />
       </div>
       <div>

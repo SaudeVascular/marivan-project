@@ -108,7 +108,7 @@ export function NovaCobrancaForm({ pacientes, convenios, medicos, userId, onCria
           </div>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
-            <EscolhaProcedimento itens={catalogo} procedimentoId={procedimentoId} rotuloVazio="Selecione..." estilo={{ width: '100%', padding: '8px' }}
+            <EscolhaProcedimento itens={catalogo} procedimentoId={procedimentoId} soComValor rotuloVazio="Selecione..." estilo={{ width: '100%', padding: '8px' }}
               onChange={id => setProcedimentoId(id || '')} />
           </div>
           <div>
