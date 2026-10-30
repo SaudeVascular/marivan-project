@@ -4,6 +4,9 @@
 -- (Administrador sem papel clínico lendo conteúdo de consulta e imagem
 -- de assinatura pela auditoria) e garante que ele não volte.
 BEGIN;
+-- Simula a passagem pelas funções de leitura auditada (migração 48); o
+-- bloqueio da leitura direta é testado em leitura_auditada.sql.
+SELECT set_config('pep.leitura_clinica', 'sim', true);
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
 $$;

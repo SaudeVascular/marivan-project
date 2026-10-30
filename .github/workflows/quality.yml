@@ -85,3 +85,43 @@ jobs:
       - name: Encerrar banco descartável
         if: always()
         run: npx supabase stop --no-backup
+
+  browser:
+    name: Navegador (Playwright) com login e banco reais
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências reproduzíveis
+        run: npm ci
+
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Subir Supabase local descartável (banco, login e API)
+        run: npx supabase start -x realtime,logflare,vector,imgproxy,edge-runtime
+
+      - name: Testes de navegador
+        run: npm run test:e2e
+        env:
+          CI: "true"
+
+      - name: Guardar relatório em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-playwright
+          path: playwright-report
+          retention-days: 7
+
+      - name: Encerrar Supabase local
+        if: always()
+        run: npx supabase stop --no-backup

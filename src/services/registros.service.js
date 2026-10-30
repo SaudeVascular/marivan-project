@@ -5,6 +5,8 @@ import { dataLocalISO } from '../utils/formatters';
 export const PAGINA_HISTORICO = 1000;
 
 const CAMPOS = 'id, tipo, titulo, conteudo, data, hora, created_by, created_at, status, assinado_em, assinado_por_nome, assinado_por_registro, retificacao_de, motivo_retificacao, paciente_id, versao';
+// Retrato da emissão (migração 46): só na reimpressão, não no histórico.
+const CAMPOS_COM_EMISSAO = `${CAMPOS}, emissao, emissao_hash`;
 
 // DB → React
 const fromDb = (c) => ({
@@ -29,6 +31,8 @@ const fromDb = (c) => ({
   assinadoPorRegistro: c.assinado_por_registro || '',
   retificacaoDe: c.retificacao_de || null,
   motivoRetificacao: c.motivo_retificacao || '',
+  emissao: c.emissao || null,
+  emissaoHash: c.emissao_hash || null,
 });
 
 export const registrosService = {
@@ -36,16 +40,16 @@ export const registrosService = {
   // por consulta, e um histórico cortado em silêncio esconderia registros
   // antigos (alergias, cirurgias, laudos). O desempate por id deixa a
   // ordem estável entre as páginas — sem pular nem repetir registro.
+  //
+  // Leitura pela função ler_registros_paciente (migração 48): o banco
+  // registra "abriu o prontuário" na 1ª página antes de devolver qualquer
+  // coisa — sem registro não há leitura.
   async listarPorPaciente(pacienteId) {
     const registros = [];
     for (let inicio = 0; ; inicio += PAGINA_HISTORICO) {
       const { data, error } = await supabase
-        .from('consultas')
-        .select(CAMPOS)
-        .eq('paciente_id', pacienteId)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(inicio, inicio + PAGINA_HISTORICO - 1);
+        .rpc('ler_registros_paciente', { p_paciente_id: pacienteId, p_limite: PAGINA_HISTORICO, p_offset: inicio })
+        .select(CAMPOS);
       if (error) throw error;
       registros.push(...(data || []));
       if (!data || data.length < PAGINA_HISTORICO) break;
@@ -53,14 +57,19 @@ export const registrosService = {
     return registros.map(fromDb);
   },
 
-  async buscarPorId(registroId) {
+  // Registro SÓ se for deste paciente (null se não existir, não for visível
+  // ou for de outro paciente). Usado onde a URL traz os dois ids: buscar
+  // cada um separado permitia montar o cadastro de B com o conteúdo de A.
+  // Pela função ler_registro (migração 48), que registra o acesso e recusa
+  // registro de outro paciente (22023 → null aqui, como "não encontrado").
+  async buscarDoPaciente(registroId, pacienteId) {
     const { data, error } = await supabase
-      .from('consultas')
-      .select(CAMPOS)
-      .eq('id', registroId)
-      .single();
+      .rpc('ler_registro', { p_registro_id: registroId, p_paciente_id: pacienteId })
+      .select(CAMPOS_COM_EMISSAO)
+      .maybeSingle();
+    if (error?.code === '22023') return null;
     if (error) throw error;
-    return fromDb(data);
+    return data ? fromDb(data) : null;
   },
 
   async criar(registro, pacienteId, userId) {

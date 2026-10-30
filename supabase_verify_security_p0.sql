@@ -44,6 +44,51 @@ BEGIN
   IF position('pep.atualizar_paciente' IN pg_get_functiondef('public.versionar_paciente()'::regprocedure)) = 0 THEN
     RAISE EXCEPTION 'P0 inseguro: UPDATE direto em pacientes sem conferência de versão (aplique a migração 42)';
   END IF;
+  IF position('identidade_profissional_validada' IN pg_get_functiondef('public.validar_consulta_clinica()'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: assinatura sem validar a identidade profissional (aplique a migração 44)';
+  END IF;
+  IF to_regprocedure('privado.registrar_acesso_interno(uuid,text,text,uuid)') IS NULL
+     OR position('paciente_id = p_paciente_id' IN pg_get_functiondef('privado.registrar_acesso_interno(uuid,text,text,uuid)'::regprocedure)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: acesso aceita registro de outro paciente (aplique as migrações 43 e 48)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'public.consultas'::regclass AND polname = 'ver consultas'
+                   AND pg_get_expr(polqual, polrelid) LIKE '%pep.leitura_clinica%') THEN
+    RAISE EXCEPTION 'P0 inseguro: registros clínicos legíveis sem registro de acesso (aplique a migração 48)';
+  END IF;
+  IF to_regprocedure('public.ler_registros_paciente(uuid,integer,integer)') IS NULL
+     OR has_function_privilege('anon', 'public.ler_registros_paciente(uuid,integer,integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.exportar_clinica(integer,integer)', 'EXECUTE')
+     OR has_schema_privilege('anon', 'privado', 'USAGE') THEN
+    RAISE EXCEPTION 'P0 inseguro: leitura/exportação ausente ou aberta a anon (aplique a migração 48)';
+  END IF;
+  IF to_regprocedure('public.catalogo_procedimentos(uuid)') IS NULL
+     OR has_function_privilege('anon', 'public.catalogo_procedimentos(uuid)', 'EXECUTE')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_gerar_cobranca_do_agendamento') THEN
+    RAISE EXCEPTION 'P0 inseguro: agenda sem geração de cobrança, ou catálogo aberto a anon (aplique a migração 49)';
+  END IF;
+  IF to_regclass('public.repasse_profissional') IS NULL
+     OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.repasse_profissional'::regclass)
+     OR has_table_privilege('anon', 'public.repasse_profissional', 'SELECT')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_repasse_da_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
+     OR to_regprocedure('public.relatorio_producao(date,date,uuid)') IS NULL
+     OR has_function_privilege('anon', 'public.relatorio_producao(date,date,uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.importar_tabela_convenio(uuid,jsonb,boolean)', 'EXECUTE')
+     OR to_regprocedure('public.importar_procedimentos(jsonb)') IS NULL
+     OR has_function_privilege('anon', 'public.importar_procedimentos(jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'P0 inseguro: repasse por profissional ou relatório de produção ausente ou aberto a anon (aplique as migrações 50 e 51)';
+  END IF;
+  IF to_regprocedure('public.receber_atendimento(uuid,numeric,text)') IS NULL
+     OR has_function_privilege('anon', 'public.receber_atendimento(uuid,numeric,text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.pagamentos_do_dia(date)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.resumo_financeiro(date,date,uuid)', 'EXECUTE')
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_desconto_glosa' AND tgrelid = 'public.cobrancas'::regclass) THEN
+    RAISE EXCEPTION 'P0 inseguro: recebimento/desconto/glosa ausente ou aberto a anon (aplique a migração 54)';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
+     OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'pacientes_operacao_id_key') THEN
+    RAISE EXCEPTION 'P0 inseguro: agenda/cobranças sem versão e transições, ou criação sem idempotência (aplique a migração 47)';
+  END IF;
 
   IF has_column_privilege('authenticated', 'public.perfis', 'cpf', 'SELECT') THEN
     RAISE EXCEPTION 'P0 inseguro: authenticated ainda lê perfis.cpf diretamente';

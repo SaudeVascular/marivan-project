@@ -53,6 +53,7 @@ test('atualização cadastral não envia nem apaga campos clínicos', async () =
 });
 
 test('cadastro inicial não envia alergias ou outros dados clínicos', async () => {
+  supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
   const insert = jest.fn(() => ({
     select: () => ({
       single: () => Promise.resolve({ data: { id: 'paciente-1' }, error: null }),
@@ -194,4 +195,54 @@ test('reativar lê a versão atual antes', async () => {
   supabase.from.mockImplementation(() => criarQueryBuilder({ single: { data: { versao_cadastro: 9 }, error: null } }));
   await pacientesService.reativar('paciente-1');
   expect(update).toHaveBeenCalledWith({ ativo: true }, { p_id: 'paciente-1', p_grupo: 'ativo', p_versao_esperada: 9 });
+});
+
+describe('criação idempotente (migração 47)', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    supabase.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
+  });
+
+  test('resposta perdida: repete com o mesmo id de operação e recupera o paciente, sem duplicar', async () => {
+    const enviados = [];
+    const insert = jest.fn((linhas) => {
+      enviados.push(linhas[0].operacao_id);
+      return {
+        select: () => ({
+          single: () => (enviados.length === 1
+            ? Promise.reject(Object.assign(new TypeError('Failed to fetch'), { status: 0 })) // gravou, resposta perdeu-se
+            : Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "pacientes_operacao_id_key"' } })),
+        }),
+      };
+    });
+    supabase.from.mockImplementation((nome) => (nome === 'pacientes'
+      ? { insert }
+      : criarQueryBuilder({ single: { data: { id: 'paciente-1', nome: 'Maria', ativo: true, versao_cadastro: 1 }, error: null } })));
+    supabase.rpc.mockResolvedValue({ data: 'paciente-1', error: null });
+
+    const criado = await pacientesService.criar({ nome: 'Maria', telefone: '(71) 99999-9999' });
+    expect(enviados).toHaveLength(2);
+    expect(enviados[0]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(enviados[1]).toBe(enviados[0]);
+    expect(supabase.rpc).toHaveBeenCalledWith('localizar_paciente_por_operacao', { p_operacao_id: enviados[0] });
+    expect(criado.id).toBe('paciente-1');
+    expect(criado.recuperado).toBe(false);
+    expect(Object.keys(sessionStorage).filter(k => k.startsWith('pep_operacao_criacao_'))).toHaveLength(0);
+  });
+
+  test('gravou mas a releitura falhou: devolve o paciente (não é erro)', async () => {
+    supabase.from.mockImplementation((nome) => (nome === 'pacientes'
+      ? { insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'paciente-2' }, error: null }) }) }) }
+      : criarQueryBuilder({ single: { data: null, error: { code: '500', message: 'falhou' } } })));
+    const criado = await pacientesService.criar({ nome: 'José', telefone: '(71) 98888-8888' });
+    expect(criado).toEqual(expect.objectContaining({ id: 'paciente-2', nome: 'José', releituraPendente: true }));
+  });
+
+  test('sem confirmação nenhuma: mantém a operação para a próxima tentativa', async () => {
+    supabase.from.mockImplementation(() => ({
+      insert: () => ({ select: () => ({ single: () => Promise.reject(new TypeError('Failed to fetch')) }) }),
+    }));
+    await expect(pacientesService.criar({ nome: 'Ana', telefone: '(71) 97777-7777' })).rejects.toMatchObject({ code: 'RESULTADO_INCERTO' });
+    expect(Object.keys(sessionStorage).filter(k => k.startsWith('pep_operacao_criacao_'))).toHaveLength(1);
+  });
 });

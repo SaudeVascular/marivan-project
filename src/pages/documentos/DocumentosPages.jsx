@@ -3,7 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useClinica } from '../../hooks/useClinica';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useMedicoPerfil } from '../../hooks/useMedicoPerfil';
+import { dadosDaEmissao } from '../../utils/emissao';
+import { AvisoIdentidadeProfissional } from '../../components/common/AvisoIdentidadeProfissional';
 import { Header, CabecalhoImpresso, RodapeImpresso } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
 import { pacientesService } from '../../services/pacientes.service';
@@ -45,14 +48,23 @@ const TITULO_RELATORIO = {
   'Enfermeiro(a)': 'Relatório de Enfermagem',
 };
 
-export function AtestadoPage({ pacientes, setPacientes }) {
+// Um formulário por paciente: trocar de paciente (mesma rota, outro id)
+// recria o componente — medicamentos, texto, "já salvo" e ids não passam
+// de um paciente para o outro (ver ProntuarioPage).
+export function AtestadoPage(props) {
+  const { id } = useParams();
+  return <AtestadoConteudo key={id} {...props} />;
+}
+
+function AtestadoConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dias, setDias] = React.useState('1');
   const [dataAtestado, setDataAtestado] = React.useState(hojeISO);
   const [cid, setCid] = React.useState('');
@@ -63,13 +75,14 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const dataFormatada = new Date(dataAtestado + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const diasNum = Number(dias);
     if (!dias || !Number.isInteger(diasNum) || diasNum < 1) {
       toast.warning('Informe um número de dias de afastamento válido (1 ou mais).');
@@ -108,6 +121,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   // navegador não repete cabeçalho/rodapé de forma confiável entre
   // navegadores (Safari em especial).
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -142,6 +156,7 @@ export function AtestadoPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -168,10 +183,10 @@ export function AtestadoPage({ pacientes, setPacientes }) {
             <textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)} style={{ width: '100%', padding: '8px' }} rows={2} />
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={salvarNoProntuario} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
-            <button onClick={imprimirDocumento} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={imprimirDocumento} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -212,14 +227,20 @@ export function AtestadoPage({ pacientes, setPacientes }) {
   );
 }
 
-export function ReceituarioPage({ pacientes, setPacientes }) {
+export function ReceituarioPage(props) {
+  const { id } = useParams();
+  return <ReceituarioConteudo key={id} {...props} />;
+}
+
+function ReceituarioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataReceita]                   = React.useState(hojeISO);
   const [salvo, setSalvo]               = React.useState(false);
   const [textoLivre, setTextoLivre]     = React.useState('');
@@ -263,7 +284,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
     }
   };
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const adicionarMed = () => setMedicamentos([...medicamentos, {
     id: Date.now(), nome: '', dose: '', quantidade: '', via: '', frequencia: '', duracao: '', instrucoes: ''
@@ -282,6 +303,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const temMedicamento = medicamentos.some(m => m.nome.trim());
     if (!temMedicamento && !textoLivre.trim()) {
       toast.warning('Adicione pelo menos um medicamento ou preencha o texto livre da prescrição.');
@@ -328,6 +350,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   // motivo do Atestado — repetir cabeçalho/rodapé em toda página não é
   // confiável só com CSS de impressão do navegador.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -382,6 +405,7 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvandoReceituario} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -425,8 +449,8 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
           ))}
           <div style={{ display: 'flex', gap: '10px', marginTop: '12px', marginBottom: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={adicionarMed} style={{ padding: '9px 16px', backgroundColor: '#e8f5e9', color: '#28a745', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Medicamento</button>
-            <button onClick={salvarNoProntuario} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{salvandoReceituario ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
-            <button onClick={imprimirDocumento} disabled={salvandoReceituario} style={{ padding: '9px 16px', backgroundColor: salvandoReceituario ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvandoReceituario ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
+            <button onClick={salvarNoProntuario} disabled={salvandoReceituario || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: (salvandoReceituario || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoReceituario || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>{(salvandoReceituario || !identidade.pronto) ? 'Salvando...' : '✓ Salvar no Prontuário'}</button>
+            <button onClick={imprimirDocumento} disabled={salvandoReceituario || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: (salvandoReceituario || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvandoReceituario || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>🖨️ Imprimir</button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
           </div>
 
@@ -562,15 +586,21 @@ export function ReceituarioPage({ pacientes, setPacientes }) {
   );
 }
 
-export function RelatorioPage({ pacientes, setPacientes }) {
+export function RelatorioPage(props) {
+  const { id } = useParams();
+  return <RelatorioConteudo key={id} {...props} />;
+}
+
+function RelatorioConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user, funcaoClinicaEfetiva } = useAuth();
   const tituloRelatorio = TITULO_RELATORIO[funcaoClinicaEfetiva] || TITULO_RELATORIO['Médico'];
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataRelatorio, setDataRelatorio] = React.useState(hojeISO);
   const [finalidade, setFinalidade] = React.useState('');
   const [modo, setModo] = React.useState('estruturado'); // 'estruturado' | 'livre'
@@ -583,13 +613,14 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo] = React.useState(false);
   const [salvando, setSalvando] = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const dataFormatada = new Date(dataRelatorio + 'T12:00:00').toLocaleDateString('pt-BR', {
     day: 'numeric', month: 'long', year: 'numeric'
   });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     const temConteudo = modo === 'livre'
       ? textoLivre.trim()
       : [finalidade, diagnostico, historico, exames, conduta, conclusao].some(c => c && c.trim());
@@ -635,6 +666,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
   // prontuário. Vira PDF de verdade (utils/documentoPdf) pelo mesmo
   // motivo do Atestado.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -686,6 +718,7 @@ export function RelatorioPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -738,10 +771,10 @@ export function RelatorioPage({ pacientes, setPacientes }) {
           )}
 
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={salvarNoProntuario} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={salvarNoProntuario} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
             </button>
-            <button onClick={imprimirDocumento} disabled={salvando} style={{ padding: '10px 18px', backgroundColor: salvando ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+            <button onClick={imprimirDocumento} disabled={salvando || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: (salvando || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (salvando || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
               🖨️ Imprimir
             </button>
             {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -842,10 +875,15 @@ export function ImprimirAtendimentoPage() {
     setErro('');
     setPaciente(null);
     setRegistro(null);
-    Promise.all([
-      pacientesService.buscarPorId(pacienteId),
-      registrosService.buscarPorId(registroId),
-    ])
+    // O registro manda: só é aceito se for do paciente da URL, e o paciente
+    // exibido é o do próprio registro. Uma URL com o paciente B e um
+    // registro de A não mostra nada.
+    (async () => {
+      const r = await registrosService.buscarDoPaciente(registroId, pacienteId);
+      if (!r) return [null, null];
+      const p = await pacientesService.buscarPorId(r.pacienteId);
+      return String(p?.id) === String(r.pacienteId) ? [p, r] : [null, null];
+    })()
       .then(([p, r]) => { if (!cancelado) { setPaciente(p); setRegistro(r); } })
       .catch(() => { if (!cancelado) setErro('Não foi possível carregar o atendimento para impressão. Recarregue a página para tentar novamente.'); })
       .finally(() => { if (!cancelado) setCarregando(false); });
@@ -854,7 +892,9 @@ export function ImprimirAtendimentoPage() {
 
   if (carregando) return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando...</div>;
   if (erro) return <div role="alert" style={{ padding: '40px' }}>{erro}</div>;
-  if (!paciente || !registro) return <div style={{ padding: '40px' }}>Registro não encontrado.</div>;
+  if (!paciente || !registro || String(registro.pacienteId) !== String(paciente.id)) {
+    return <div role="alert" style={{ padding: '40px' }}>Registro não encontrado para este paciente.</div>;
+  }
 
   // Antecedentes médicos (comorbidades, alergias etc.) fazem sentido junto
   // de um registro de atendimento — não fazem sentido "vazando" para
@@ -890,15 +930,30 @@ export function ImprimirAtendimentoPage() {
     ? (registro.retificacaoDe ? 'RETIFICAÇÃO DE REGISTRO' : 'REGISTRO DE ATENDIMENTO')
     : (tituloPorProfissao || TITULO_DOCUMENTO[registro.tipo] || registro.tipo.toUpperCase());
 
+  // 2ª via fiel (migração 46): paciente, antecedentes e clínica como
+  // estavam na assinatura; sem retrato, dados atuais — e o documento diz.
+  const doc = dadosDaEmissao(registro, paciente, clinica);
+  const ant = doc.antecedentes || {};
+  const linhaVia = doc.original
+    ? `${ehAtendimento ? 'Cópia do registro original' : '2ª via do documento original'} — código de verificação ${doc.codigo}`
+    : (registro.status === 'Rascunho'
+      ? 'Rascunho — ainda não assinado'
+      : 'Reimpressão com dados ATUAIS do cadastro (registro anterior à preservação da emissão)');
+  const linhaDatas = [
+    `Atendimento: ${registro.data}${registro.hora ? ` às ${registro.hora}` : ''}`,
+    registro.assinadoEm ? `Assinado em ${new Date(registro.assinadoEm).toLocaleString('pt-BR')}` : null,
+    `Impresso em ${new Date().toLocaleString('pt-BR')}`,
+  ].filter(Boolean).join('   —   ');
+
   const comorbidades = [
-    { label: 'HAS',          valor: paciente.has },
-    { label: 'DM',           valor: paciente.dm },
-    { label: 'DAC',          valor: paciente.dac },
-    { label: 'Dislipidemia', valor: paciente.dislipidemia },
-    { label: 'Tabagismo',    valor: paciente.tabagismo },
-    { label: 'Etilismo',     valor: paciente.etilismo },
+    { label: 'HAS',          valor: ant.has },
+    { label: 'DM',           valor: ant.dm },
+    { label: 'DAC',          valor: ant.dac },
+    { label: 'Dislipidemia', valor: ant.dislipidemia },
+    { label: 'Tabagismo',    valor: ant.tabagismo },
+    { label: 'Etilismo',     valor: ant.etilismo },
   ].filter(c => c.valor && c.valor !== 'Não' && c.valor !== '');
-  const temComorbidades = comorbidades.length > 0 || !!paciente.outrasComorbidades;
+  const temComorbidades = comorbidades.length > 0 || !!ant.outrasComorbidades;
 
   // Reimpressão vira PDF de verdade, igual às telas de criação — mesmo
   // motivo (ver utils/documentoPdf): repetir cabeçalho/rodapé em toda
@@ -908,30 +963,27 @@ export function ImprimirAtendimentoPage() {
   const imprimir = async () => {
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
+    if (String(registro.pacienteId) !== String(paciente.id)) return;
     const janela = iniciarJanelaImpressao();
     const antecedentes = ehAtendimento ? [
       { text: 'ANTECEDENTES MÉDICOS', bold: true, fontSize: 9.5, color: '#333', margin: [0, 0, 0, 4] },
       { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 0.5, lineColor: '#eee' }], margin: [0, 0, 0, 6] },
       !temComorbidades ? { text: 'Sem comorbidades registradas.', color: '#999', margin: [0, 0, 0, 4] } : null,
       comorbidades.length > 0 ? { text: comorbidades.map(c => c.label + (c.valor !== 'Sim' ? `: ${c.valor}` : '')).join('   •   '), margin: [0, 0, 0, 4] } : null,
-      paciente.outrasComorbidades ? { text: [{ text: 'Outras comorbidades: ', bold: true }, paciente.outrasComorbidades], margin: [0, 2, 0, 0] } : null,
-      paciente.cirurgias ? { text: [{ text: 'Cirurgias prévias: ', bold: true }, paciente.cirurgias], margin: [0, 2, 0, 0] } : null,
-      paciente.medicamentosUso ? { text: [{ text: 'Medicamentos em uso: ', bold: true }, paciente.medicamentosUso], margin: [0, 2, 0, 0] } : null,
-      paciente.alergias ? { text: `⚠ Alergias: ${paciente.alergias}`, color: '#dc2626', bold: true, margin: [0, 2, 0, 0] } : null,
+      ant.outrasComorbidades ? { text: [{ text: 'Outras comorbidades: ', bold: true }, ant.outrasComorbidades], margin: [0, 2, 0, 0] } : null,
+      ant.cirurgias ? { text: [{ text: 'Cirurgias prévias: ', bold: true }, ant.cirurgias], margin: [0, 2, 0, 0] } : null,
+      ant.medicamentosUso ? { text: [{ text: 'Medicamentos em uso: ', bold: true }, ant.medicamentosUso], margin: [0, 2, 0, 0] } : null,
+      ant.alergias ? { text: `⚠ Alergias: ${ant.alergias}`, color: '#dc2626', bold: true, margin: [0, 2, 0, 0] } : null,
       { text: '', margin: [0, 0, 0, 10] },
     ].filter(Boolean) : [];
 
     const criarPdfDocumento = await carregarCriarPdfDocumento();
     registrarImpressao(paciente.id, `Reimpressão: ${registro.tipo}`, registro.id);
     concluirJanelaImpressao(janela, criarPdfDocumento({
-      clinica,
-      paciente,
+      clinica: doc.clinica,
+      paciente: doc.paciente,
       tituloDocumento: titulo,
-      subtitulo: [
-        `${registro.data} às ${registro.hora}`,
-        !ehAtendimento ? '2ª via' : null,
-        registro.status === 'Rascunho' ? 'Rascunho — ainda não assinado' : null,
-      ].filter(Boolean).join('   —   '),
+      subtitulo: `${linhaDatas}\n${linhaVia}`,
       corpo: [
         ...antecedentes,
         registro.retificacaoDe && registro.motivoRetificacao
@@ -957,24 +1009,22 @@ export function ImprimirAtendimentoPage() {
           Fechar
         </button>
         <span style={{ fontSize: '16px', color: '#555' }}>
-          {paciente.nome} — {registro.data} às {registro.hora}
+          {doc.paciente.nome} — {registro.data} às {registro.hora}
         </span>
       </div>
 
       {/* Documento */}
       <div className="doc-preview" style={{ maxWidth: '800px', margin: '20px auto', fontFamily: 'Arial, sans-serif', fontSize: '16px', lineHeight: '1.6' }}>
         <div className="doc-cabecalho-grupo">
-          <CabecalhoImpresso paciente={paciente} />
+          <CabecalhoImpresso paciente={doc.paciente} clinica={doc.original ? doc.clinica : undefined} />
 
           {/* Mesmo estilo de título centralizado e espaçado das telas de
               criação (Atestado, Receituário...) — reimpressão de um
               documento fechado deve parecer uma 2ª via dele, não um
               "registro de atendimento" genérico. */}
           <h2 style={{ textAlign: 'center', letterSpacing: '4px', fontSize: '18px', margin: '0 0 6px' }}>{titulo}</h2>
-          <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 4px' }}>
-            {registro.data} às {registro.hora}
-            {!ehAtendimento && ' — 2ª via'}
-          </p>
+          <p style={{ textAlign: 'center', color: '#555', fontSize: '16px', margin: '0 0 4px' }}>{linhaDatas}</p>
+          <p style={{ textAlign: 'center', fontSize: '15px', margin: '0 0 4px', color: doc.original ? '#555' : '#b45309' }}>{linhaVia}</p>
           <p style={{ textAlign: 'center', margin: '0 0 20px', fontSize: '16px', color: registro.status === 'Rascunho' ? '#b45309' : '#555' }}>
             {registro.status === 'Rascunho' ? '⚠ Rascunho — ainda não assinado' : '🔒 Assinado'}
           </p>
@@ -1004,10 +1054,10 @@ export function ImprimirAtendimentoPage() {
                 </div>
               )}
               {!temComorbidades && <p style={{ color: '#999', margin: '0 0 8px' }}>Sem comorbidades registradas.</p>}
-              {paciente.outrasComorbidades && <p style={{ margin: '4px 0' }}><strong>Outras comorbidades:</strong> {paciente.outrasComorbidades}</p>}
-              {paciente.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {paciente.cirurgias}</p>}
-              {paciente.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {paciente.medicamentosUso}</p>}
-              {paciente.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {paciente.alergias}</p>}
+              {ant.outrasComorbidades && <p style={{ margin: '4px 0' }}><strong>Outras comorbidades:</strong> {ant.outrasComorbidades}</p>}
+              {ant.cirurgias && <p style={{ margin: '4px 0' }}><strong>Cirurgias prévias:</strong> {ant.cirurgias}</p>}
+              {ant.medicamentosUso && <p style={{ margin: '4px 0' }}><strong>Medicamentos em uso:</strong> {ant.medicamentosUso}</p>}
+              {ant.alergias && <p style={{ margin: '4px 0', color: '#dc2626', fontWeight: 'bold' }}>⚠ Alergias: {ant.alergias}</p>}
             </div>
           )}
 
@@ -1047,7 +1097,7 @@ export function ImprimirAtendimentoPage() {
               </div>
             </div>
           </div>
-          <RodapeImpresso />
+          <RodapeImpresso clinica={doc.original ? doc.clinica : undefined} />
         </div>
       </div>
     </div>
@@ -1072,14 +1122,20 @@ const TIPOS_EXAME = [
   'Outro',
 ];
 
-export function LaudoPage({ pacientes, setPacientes }) {
+export function LaudoPage(props) {
+  const { id } = useParams();
+  return <LaudoConteudo key={id} {...props} />;
+}
+
+function LaudoConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem } = identidade;
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   const [tipoExame, setTipoExame]         = React.useState('');
   const [tipoOutro, setTipoOutro]         = React.useState('');
@@ -1088,12 +1144,13 @@ export function LaudoPage({ pacientes, setPacientes }) {
   const [salvo, setSalvo]                 = React.useState(false);
   const [salvando, setSalvando]           = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const nomeExame = tipoExame === 'Outro' ? tipoOutro : tipoExame;
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     if (!achados && !conclusao) return false;
     setSalvando(true);
     const conteudo = [
@@ -1121,6 +1178,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
   // prontuário. Vira PDF de verdade (utils/documentoPdf) pelo mesmo
   // motivo do Atestado.
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -1155,6 +1213,7 @@ export function LaudoPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -1192,10 +1251,10 @@ export function LaudoPage({ pacientes, setPacientes }) {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={salvando || (!achados && !conclusao)} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={salvarNoProntuario} disabled={(salvando || (!achados && !conclusao)) || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) || !identidade.pronto ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
-          <button onClick={imprimirDocumento} disabled={salvando || (!achados && !conclusao)} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+          <button onClick={imprimirDocumento} disabled={(salvando || (!achados && !conclusao)) || !identidade.pronto} style={{ padding: '10px 18px', backgroundColor: salvando || (!achados && !conclusao) || !identidade.pronto ? '#9ca3af' : '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
             🖨️ Imprimir
           </button>
           {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo no histórico!</span>}
@@ -1250,14 +1309,20 @@ export function LaudoPage({ pacientes, setPacientes }) {
   );
 }
 
-export function PedidoExamesPage({ pacientes, setPacientes }) {
+export function PedidoExamesPage(props) {
+  const { id } = useParams();
+  return <PedidoExamesConteudo key={id} {...props} />;
+}
+
+function PedidoExamesConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
   const { clinica } = useClinica();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const hojeISO = dataLocalISO();
 
-  const { medico, crm, especialidade, assinaturaImagem, registroConselho = {} } = useMedicoPerfil();
+  const identidade = useMedicoPerfil();
+  const { medico, crm, especialidade, assinaturaImagem, registroConselho = {} } = identidade;
   const [dataExame, setDataExame]         = React.useState(hojeISO);
   // CNS, Registro ANS e CBO vêm do cadastro (paciente, convênio e perfil
   // — migração 34). null = sem ajuste nesta guia, usa o do cadastro;
@@ -1341,7 +1406,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chavePreviaGuia]);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const catalogoAtivo = catalogo.filter(e => e.ativo);
   const idsNaLista = new Set(itens.map(i => i.id));
@@ -1401,6 +1466,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   const dataFormatada = new Date(dataExame + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const salvarNoProntuario = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     if (itens.length === 0) {
       toast.warning('Adicione pelo menos um exame antes de salvar.');
       return false;
@@ -1428,6 +1494,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   // no prontuário. Os dois modos viram PDF: receituário (documentoPdf) e
   // guia SP/SADT no modelo ANS (guiaSadtPdf).
   const imprimirDocumento = async () => {
+    if (!identidade.pronto) return; // ver useMedicoPerfil
     // Precisa abrir a janela ANTES de qualquer await (ver
     // utils/janelaImpressao) — senão o navegador bloqueia como pop-up.
     const janela = iniciarJanelaImpressao();
@@ -1507,6 +1574,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
   return (
     <fieldset disabled={salvando} onChange={() => setSalvo(false)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+      <AvisoIdentidadeProfissional identidade={identidade} />
       <div className="no-print">
         <Header />
         <Link to={`/prontuario/${paciente.id}`}>← Voltar ao prontuário</Link>
@@ -1656,7 +1724,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
 
         {/* Ações */}
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={salvarNoProntuario} disabled={itens.length === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (itens.length === 0 || salvando) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: (itens.length === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+          <button onClick={salvarNoProntuario} disabled={(itens.length === 0 || salvando) || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: ((itens.length === 0 || salvando) || !identidade.pronto) ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: ((itens.length === 0 || salvando) || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             {salvando ? 'Salvando...' : '✓ Salvar no Prontuário'}
           </button>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -1664,7 +1732,7 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
             {btnModo('receituario', '📋 Receituário')}
             {btnModo('tiss', '📄 Guia TISS')}
           </div>
-          <button onClick={imprimirDocumento} disabled={itens.length === 0 || salvando} style={{ padding: '9px 16px', backgroundColor: (itens.length === 0 || salvando) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (itens.length === 0 || salvando) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+          <button onClick={imprimirDocumento} disabled={(itens.length === 0 || salvando) || !identidade.pronto} style={{ padding: '9px 16px', backgroundColor: ((itens.length === 0 || salvando) || !identidade.pronto) ? '#9ca3af' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: ((itens.length === 0 || salvando) || !identidade.pronto) ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
             🖨️ Imprimir
           </button>
           {salvo && <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }}>✓ Salvo!</span>}
@@ -1751,11 +1819,16 @@ export function PedidoExamesPage({ pacientes, setPacientes }) {
   );
 }
 
-export function DocumentoPage({ titulo, pacientes }) {
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+export function DocumentoPage(props) {
+  const { id } = useParams();
+  return <DocumentoConteudo key={id} {...props} />;
+}
+
+function DocumentoConteudo({ titulo, pacientes }) {
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
 
   if (!paciente) {
-    return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+    return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
   }
 
   return (

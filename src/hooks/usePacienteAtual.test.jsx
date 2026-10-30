@@ -59,4 +59,30 @@ describe('paciente fora do cache', () => {
     await waitFor(() => expect(result.current.carregando).toBe(false));
     expect(result.current.paciente).toBeUndefined();
   });
+  test('falha de rede não vira "não encontrado": estado erro, e tentar de novo carrega', async () => {
+    const { act } = require('@testing-library/react');
+    const buscar = jest.spyOn(pacientesService, 'buscarPorId')
+      .mockRejectedValueOnce(Object.assign(new TypeError('Failed to fetch'), { status: 0 }))
+      .mockResolvedValueOnce({ id: '2', nome: 'Bruno', registros: [] });
+    const { result } = renderHook(() => usePacienteAtual(), { wrapper: comCache([]) });
+    await waitFor(() => expect(result.current.estado).toBe('erro'));
+    expect(result.current.carregando).toBe(false);
+    act(() => { result.current.recarregar(); });
+    expect(result.current.estado).toBe('carregando');
+    await waitFor(() => expect(result.current.paciente?.nome).toBe('Bruno'));
+    expect(result.current.estado).toBe('pronto');
+    expect(buscar).toHaveBeenCalledTimes(2);
+  });
+
+  test('o banco respondeu sem linha: "não encontrado"', async () => {
+    jest.spyOn(pacientesService, 'buscarPorId').mockRejectedValue({ code: 'PGRST116', message: 'no rows' });
+    const { result } = renderHook(() => usePacienteAtual(), { wrapper: comCache([]) });
+    await waitFor(() => expect(result.current.estado).toBe('nao-encontrado'));
+  });
+
+  test('o banco recusou a leitura: "sem permissão"', async () => {
+    jest.spyOn(pacientesService, 'buscarPorId').mockRejectedValue({ code: '42501', message: 'permission denied' });
+    const { result } = renderHook(() => usePacienteAtual(), { wrapper: comCache([]) });
+    await waitFor(() => expect(result.current.estado).toBe('sem-permissao'));
+  });
 });

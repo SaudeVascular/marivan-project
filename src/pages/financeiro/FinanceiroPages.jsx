@@ -13,289 +13,17 @@ import { cobrancasService } from '../../services/cobrancas.service';
 import { comTimeout } from '../../utils/comTimeout';
 import { registrarImpressao } from '../../services/acessos.service';
 import { useBuscaPacientes, usePacientesPorIds } from '../../hooks/usePacientesCache';
-import { FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
+import { EscolhaProcedimento, useCatalogo } from '../agenda/SeletorProcedimento';
+import { formatarMoeda } from '../../utils/formatters';
+import { descontoEmReais, textoDesconto, FORMAS_PAGAMENTO } from './valores';
+import { ValorOuPrevisto } from './ValorPrevisto';
 
-export function formatarMoeda(valor) {
-  return (Number(valor) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-export function CatalogoFinanceiroPage() {
-  const toast = useToast();
-  const [procedimentos, setProcedimentos] = React.useState([]);
-  const [convenios, setConvenios] = React.useState([]);
-  const [valores, setValores] = React.useState([]);
-  const [carregando, setCarregando] = React.useState(true);
-  const [novoProc, setNovoProc] = React.useState({ nome: '', valorParticular: '', percentualRepasse: '' });
-  const [novoConvenio, setNovoConvenio] = React.useState('');
-  const [convenioSelecionado, setConvenioSelecionado] = React.useState('');
-  const [salvando, setSalvando] = React.useState(false);
-  const [editandoProc, setEditandoProc] = React.useState(null);
-  const [editandoConvenio, setEditandoConvenio] = React.useState(null);
-
-  const carregar = React.useCallback(() => {
-    setCarregando(true);
-    Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores()])
-      .then(([p, c, v]) => { setProcedimentos(p); setConvenios(c); setValores(v); })
-      .catch(err => toast.error('Erro ao carregar: ' + err.message))
-      .finally(() => setCarregando(false));
-  }, [toast]);
-
-  React.useEffect(() => { carregar(); }, [carregar]);
-
-  const criarProcedimento = async (e) => {
-    e.preventDefault();
-    if (!novoProc.nome.trim() || novoProc.valorParticular === '') return;
-    setSalvando(true);
-    try {
-      const criado = await comTimeout(procedimentosService.criar({
-        nome: novoProc.nome.trim(),
-        valorParticular: Number(novoProc.valorParticular),
-        percentualRepasse: Number(novoProc.percentualRepasse) || 0,
-      }));
-      setProcedimentos(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
-      setNovoProc({ nome: '', valorParticular: '', percentualRepasse: '' });
-    } catch (err) {
-      toast.error('Erro ao criar procedimento: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const alternarAtivoProcedimento = async (p) => {
-    try {
-      const atualizado = await comTimeout(procedimentosService.atualizar(p.id, { nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse, ativo: !p.ativo }));
-      setProcedimentos(prev => prev.map(x => x.id === p.id ? atualizado : x));
-    } catch (err) {
-      toast.error('Erro ao atualizar: ' + err.message);
-    }
-  };
-
-  const salvarEdicaoProcedimento = async () => {
-    if (!editandoProc?.nome.trim() || editandoProc.valorParticular === '') return;
-    setSalvando(true);
-    try {
-      const atual = procedimentos.find(p => p.id === editandoProc.id);
-      const atualizado = await comTimeout(procedimentosService.atualizar(editandoProc.id, {
-        nome: editandoProc.nome.trim(),
-        valorParticular: Number(editandoProc.valorParticular),
-        percentualRepasse: Number(editandoProc.percentualRepasse) || 0,
-        ativo: atual?.ativo ?? true,
-      }));
-      setProcedimentos(prev => prev.map(p => p.id === atualizado.id ? atualizado : p).sort((a, b) => a.nome.localeCompare(b.nome)));
-      setEditandoProc(null);
-    } catch (err) {
-      toast.error('Erro ao salvar procedimento: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const excluirProcedimento = async (p) => {
-    if (!window.confirm(`Excluir definitivamente o procedimento "${p.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
-    try {
-      await comTimeout(procedimentosService.excluir(p.id));
-      setProcedimentos(prev => prev.filter(x => x.id !== p.id));
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  const criarConvenio = async (e) => {
-    e.preventDefault();
-    if (!novoConvenio.trim()) return;
-    setSalvando(true);
-    try {
-      const criado = await comTimeout(conveniosService.criar({ nome: novoConvenio.trim() }));
-      setConvenios(prev => [...prev, criado].sort((a, b) => a.nome.localeCompare(b.nome)));
-      setNovoConvenio('');
-    } catch (err) {
-      toast.error('Erro ao criar convênio: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const alternarAtivoConvenio = async (c) => {
-    try {
-      const atualizado = await comTimeout(conveniosService.atualizar(c.id, { nome: c.nome, ativo: !c.ativo }));
-      setConvenios(prev => prev.map(x => x.id === c.id ? atualizado : x));
-    } catch (err) {
-      toast.error('Erro ao atualizar: ' + err.message);
-    }
-  };
-
-  const excluirConvenio = async (c) => {
-    if (!window.confirm(`Excluir definitivamente o convênio "${c.nome}"?\n\nSó funciona se ele nunca foi usado em nenhuma cobrança — senão, desative-o em vez de excluir.`)) return;
-    try {
-      await comTimeout(conveniosService.excluir(c.id));
-      setConvenios(prev => prev.filter(x => x.id !== c.id));
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  const salvarEdicaoConvenio = async () => {
-    if (!editandoConvenio?.nome.trim()) return;
-    if (editandoConvenio.registroAns && editandoConvenio.registroAns.length !== 6) {
-      toast.warning('O Registro ANS tem 6 dígitos.');
-      return;
-    }
-    setSalvando(true);
-    try {
-      const atual = convenios.find(c => c.id === editandoConvenio.id);
-      const atualizado = await comTimeout(conveniosService.atualizar(editandoConvenio.id, {
-        nome: editandoConvenio.nome.trim(),
-        ativo: atual?.ativo ?? true,
-        registroAns: editandoConvenio.registroAns,
-      }));
-      setConvenios(prev => prev.map(c => c.id === atualizado.id ? atualizado : c).sort((a, b) => a.nome.localeCompare(b.nome)));
-      setEditandoConvenio(null);
-    } catch (err) {
-      toast.error('Erro ao salvar convênio: ' + err.message);
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const valorOverride = (procedimentoId) =>
-    valores.find(v => v.convenioId === convenioSelecionado && v.procedimentoId === procedimentoId);
-
-  const salvarValorConvenio = async (procedimentoId, valorTexto) => {
-    if (valorTexto === '') return;
-    try {
-      const salvo = await comTimeout(conveniosService.definirValor({
-        convenioId: convenioSelecionado,
-        procedimentoId,
-        valor: Number(valorTexto),
-      }));
-      setValores(prev => [...prev.filter(v => !(v.convenioId === convenioSelecionado && v.procedimentoId === procedimentoId)), salvo]);
-    } catch (err) {
-      toast.error('Erro ao salvar valor: ' + err.message);
-    }
-  };
-
-  if (carregando) return <div><Header /><p style={{ padding: '20px' }}>Carregando...</p></div>;
-
-  return (
-    <div>
-      <Header />
-      <Link to="/financeiro">← Voltar</Link>
-      <h2 style={{ marginTop: '20px' }}>Procedimentos e Convênios</h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px', alignItems: 'start' }}>
-        {/* Procedimentos */}
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Procedimentos</h3>
-          <form onSubmit={criarProcedimento} style={{ display: 'flex', gap: '6px', marginBottom: '14px', flexWrap: 'wrap' }}>
-            <input placeholder="Nome" value={novoProc.nome} onChange={e => setNovoProc({ ...novoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '140px', padding: '7px' }} />
-            <input placeholder="Valor R$" type="number" min="0" step="0.01" value={novoProc.valorParticular} onChange={e => setNovoProc({ ...novoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '90px', padding: '7px' }} />
-            <input placeholder="% repasse" type="number" min="0" max="100" step="0.1" value={novoProc.percentualRepasse} onChange={e => setNovoProc({ ...novoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '90px', padding: '7px' }} />
-            <button type="submit" disabled={salvando} style={{ padding: '7px 14px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add</button>
-          </form>
-          {procedimentos.map(p => (
-            <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: p.ativo ? 1 : 0.5 }}>
-              {editandoProc?.id === p.id ? (
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input value={editandoProc.nome} onChange={e => setEditandoProc({ ...editandoProc, nome: e.target.value })} style={{ flex: 2, minWidth: '120px', padding: '6px', fontSize: '16px' }} />
-                  <input type="number" min="0" step="0.01" value={editandoProc.valorParticular} onChange={e => setEditandoProc({ ...editandoProc, valorParticular: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
-                  <input type="number" min="0" max="100" step="0.1" value={editandoProc.percentualRepasse} onChange={e => setEditandoProc({ ...editandoProc, percentualRepasse: e.target.value })} style={{ flex: 1, minWidth: '80px', padding: '6px', fontSize: '16px' }} />
-                  <button onClick={salvarEdicaoProcedimento} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoProc(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <strong>{p.nome}</strong>
-                    <div style={{ fontSize: '16px', color: '#666' }}>{formatarMoeda(p.valorParticular)} · {p.percentualRepasse}% repasse</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoProc({ id: p.id, nome: p.nome, valorParticular: p.valorParticular, percentualRepasse: p.percentualRepasse })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
-                      Editar
-                    </button>
-                    <button onClick={() => alternarAtivoProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: p.ativo ? '#fee2e2' : '#d1fae5', color: p.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                      {p.ativo ? 'Desativar' : 'Reativar'}
-                    </button>
-                    <button onClick={() => excluirProcedimento(p)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Convênios */}
-        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <h3 style={{ marginTop: 0 }}>Convênios</h3>
-          <form onSubmit={criarConvenio} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
-            <input placeholder="Nome do convênio" value={novoConvenio} onChange={e => setNovoConvenio(e.target.value)} style={{ flex: 1, padding: '7px' }} />
-            <button type="submit" disabled={salvando} style={{ padding: '7px 14px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>+ Add</button>
-          </form>
-
-          {convenios.map(c => (
-            <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', opacity: c.ativo ? 1 : 0.5 }}>
-              {editandoConvenio?.id === c.id ? (
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                  <input value={editandoConvenio.nome} onChange={e => setEditandoConvenio({ ...editandoConvenio, nome: e.target.value })} style={{ flex: 1, padding: '6px', fontSize: '16px' }} />
-                  <input value={editandoConvenio.registroAns} onChange={e => setEditandoConvenio({ ...editandoConvenio, registroAns: e.target.value.replace(/\D/g, '').slice(0, 6) })} placeholder="Registro ANS" title="Registro ANS da operadora (6 dígitos) — sai na guia SP/SADT" inputMode="numeric" style={{ width: '120px', padding: '6px', fontSize: '16px' }} />
-                  <button onClick={salvarEdicaoConvenio} disabled={salvando} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: salvando ? '#9ca3af' : '#0369a1', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer' }}>✓</button>
-                  <button onClick={() => setEditandoConvenio(null)} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>
-                    <strong>{c.nome}</strong>
-                    {c.registroAns && <span style={{ color: '#6b7280', marginLeft: '8px' }}>ANS {c.registroAns}</span>}
-                  </span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button onClick={() => setEditandoConvenio({ id: c.id, nome: c.nome, registroAns: c.registroAns || '' })} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer' }}>
-                      Editar
-                    </button>
-                    <button onClick={() => alternarAtivoConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: c.ativo ? '#fee2e2' : '#d1fae5', color: c.ativo ? '#dc2626' : '#16a34a', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                      {c.ativo ? 'Desativar' : 'Reativar'}
-                    </button>
-                    <button onClick={() => excluirConvenio(c)} style={{ padding: '4px 10px', fontSize: '16px', backgroundColor: 'white', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}>
-                      Excluir
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', margin: '14px 0 6px' }}>Valores por procedimento</label>
-          <select value={convenioSelecionado} onChange={e => setConvenioSelecionado(e.target.value)} style={{ width: '100%', padding: '7px', marginBottom: '10px' }}>
-            <option value="">Selecione um convênio...</option>
-            {convenios.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-          </select>
-
-          {convenioSelecionado && procedimentos.filter(p => p.ativo).map(p => {
-            const override = valorOverride(p.id);
-            return (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <span style={{ fontSize: '16px' }}>{p.nome} <span style={{ color: '#999' }}>(particular: {formatarMoeda(p.valorParticular)})</span></span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="usa particular"
-                  defaultValue={override ? override.valor : ''}
-                  onBlur={e => salvarValorConvenio(p.id, e.target.value)}
-                  style={{ width: '110px', padding: '5px', fontSize: '16px' }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+export { formatarMoeda };
 
 export const COBRANCA_STATUS_CORES = { 'Pendente': '#f59e0b', 'Pago': '#28a745', 'Cancelado': '#6c757d', 'Glosado': '#ef4444' };
 
-export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresConvenio, medicos, userId, onCriado, onCancelar }) {
+export function NovaCobrancaForm({ pacientes, convenios, medicos, userId, onCriado, onCancelar }) {
   const [busca, setBusca] = React.useState('');
   const [pacienteId, setPacienteId] = React.useState('');
   const [procedimentoId, setProcedimentoId] = React.useState('');
@@ -310,18 +38,12 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
   // Busca no servidor (8 primeiros); o escolhido já fica no cache.
   const { itens: pacientesFiltrados } = useBuscaPacientes(busca, { limite: 8 });
   const pacienteSelecionado = pacientes.find(p => p.id === pacienteId);
-  const procedimentoSelecionado = procedimentos.find(p => p.id === procedimentoId);
-
-  const aplicarValorSugerido = (procId, convId) => {
-    const proc = procedimentos.find(p => p.id === procId);
-    if (!proc) return;
-    if (convId) {
-      const override = valoresConvenio.find(v => v.convenioId === convId && v.procedimentoId === procId);
-      setValor(override ? String(override.valor) : String(proc.valorParticular));
-    } else {
-      setValor(String(proc.valorParticular));
-    }
-  };
+  // Valor da tabela do convênio escolhido (ou particular) — migração 50.
+  const { itens: catalogo } = useCatalogo(convenioId || null);
+  React.useEffect(() => {
+    const proc = catalogo.find(p => p.id === procedimentoId);
+    if (proc && proc.valor != null) setValor(String(proc.valor));
+  }, [catalogo, procedimentoId]);
 
   const salvar = async (e) => {
     e.preventDefault();
@@ -330,16 +52,17 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
     if (!valor || Number(valor) <= 0) { setErro('Informe um valor válido.'); return; }
     setSalvando(true);
     try {
-      const novo = await comTimeout(cobrancasService.criar({
+      // Sem comTimeout por fora: o serviço repete com a mesma operação e
+      // nunca duplica (utils/operacaoCriacao).
+      const novo = await cobrancasService.criar({
         pacienteId,
         procedimentoId: procedimentoId || null,
         medicoId: medicoId || null,
         convenioId: convenioId || null,
         descricao,
         valor: Number(valor),
-        percentualRepasse: procedimentoSelecionado?.percentualRepasse || 0,
         formaPagamento: formaPagamento || null,
-      }, userId));
+      }, userId);
       onCriado(novo);
     } catch (err) {
       setErro(err.message);
@@ -380,17 +103,15 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Convênio</label>
-            <select value={convenioId} onChange={e => { setConvenioId(e.target.value); aplicarValorSugerido(procedimentoId, e.target.value); }} style={{ width: '100%', padding: '8px' }}>
+            <select aria-label="Convênio" value={convenioId} onChange={e => setConvenioId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">Particular</option>
-              {convenios.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {convenios.filter(c => c.ativo && !c.particular).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Procedimento</label>
-            <select value={procedimentoId} onChange={e => { setProcedimentoId(e.target.value); aplicarValorSugerido(e.target.value, convenioId); }} style={{ width: '100%', padding: '8px' }}>
-              <option value="">Selecione...</option>
-              {procedimentos.filter(p => p.ativo).map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
+            <EscolhaProcedimento itens={catalogo} procedimentoId={procedimentoId} soComValor rotuloVazio="Selecione..." estilo={{ width: '100%', padding: '8px' }}
+              onChange={id => setProcedimentoId(id || '')} />
           </div>
           <div>
             <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Valor (R$) *</label>
@@ -400,7 +121,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
 
         <div className="form-grid-3col" style={{ marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Médico responsável</label>
+            <label style={{ fontSize: '16px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>Profissional</label>
             <select value={medicoId} onChange={e => setMedicoId(e.target.value)} style={{ width: '100%', padding: '8px' }}>
               <option value="">Não definido</option>
               {medicos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
@@ -424,6 +145,7 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
           </div>
         </div>
 
+        <p style={{ fontSize: '15px', color: '#6b7280', margin: '0 0 12px' }}>O repasse é calculado pela regra do profissional para o tipo do procedimento (Administração → Usuários).</p>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button type="submit" disabled={salvando} style={{ padding: '10px 20px', backgroundColor: salvando ? '#9ca3af' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: salvando ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
             {salvando ? 'Salvando...' : '✓ Lançar cobrança'}
@@ -438,6 +160,11 @@ export function NovaCobrancaForm({ pacientes, procedimentos, convenios, valoresC
 }
 
 const PAGINA_COBRANCAS = 100;
+const thTexto = { padding: '8px 10px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' };
+const thNumero = { ...thTexto, textAlign: 'right' };
+const tdTexto = { padding: '8px 10px', verticalAlign: 'middle' };
+const tdNumero = { ...tdTexto, textAlign: 'right', whiteSpace: 'nowrap' };
+const botaoAcao = { padding: '4px 8px', fontSize: '15px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: 'pointer' };
 
 export function FinanceiroPage({ pacientes }) {
   const toast = useToast();
@@ -452,10 +179,12 @@ export function FinanceiroPage({ pacientes }) {
   const [cobrancas, setCobrancas] = React.useState([]);
   const [totalCobrancas, setTotalCobrancas] = React.useState(0);
   const [resumo, setResumo] = React.useState(null);
+  // Falha nos totais é mostrada como tal (com nova tentativa) — nunca como
+  // zero nem misturada com "sem movimentação".
+  const [erroResumo, setErroResumo] = React.useState(false);
   const [carregandoMais, setCarregandoMais] = React.useState(false);
   const [procedimentos, setProcedimentos] = React.useState([]);
   const [convenios, setConvenios] = React.useState([]);
-  const [valoresConvenio, setValoresConvenio] = React.useState([]);
   const [usuarios, setUsuarios] = React.useState([]);
   const [carregando, setCarregando] = React.useState(true);
   const [erro, setErro] = React.useState('');
@@ -472,9 +201,14 @@ export function FinanceiroPage({ pacientes }) {
 
   const carregarResumo = React.useCallback(() => {
     const consulta = consultaAtual.current;
-    cobrancasService.resumo(filtro)
+    setErroResumo(false);
+    comTimeout(cobrancasService.resumoFinanceiro(filtro))
       .then(r => { if (consulta === consultaAtual.current) setResumo(r); })
-      .catch(() => { if (consulta === consultaAtual.current) setResumo(null); });
+      .catch(() => {
+        if (consulta !== consultaAtual.current) return;
+        setResumo(null);
+        setErroResumo(true);
+      });
   }, [filtro]);
 
   const carregar = React.useCallback(() => {
@@ -510,29 +244,91 @@ export function FinanceiroPage({ pacientes }) {
 
   React.useEffect(() => {
     if (!podeGerenciar) return;
-    Promise.all([procedimentosService.listar(), conveniosService.listar(), conveniosService.listarValores(), usuariosService.listar()])
-      .then(([p, c, v, u]) => { setProcedimentos(p); setConvenios(c); setValoresConvenio(v); setUsuarios(u); })
+    Promise.all([procedimentosService.listar(), conveniosService.listar(), usuariosService.listar()])
+      .then(([p, c, u]) => { setProcedimentos(p); setConvenios(c); setUsuarios(u); })
       .catch(() => toast.error('Não foi possível carregar os dados para cobrança. Recarregue a página antes de criar uma cobrança'));
   }, [podeGerenciar, toast]);
 
-  const medicos = usuarios.filter(u => u.ativo && u.funcao === 'Médico');
+  // Todo profissional de saúde (não só Médico) tem produção e repasse.
+  const medicos = usuarios.filter(u => u.ativo && (FUNCOES_CLINICAS.includes(u.funcao) || (u.funcao === 'Administrador' && u.papel_clinico_administrador)));
   const buscandoNomes = usePacientesPorIds(React.useMemo(() => cobrancas.map(c => c.pacienteId), [cobrancas]));
   const nomePaciente = (id) => pacientes.find(p => p.id === id)?.nome || (buscandoNomes ? '…' : '(paciente não encontrado)');
-  const nomeMedico = (id) => usuarios.find(u => u.id === id)?.nome || '—';
 
-  const mudarStatus = async (cobranca, novoStatus) => {
+  const [ajustandoCobranca, setAjustandoCobranca] = React.useState(null);
+  const salvarAjusteCobranca = async (cobranca) => {
+    const valor = Number(ajustandoCobranca.valor);
+    if (!(valor > 0)) { toast.warning('Informe um valor maior que zero.'); return; }
     setProcessandoId(cobranca.id);
     try {
-      const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus));
+      const proc = procedimentos.find(p => p.id === ajustandoCobranca.procedimentoId);
+      const atualizada = await comTimeout(cobrancasService.ajustar(cobranca.id, {
+        valor,
+        descricao: ajustandoCobranca.descricao || proc?.nome || '',
+        procedimentoId: ajustandoCobranca.procedimentoId || null,
+      }, cobranca.versao));
       setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
+      setAjustandoCobranca(null);
       carregarResumo();
     } catch (err) {
-      toast.error('Erro ao atualizar status: ' + err.message);
+      if (err.code === 'P4090') { toast.warning(err.message); carregar(); } else { toast.error('Erro ao ajustar a cobrança: ' + err.message); }
     } finally {
       setProcessandoId(null);
     }
   };
 
+  // Receber: particular com desconto (R$ ou %); convênio com a glosa.
+  const ehParticular = (c) => !c.convenioId || !!convenios.find(x => x.id === c.convenioId)?.particular;
+  const [recebendo, setRecebendo] = React.useState(null); // { id, desconto, tipoDesconto, glosa, forma }
+  const confirmarRecebimento = async (c) => {
+    const particular = ehParticular(c);
+    const desconto = particular ? descontoEmReais(Number(c.valor), recebendo.desconto, recebendo.tipoDesconto) : 0;
+    const glosa = particular ? 0 : Number(String(recebendo.glosa || '0').replace(',', '.'));
+    if (!particular && !(glosa >= 0 && glosa <= Number(c.valor))) { toast.warning('A glosa vai de R$ 0,00 até o valor do procedimento.'); return; }
+    if (particular && !recebendo.forma) { toast.warning('Escolha a forma de pagamento.'); return; }
+    setProcessandoId(c.id);
+    try {
+      const atualizada = glosa > 0 && glosa >= Number(c.valor)
+        ? await comTimeout(cobrancasService.atualizarStatus(c.id, 'Glosado', c.versao))
+        : await comTimeout(cobrancasService.registrarPagamento(c.id, { desconto, glosa, formaPagamento: particular ? recebendo.forma : 'Convênio' }, c.versao));
+      setCobrancas(prev => prev.map(x => x.id === c.id ? atualizada : x));
+      setRecebendo(null);
+      carregarResumo();
+    } catch (err) {
+      if (err.code === 'P4090') { toast.warning(err.message); carregar(); } else { toast.error('Erro ao registrar o pagamento: ' + err.message); }
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
+  const mudarStatus = async (cobranca, novoStatus) => {
+    setProcessandoId(cobranca.id);
+    try {
+      const atualizada = await comTimeout(cobrancasService.atualizarStatus(cobranca.id, novoStatus, cobranca.versao));
+      setCobrancas(prev => prev.map(c => c.id === cobranca.id ? atualizada : c));
+      carregarResumo();
+    } catch (err) {
+      if (err.code === 'P4090') {
+        toast.warning(err.message);
+        carregar();
+      } else {
+        toast.error('Erro ao atualizar status: ' + err.message);
+      }
+    } finally {
+      setProcessandoId(null);
+    }
+  };
+
+
+  // Colunas pedidas pelo responsável clínico (30/10/2026); a parte da
+  // clínica e as ações são só de quem gerencia.
+  const colunas = [
+    ['paciente', 'Paciente'], ['data', 'Data do atendimento'], ['valor', 'Valor do procedimento'], ['desconto', 'Desconto'],
+    ['valorPago', 'Valor pago'], ['glosa', 'Glosa'], ['recebido', 'Valor recebido'],
+    ...(podeGerenciar ? [['recebidoClinica', 'Recebido pela clínica']] : []),
+    ['recebidoProfissional', podeGerenciar ? 'Recebido pelo profissional' : 'Seu repasse'],
+    ['situacao', 'Situação'],
+    ...(podeGerenciar ? [['acoes', '']] : []),
+  ];
 
   return (
     <div>
@@ -543,11 +339,12 @@ export function FinanceiroPage({ pacientes }) {
       {!podeGerenciar && <p style={{ color: '#666', fontSize: '16px', marginTop: '-8px' }}>Suas cobranças e repasses (somente leitura).</p>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <Link to="/financeiro/producao" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>📊 Relatório de produção</Link>
         <label style={{ fontSize: '16px' }}>De <input type="date" value={de} onChange={e => setDe(e.target.value)} style={{ padding: '6px' }} /></label>
         <label style={{ fontSize: '16px' }}>Até <input type="date" value={ate} onChange={e => setAte(e.target.value)} style={{ padding: '6px' }} /></label>
         {podeGerenciar && (
           <>
-            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Procedimentos e Convênios</Link>
+            <Link to="/financeiro/config" style={{ padding: '8px 12px', fontSize: '16px', textDecoration: 'none', color: '#374151', border: '1px solid #d1d5db', borderRadius: '4px' }}>⚙️ Convênios e tabelas</Link>
             {!mostrarForm && (
               <button onClick={() => setMostrarForm(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 + Nova cobrança
@@ -557,30 +354,18 @@ export function FinanceiroPage({ pacientes }) {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '16px', color: '#666' }}>Total no período</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.total) : '…'}</div>
-        </div>
-        <div style={{ backgroundColor: 'white', padding: '14px 20px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-          <div style={{ fontSize: '16px', color: '#666' }}>{podeGerenciar ? 'Total repasses' : 'Seu repasse'}</div>
-          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{resumo ? formatarMoeda(resumo.totalRepasse) : '…'}</div>
-        </div>
-      </div>
-
       {mostrarForm && podeGerenciar && (
         <NovaCobrancaForm
           pacientes={pacientes}
-          procedimentos={procedimentos}
           convenios={convenios}
-          valoresConvenio={valoresConvenio}
           medicos={medicos}
           userId={user?.id}
           onCancelar={() => setMostrarForm(false)}
           onCriado={(nova) => {
             setMostrarForm(false);
+            if (nova.recuperado) toast.warning('Uma cobrança salva antes, sem confirmação na hora, já estava gravada e foi recuperada. Confira-a; se precisar de outra, crie de novo.');
             // Fora do período escolhido, a nova cobrança não entra na lista.
-            if ((!de || nova.dataCobranca >= de) && (!ate || nova.dataCobranca <= ate)) {
+            if ((!de || nova.dataCobranca >= de) && (!ate || nova.dataCobranca <= ate) && !cobrancas.some(c => c.id === nova.id)) {
               setCobrancas(prev => [nova, ...prev]);
               setTotalCobrancas(t => t + 1);
             }
@@ -591,39 +376,134 @@ export function FinanceiroPage({ pacientes }) {
 
       {erro && <p style={{ color: '#dc2626' }}>{erro}</p>}
 
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflowX: 'auto' }}>
         {carregando ? (
           <p style={{ padding: '20px', color: '#666' }}>Carregando...</p>
         ) : cobrancas.length === 0 ? (
           <p style={{ padding: '20px', color: '#666' }}>Nenhuma cobrança no período.</p>
         ) : (
-          cobrancas.map(c => (
-            <div key={c.id} style={{ borderBottom: '1px solid #eee', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div>
-                <strong>{nomePaciente(c.pacienteId)}</strong> — {formatarMoeda(c.valor)}
-                <div style={{ fontSize: '16px', color: '#666' }}>
-                  {new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')} · {c.descricao || 'Sem descrição'} · {nomeMedico(c.medicoId)}
-                  {podeGerenciar && c.valorRepasse > 0 && <> · repasse {formatarMoeda(c.valorRepasse)}</>}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold' }}>
-                  {c.status}
-                </span>
-                {podeGerenciar && c.status === 'Pendente' && (
+          <table aria-label="Atendimentos do período" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb' }}>
+                {colunas.map(([k, titulo]) => <th key={k} style={k === 'paciente' || k === 'data' || k === 'situacao' || k === 'acoes' ? thTexto : thNumero}>{titulo}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {cobrancas.map(c => (
+                <React.Fragment key={c.id}>
+                  <tr style={{ borderTop: '1px solid #eee' }}>
+                    <td style={tdTexto}>
+                      <strong>{nomePaciente(c.pacienteId)}</strong>
+                      {c.status === 'Pendente' && !(Number(c.valor) > 0) && <span style={{ marginLeft: '6px', fontSize: '13px', padding: '1px 6px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#92400e' }}>valor a definir</span>}
+                    </td>
+                    <td style={tdTexto}>{new Date(c.dataCobranca + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.valor)}</td>
+                    <td style={tdNumero}>{textoDesconto(c.desconto, Number(c.valor))}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.valorPago)}</td>
+                    <td style={tdNumero}>{c.glosa > 0 ? formatarMoeda(c.glosa) : '—'}</td>
+                    <td style={tdNumero}>{formatarMoeda(c.recebido)}</td>
+                    {podeGerenciar && <td style={tdNumero}><ValorOuPrevisto recebido={c.recebidoClinica} previsto={c.previstoClinica} pendente={c.status === 'Pendente'} /></td>}
+                    <td style={tdNumero}><ValorOuPrevisto recebido={c.recebidoProfissional} previsto={c.previstoProfissional} pendente={c.status === 'Pendente'} /></td>
+                    <td style={tdTexto}>
+                      <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold' }}>{c.status}</span>
+                    </td>
+                    {podeGerenciar && (
+                      <td style={{ ...tdTexto, whiteSpace: 'nowrap' }}>
+                        {c.status === 'Pendente' && recebendo?.id !== c.id && ajustandoCobranca?.id !== c.id && (
+                          <>
+                            <button onClick={() => setRecebendo({ id: c.id, desconto: '', tipoDesconto: 'R$', glosa: '', forma: '' })} disabled={processandoId === c.id || !(Number(c.valor) > 0)}
+                              title={Number(c.valor) > 0 ? '' : 'Defina o valor antes de receber'} style={botaoAcao}>Receber</button>{' '}
+                            <button onClick={() => setAjustandoCobranca({ id: c.id, valor: String(c.valor ?? ''), descricao: c.descricao || '', procedimentoId: c.procedimentoId || null })} disabled={processandoId === c.id} style={botaoAcao}>Ajustar</button>{' '}
+                            <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={botaoAcao}>Cancelar</button>{' '}
+                          </>
+                        )}
+                        <Link to={`/financeiro/recibo/${c.id}`} title="Recibo" aria-label="Recibo" style={{ ...botaoAcao, textDecoration: 'none', display: 'inline-block' }}>🖨️</Link>
+                      </td>
+                    )}
+                  </tr>
+                  {recebendo?.id === c.id && (
+                    <tr><td colSpan={colunas.length} style={{ ...tdTexto, backgroundColor: '#f0fdf4' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {ehParticular(c) ? (
+                          <>
+                            <span>Particular · {formatarMoeda(c.valor)}</span>
+                            <label>Desconto <input aria-label="Desconto" type="number" min="0" step="0.01" value={recebendo.desconto} onChange={e => setRecebendo(r => ({ ...r, desconto: e.target.value }))} style={{ width: '90px', padding: '5px' }} /></label>
+                            <select aria-label="Tipo do desconto" value={recebendo.tipoDesconto} onChange={e => setRecebendo(r => ({ ...r, tipoDesconto: e.target.value }))} style={{ padding: '5px' }}>
+                              <option>R$</option><option>%</option>
+                            </select>
+                            <strong>A pagar: {formatarMoeda(Number(c.valor) - descontoEmReais(Number(c.valor), recebendo.desconto, recebendo.tipoDesconto))}</strong>
+                            <select aria-label="Forma de pagamento" value={recebendo.forma} onChange={e => setRecebendo(r => ({ ...r, forma: e.target.value }))} style={{ padding: '5px' }}>
+                              <option value="">Forma de pagamento...</option>
+                              {FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}
+                            </select>
+                          </>
+                        ) : (
+                          <>
+                            <span>Convênio · {formatarMoeda(c.valor)}</span>
+                            <label>Glosa (R$) <input aria-label="Glosa" type="number" min="0" step="0.01" value={recebendo.glosa} onChange={e => setRecebendo(r => ({ ...r, glosa: e.target.value }))} style={{ width: '100px', padding: '5px' }} /></label>
+                            <strong>Recebido: {formatarMoeda(Number(c.valor) - (Number(String(recebendo.glosa || '0').replace(',', '.')) || 0))}</strong>
+                          </>
+                        )}
+                        <button onClick={() => confirmarRecebimento(c)} disabled={processandoId === c.id} style={{ ...botaoAcao, backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}>Confirmar</button>
+                        <button onClick={() => setRecebendo(null)} style={botaoAcao}>Fechar</button>
+                      </div>
+                    </td></tr>
+                  )}
+                  {ajustandoCobranca?.id === c.id && (
+                    <tr><td colSpan={colunas.length} style={{ ...tdTexto, backgroundColor: '#f0f9ff' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: '260px', flex: 2 }}>
+                          <EscolhaProcedimento itens={procedimentos.filter(p => p.ativo || p.id === ajustandoCobranca.procedimentoId).map(p => ({ ...p, valor: p.valorParticular }))}
+                            procedimentoId={ajustandoCobranca.procedimentoId} rotuloVazio="Procedimento a definir" estilo={{ padding: '6px', width: '100%' }}
+                            onChange={id => setAjustandoCobranca(a => ({ ...a, procedimentoId: id, descricao: procedimentos.find(p => p.id === id)?.nome || a.descricao }))} />
+                        </div>
+                        <input aria-label="Descrição" value={ajustandoCobranca.descricao} onChange={e => setAjustandoCobranca(a => ({ ...a, descricao: e.target.value }))} style={{ padding: '6px', minWidth: '200px' }} />
+                        <input aria-label="Valor" type="number" min="0" step="0.01" value={ajustandoCobranca.valor} onChange={e => setAjustandoCobranca(a => ({ ...a, valor: e.target.value }))} style={{ padding: '6px', width: '120px' }} />
+                        <button onClick={() => salvarAjusteCobranca(c)} disabled={processandoId === c.id}>Salvar</button>
+                        <button onClick={() => setAjustandoCobranca(null)}>Cancelar</button>
+                      </div>
+                    </td></tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop: '2px solid #d1d5db', backgroundColor: '#f9fafb', fontWeight: 'bold' }}>
+                <td style={tdTexto} colSpan={2}>
+                  {resumo ? `Total — ${resumo.quantidade} atendimento${resumo.quantidade === 1 ? '' : 's'}` : (erroResumo ? 'Total indisponível' : 'Total…')}
+                </td>
+                {resumo ? (
                   <>
-                    <button onClick={() => mudarStatus(c, 'Pago')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Marcar pago</button>
-                    <button onClick={() => mudarStatus(c, 'Cancelado')} disabled={processandoId === c.id} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '4px', cursor: processandoId === c.id ? 'not-allowed' : 'pointer' }}>Cancelar</button>
+                    <td style={tdNumero}>{formatarMoeda(resumo.valor)}</td>
+                    <td style={tdNumero}>{textoDesconto(resumo.desconto, resumo.valor)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.valorPago)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.glosa)}</td>
+                    <td style={tdNumero}>{formatarMoeda(resumo.recebido)}</td>
+                    {podeGerenciar && <td style={tdNumero}>{formatarMoeda(resumo.recebidoClinica)}</td>}
+                    <td style={tdNumero}>{formatarMoeda(resumo.recebidoProfissional)}</td>
+                    <td colSpan={podeGerenciar ? 2 : 1} />
                   </>
+                ) : (
+                  <td colSpan={colunas.length - 2} style={tdTexto}>
+                    {erroResumo && (
+                      <span role="alert" style={{ color: '#991b1b', fontWeight: 'normal' }}>
+                        Não foi possível calcular os totais do período (conexão ou servidor). Os totais não são zero, só não foram carregados.{' '}
+                        <button type="button" onClick={carregarResumo} style={botaoAcao}>Recarregar totais</button>
+                      </span>
+                    )}
+                  </td>
                 )}
-                {podeGerenciar && (
-                  <Link to={`/financeiro/recibo/${c.id}`} style={{ padding: '5px 10px', fontSize: '16px', backgroundColor: '#007bff', color: 'white', borderRadius: '4px', textDecoration: 'none' }}>
-                    🖨️ Recibo
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))
+              </tr>
+              {resumo && (resumo.previstoClinica > 0 || resumo.previstoProfissional > 0) && (
+                <tr style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                  <td style={tdTexto} colSpan={7}>Previsto das pendentes (ainda não recebido)</td>
+                  {podeGerenciar && <td style={tdNumero}>{formatarMoeda(resumo.previstoClinica)}</td>}
+                  <td style={tdNumero}>{formatarMoeda(resumo.previstoProfissional)}</td>
+                  <td colSpan={podeGerenciar ? 2 : 1} />
+                </tr>
+              )}
+            </tfoot>
+          </table>
         )}
         {!carregando && cobrancas.length > 0 && (
           <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', fontSize: '15px', color: '#666' }}>

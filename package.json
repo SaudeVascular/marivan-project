@@ -11,7 +11,8 @@
     "pdfmake": "^0.3.11",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.7.1"
+    "react-router-dom": "^7.7.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "scripts": {
     "start": "vite",
@@ -33,7 +34,8 @@
     "db:staging:reset": "bash scripts/supabase-reset-staging.sh",
     "db:staging:push": "bash scripts/supabase-push-staging.sh",
     "db:production:verify": "bash scripts/supabase-verify-production.sh",
-    "db:production:adopt-history": "bash scripts/supabase-adopt-production-history.sh"
+    "db:production:adopt-history": "bash scripts/supabase-adopt-production-history.sh",
+    "test:e2e": "bash scripts/e2e.sh"
   },
   "browserslist": {
     "production": [
@@ -52,6 +54,7 @@
     "@babel/preset-env": "7.29.7",
     "@babel/preset-react": "7.29.7",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.3",
