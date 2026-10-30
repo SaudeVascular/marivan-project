@@ -17,6 +17,7 @@ import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { EscolhaProcedimento, useCatalogo } from '../agenda/SeletorProcedimento';
 import { formatarMoeda } from '../../utils/formatters';
 import { descontoEmReais, textoDesconto, FORMAS_PAGAMENTO } from './valores';
+import { ValorOuPrevisto } from './ValorPrevisto';
 
 export { formatarMoeda };
 
@@ -401,8 +402,8 @@ export function FinanceiroPage({ pacientes }) {
                     <td style={tdNumero}>{formatarMoeda(c.valorPago)}</td>
                     <td style={tdNumero}>{c.glosa > 0 ? formatarMoeda(c.glosa) : '—'}</td>
                     <td style={tdNumero}>{formatarMoeda(c.recebido)}</td>
-                    {podeGerenciar && <td style={tdNumero}>{formatarMoeda(c.recebidoClinica)}</td>}
-                    <td style={tdNumero}>{formatarMoeda(c.recebidoProfissional)}</td>
+                    {podeGerenciar && <td style={tdNumero}><ValorOuPrevisto recebido={c.recebidoClinica} previsto={c.previstoClinica} pendente={c.status === 'Pendente'} /></td>}
+                    <td style={tdNumero}><ValorOuPrevisto recebido={c.recebidoProfissional} previsto={c.previstoProfissional} pendente={c.status === 'Pendente'} /></td>
                     <td style={tdTexto}>
                       <span style={{ backgroundColor: COBRANCA_STATUS_CORES[c.status] || '#6b7280', color: 'white', padding: '2px 8px', borderRadius: '10px', fontSize: '14px', fontWeight: 'bold' }}>{c.status}</span>
                     </td>
@@ -493,6 +494,14 @@ export function FinanceiroPage({ pacientes }) {
                   </td>
                 )}
               </tr>
+              {resumo && (resumo.previstoClinica > 0 || resumo.previstoProfissional > 0) && (
+                <tr style={{ color: '#6b7280', fontStyle: 'italic' }}>
+                  <td style={tdTexto} colSpan={7}>Previsto das pendentes (ainda não recebido)</td>
+                  {podeGerenciar && <td style={tdNumero}>{formatarMoeda(resumo.previstoClinica)}</td>}
+                  <td style={tdNumero}>{formatarMoeda(resumo.previstoProfissional)}</td>
+                  <td colSpan={podeGerenciar ? 2 : 1} />
+                </tr>
+              )}
             </tfoot>
           </table>
         )}

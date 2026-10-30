@@ -20,6 +20,9 @@ const fromDb = (c) => ({
   recebido: c.status === 'Pago' ? (Number(c.valor) || 0) - (Number(c.desconto) || 0) - (Number(c.valor_glosa) || 0) : 0,
   recebidoProfissional: c.status === 'Pago' ? Number(c.valor_repasse) || 0 : 0,
   recebidoClinica: c.status === 'Pago' ? (Number(c.valor) || 0) - (Number(c.desconto) || 0) - (Number(c.valor_glosa) || 0) - (Number(c.valor_repasse) || 0) : 0,
+  // Pendente: divisão prevista pela regra atual (migração 55).
+  previstoProfissional: c.status === 'Pendente' ? Number(c.valor_repasse) || 0 : 0,
+  previstoClinica: c.status === 'Pendente' ? (Number(c.valor) || 0) - (Number(c.desconto) || 0) - (Number(c.valor_glosa) || 0) - (Number(c.valor_repasse) || 0) : 0,
   percentualRepasse: c.percentual_repasse,
   valorRepasse: c.valor_repasse,
   formaPagamento: c.forma_pagamento || '',
@@ -75,6 +78,7 @@ export const cobrancasService = {
     return {
       quantidade: n(l.quantidade), valor: n(l.valor), desconto: n(l.desconto), valorPago: n(l.valor_pago),
       glosa: n(l.glosa), recebido: n(l.recebido), recebidoClinica: n(l.recebido_clinica), recebidoProfissional: n(l.recebido_profissional),
+      previstoClinica: n(l.previsto_clinica), previstoProfissional: n(l.previsto_profissional),
     };
   },
 

@@ -99,14 +99,39 @@ BEGIN
   PERFORM pg_temp.assert_ok(c.valor = 180 AND c.valor_glosa = 50 AND c.valor_repasse = 78, 'glosa parcial: repasse 60% de 130');
   PERFORM pg_temp.assert_ok(pg_temp.erro(format($q$UPDATE public.cobrancas SET valor_glosa = 181 WHERE id = %L$q$, c.id)) IN ('22023', '23514'), 'glosa maior que o valor');
 
-  SELECT * INTO t FROM public.resumo_financeiro(hoje, hoje);
+  SELECT * INTO t FROM public.resumo_financeiro(hoje, hoje, medica);
   PERFORM pg_temp.assert_ok(t.quantidade = 2 AND t.valor = 480 AND t.desconto = 30 AND t.valor_pago = 450 AND t.glosa = 50
     AND t.recebido = 400 AND t.recebido_profissional = 240 AND t.recebido_clinica = 160,
     format('totais: %s', to_jsonb(t)));
 
-  SELECT * INTO t FROM public.relatorio_producao(hoje, hoje) WHERE cobranca_id = c.id;
+  SELECT * INTO t FROM public.relatorio_producao(hoje, hoje, medica) WHERE cobranca_id = c.id;
   PERFORM pg_temp.assert_ok(t.valor_pago = 180 AND t.glosa = 50 AND t.recebido = 130 AND t.recebido_clinica = 52 AND t.recebido_profissional = 78
     AND t.especialidade = 'Cardiologia' AND NOT t.particular, 'relatório: colunas novas e especialidade');
+
+  -- Migração 55: pendente acompanha a regra atual; paga fica com a da época.
+  PERFORM pg_temp.como('ed000000-0000-4000-8000-000000000003');
+  SELECT * INTO t FROM public.resumo_financeiro(hoje, hoje, medica);
+  PERFORM pg_temp.assert_ok(t.previsto_clinica = 0 AND t.previsto_profissional = 0, 'nenhuma pendente ainda');
+  UPDATE public.cobrancas SET status = 'Pendente' WHERE id = c.id;  -- convênio volta a pendente (180, 60%)
+  SELECT * INTO t FROM public.resumo_financeiro(hoje, hoje, medica);
+  PERFORM pg_temp.assert_ok(t.previsto_profissional = 108 AND t.previsto_clinica = 72, format('previsto da pendente: %s', to_jsonb(t)));
+  RESET ROLE;
+  UPDATE public.repasse_profissional SET percentual_consulta = 50 WHERE profissional_id = medica;
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.como('ed000000-0000-4000-8000-000000000003');
+  PERFORM pg_temp.assert_ok((pg_temp.cob(ag_conv)).percentual_repasse = 50 AND (pg_temp.cob(ag_conv)).valor_repasse = 90,
+    'mudar a regra recalcula a pendente');
+  PERFORM pg_temp.assert_ok((pg_temp.cob(ag_part)).percentual_repasse = 60 AND (pg_temp.cob(ag_part)).valor_repasse = 162,
+    'a já paga fica com o percentual da época');
+  RESET ROLE;
+  UPDATE public.procedimentos SET tipo = 'Procedimento' WHERE id = consulta;
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.como('ed000000-0000-4000-8000-000000000003');
+  PERFORM pg_temp.assert_ok((pg_temp.cob(ag_conv)).percentual_repasse = 0, 'mudar o tipo do procedimento recalcula a pendente (sem regra de procedimento: 0%)');
+  RESET ROLE;
+  UPDATE public.procedimentos SET tipo = 'Consulta' WHERE id = consulta;
+  SET LOCAL ROLE authenticated;
+  PERFORM pg_temp.como('ed000000-0000-4000-8000-000000000003');
 
   -- Glosa total: Glosado zera o recebido; voltar a Pendente (recurso) zera a glosa.
   UPDATE public.cobrancas SET status = 'Pendente' WHERE id = c.id;

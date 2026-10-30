@@ -7,6 +7,7 @@ import { usuariosService } from '../../services/usuarios.service';
 import { FUNCOES_CLINICAS, FUNCOES_FINANCEIRO } from '../../constants/roles';
 import { dataLocalISO, formatarMoeda } from '../../utils/formatters';
 import { somarValores, textoDesconto } from './valores';
+import { ValorOuPrevisto } from './ValorPrevisto';
 
 const SITUACOES = ['Pago', 'Pendente', 'Glosado'];
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -65,8 +66,16 @@ const VALORES_DA_VISAO = {
   agrupado: ['valor', 'desconto', 'valorPago', 'glosa', 'recebido', 'recebidoClinica', 'recebidoProfissional'],
   agrupadoProfissional: ['valor', 'desconto', 'valorPago', 'glosa', 'recebido', 'recebidoProfissional'],
 };
-const formatarValor = (chave, objeto) => (chave === 'desconto' ? textoDesconto(objeto.desconto, objeto.valor)
-  : chave === 'glosa' && !(objeto.glosa > 0) ? '—' : formatarMoeda(objeto[chave]));
+const PREVISTO_DE = { recebidoClinica: 'previstoClinica', recebidoProfissional: 'previstoProfissional' };
+const formatarValor = (chave, objeto) => {
+  if (chave === 'desconto') return textoDesconto(objeto.desconto, objeto.valor);
+  if (chave === 'glosa' && !(objeto.glosa > 0)) return '—';
+  // Linha pendente: a divisão prevista, em cinza (migração 55).
+  if (PREVISTO_DE[chave] && objeto.status === 'Pendente') {
+    return <ValorOuPrevisto recebido={objeto[chave]} previsto={objeto[PREVISTO_DE[chave]]} pendente />;
+  }
+  return formatarMoeda(objeto[chave]);
+};
 
 const th = { padding: '6px 8px', textAlign: 'left', borderBottom: '2px solid #d1d5db', whiteSpace: 'nowrap' };
 const thN = { ...th, textAlign: 'right' };
@@ -262,6 +271,8 @@ export function ProducaoPage() {
               ['Valor recebido', formatarMoeda(total.recebido)],
               ...(gestor && visao !== 'profissional' ? [['Recebido pela clínica', formatarMoeda(total.recebidoClinica)]] : []),
               ...(visao !== 'clinica' ? [[gestor ? 'Recebido pelos profissionais' : 'Seu repasse', formatarMoeda(total.recebidoProfissional)]] : []),
+              ...(gestor && visao !== 'profissional' && total.previstoClinica > 0 ? [['Previsto para a clínica (pendentes)', formatarMoeda(total.previstoClinica)]] : []),
+              ...(visao !== 'clinica' && total.previstoProfissional > 0 ? [[gestor ? 'Previsto para os profissionais (pendentes)' : 'Seu repasse previsto (pendentes)', formatarMoeda(total.previstoProfissional)]] : []),
             ].map(([nome, v]) => (
               <div key={nome} role="group" aria-label={nome} style={{ backgroundColor: 'white', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', minWidth: '150px' }}>
                 <div style={{ fontSize: '15px', color: '#666' }}>{nome}</div>

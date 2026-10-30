@@ -141,3 +141,12 @@ test('médico vê só o próprio repasse, sem a parte da clínica nem ações', 
   expect(screen.queryByRole('button', { name: 'Receber' })).not.toBeInTheDocument();
   expect(cobrancasService.listar).toHaveBeenCalledWith(expect.objectContaining({ medicoId: 'med' }));
 });
+
+test('pendente mostra a divisão prevista; a soma traz o previsto à parte', async () => {
+  cobrancasService.listar.mockResolvedValue({ itens: [cobranca(1, { valor: 300, valorPago: 300, previstoClinica: 120, previstoProfissional: 180 })], total: 1 });
+  cobrancasService.resumoFinanceiro.mockResolvedValue({ ...RESUMO, quantidade: 1, previstoClinica: 120, previstoProfissional: 180 });
+  tela();
+  const tabela = await screen.findByRole('table', { name: 'Atendimentos do período' });
+  expect(within(tabela).getAllByRole('row')[1]).toHaveTextContent(/previsto R\$\s*120,00previsto R\$\s*180,00Pendente/);
+  expect(await within(tabela).findByRole('row', { name: /Previsto das pendentes/ })).toHaveTextContent(/120,00.*180,00/);
+});

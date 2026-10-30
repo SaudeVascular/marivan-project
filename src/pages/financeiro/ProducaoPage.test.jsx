@@ -127,3 +127,13 @@ test('falha do banco aparece como falha, com nova tentativa', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }));
   expect(await screen.findByRole('table', { name: 'Meus atendimentos — 1 atendimento' })).toBeInTheDocument();
 });
+
+test('pendente no relatório: previsto em vez de zero, e cartões do previsto', async () => {
+  mockAuth = { user: { id: 'adm' }, funcao: 'Administrador', perfil: { nome: 'Admin' } };
+  producaoService.relatorio.mockResolvedValue([LINHAS[2]].map(l => ({ ...l, previstoClinica: 100, previstoProfissional: 150 })));
+  tela();
+  const tabela = await screen.findByRole('table', { name: /Completo/ });
+  expect(within(tabela).getAllByRole('row')[1]).toHaveTextContent(/previsto R\$\s*100,00previsto R\$\s*150,00Pendente/);
+  expect(screen.getByRole('group', { name: 'Previsto para a clínica (pendentes)' })).toHaveTextContent('100,00');
+  expect(screen.getByRole('group', { name: 'Previsto para os profissionais (pendentes)' })).toHaveTextContent('150,00');
+});

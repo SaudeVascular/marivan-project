@@ -22,10 +22,12 @@ export function textoDesconto(desconto, valor) {
 export const FORMAS_PAGAMENTO = ['Dinheiro', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto'];
 
 export function somarValores(linhas) {
-  const t = { quantidade: 0, valor: 0, desconto: 0, valorPago: 0, glosa: 0, recebido: 0, recebidoClinica: 0, recebidoProfissional: 0 };
+  const chaves = ['valor', 'desconto', 'valorPago', 'glosa', 'recebido', 'recebidoClinica', 'recebidoProfissional', 'previstoClinica', 'previstoProfissional'];
+  const t = Object.fromEntries([['quantidade', 0], ...chaves.map(k => [k, 0])]);
   for (const l of linhas) {
     t.quantidade += 1;
-    for (const k of ['valor', 'desconto', 'valorPago', 'glosa', 'recebido', 'recebidoClinica', 'recebidoProfissional']) t[k] += Number(l[k]) || 0;
+    for (const k of chaves) t[k] += Number(l[k]) || 0;
   }
+  for (const k of chaves) t[k] = Math.round(t[k] * 100) / 100;
   return t;
 }

@@ -4,7 +4,16 @@ import { todasAsPaginas } from './procedimentos.service';
 // Relatório de produção (migração 50). O banco decide o alcance:
 // Financeiro e Administrador veem todos os profissionais; os demais, só a
 // própria produção. Canceladas não entram.
+// Pendente: divisão prevista pelo percentual atual (migração 55).
+const previsto = (l) => {
+  if (l.status !== 'Pendente') return { previstoClinica: 0, previstoProfissional: 0 };
+  const liquido = (Number(l.valor_pago) || 0) - (Number(l.glosa) || 0);
+  const profissional = Math.round(liquido * (Number(l.percentual_repasse) || 0)) / 100;
+  return { previstoClinica: Math.round((liquido - profissional) * 100) / 100, previstoProfissional: profissional };
+};
+
 const fromDb = (l) => ({
+  ...previsto(l),
   id: l.cobranca_id,
   data: l.data,
   status: l.status,
