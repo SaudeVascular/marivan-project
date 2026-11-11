@@ -1,7 +1,7 @@
 # Documento Mestre do Projeto — PEP
 
 **Responsável clínico:** Dr. Marivan Araujo
-**Versão:** 2.6 — 30/10/2026
+**Versão:** 2.7 — 11/11/2026
 **Estado:** publicado em produção (https://marivan-project.vercel.app) e em uso; validação operacional com a equipe em andamento.
 
 Este documento distingue implementação de validação operacional. Um recurso
@@ -61,11 +61,11 @@ Dados reais de pacientes ficam só na produção. Procedimento em
 | Repasse | IMPLEMENTADO / EM VALIDAÇÃO | Por profissional, não por procedimento: cada um tem o percentual de consultas, de exames e de procedimentos, definido só pelo Administrador no cadastro do usuário. O banco calcula o percentual da cobrança: enquanto Pendente, ela segue a regra atual do profissional e o tipo atual do procedimento; ao ser paga (ou glosada/cancelada), o percentual fica gravado e mudar a regra depois não a altera (migração 55). Pendentes mostram a divisão prevista. Regras auditadas (migração 50). |
 | Relatório de produção | IMPLEMENTADO / EM VALIDAÇÃO | Cada profissional de saúde vê a própria produção; Financeiro e Administrador, a de todos. Mês ou intervalo de dias; filtros por profissional, tipo, procedimento, convênio e situação; visões completa, só clínica, só profissional, por profissional, por especialidade e por tipo de atendimento, sempre com a soma; impressão. O alcance é decidido no banco (`relatorio_producao`); canceladas não entram (migrações 50 e 54). |
 | Financeiro | IMPLEMENTADO | Cobranças, catálogos, recibos e leitura das próprias cobranças por todo profissional de saúde (migração 50). Totais calculados no banco (`resumo_cobrancas`) e lista paginada, sem o limite de 1000 linhas da API. Criação idempotente, versão nas alterações, transições de status e data de pagamento definida pelo banco (apagada ao desfazer o pagamento) — migração 47. Agendamento Realizado gera a cobrança Pendente com procedimento, convênio, profissional, valor da tabela do convênio e repasse (uma por agendamento); sem procedimento, nasce "valor a definir" e só pode ser paga depois de ajustada — migração 49. |
-| Usuários | IMPLEMENTADO / EM VALIDAÇÃO | Convites por Edge Function com Administrador ativo e origens explícitas, publicada em produção. Falta acompanhar o fluxo completo de convite por e-mail com cada novo membro. |
+| Usuários | IMPLEMENTADO / EM VALIDAÇÃO | Convites por Edge Function com Administrador ativo e origens explícitas, publicada em produção. Quem não ativou a conta aparece como "Convite pendente", com "Reenviar convite" (migração 56). Falta acompanhar o fluxo completo de convite por e-mail com cada novo membro. |
 | Clínica e filiais | IMPLEMENTADO | Cadastro/configuração e múltiplas filiais. Não representa isolamento entre organizações independentes. |
 | Exportação | IMPLEMENTADO | Prontuário de um paciente (quem lê o prontuário) e clínica inteira (Administrador com papel clínico), em JSON com registros, autoria, datas, retificações e retrato das emissões; montado no navegador, sem cópia no servidor; registrado na auditoria (migração 48). |
 | Erros de carregamento | IMPLEMENTADO | Falha ao abrir um paciente aparece como erro de conexão, com nova tentativa — "não encontrado" só quando o banco respondeu sem o registro; falha nos totais do Financeiro aparece como "Indisponível", com "Recarregar totais". Avisos nos carregamentos auxiliares, erros de impressão explícitos e nova tentativa para configuração da clínica e histórico (paginado, sem limite de 1000 registros). Não registrar objetos de erro potencialmente sensíveis no console. |
-| Auditoria | IMPLEMENTADO | Alterações por trigger, lidas pelo Administrador com conteúdo clínico mascarado para quem não tem papel clínico (migração 36). Leitura no banco (migração 48): registros clínicos só são entregues pelas funções que registram o acesso antes — leitura direta pela API não devolve nada; exportações também registradas. Impressões são registradas pelo app, com fila de reenvio. Limite: antecedentes do cadastro seguem legíveis por perfis clínicos na busca. Monitoramento operacional ainda planejado. |
+| Auditoria | IMPLEMENTADO | Alterações por trigger, lidas pelo Administrador com conteúdo clínico mascarado para quem não tem papel clínico (migração 36). Leitura no banco (migração 48): registros clínicos só são entregues pelas funções que registram o acesso antes — leitura direta pela API não devolve nada; exportações também registradas. Impressões são registradas pelo app, com fila de reenvio. Antecedentes do cadastro também só pela leitura registrada ("Viu os antecedentes"); busca e listas os trazem vazios (migração 57). Monitoramento operacional ainda planejado. |
 
 ## Matriz de autorização atual
 
@@ -166,7 +166,6 @@ Evidências, commits, URLs e estado por ambiente estão em
 | PENDENTE | Homologação acompanhada com a equipe — roteiro em [ROTEIRO_HOMOLOGACAO.md](docs/ROTEIRO_HOMOLOGACAO.md). |
 | PENDENTE | Para uso comercial: um ambiente (projeto Supabase) por clínica enquanto não houver isolamento entre organizações; assinatura verificável (ICP-Brasil); exportação dos dados do paciente; suporte e contratos. |
 | PENDENTE | Proteção dos previews da Vercel (hoje abertos; usam só a homologação). |
-| PLANEJADO | Botão "Reenviar convite" na gestão de usuários. |
 
 ## Histórico documental
 
@@ -180,3 +179,4 @@ Evidências, commits, URLs e estado por ambiente estão em
 | 2.4 | 25/10/2026 | Quarta avaliação (migrações 43–48) e agenda → cobrança (49): reimpressão presa ao paciente do registro; formulários de documento por paciente; identidade profissional exigida pelo banco na assinatura; CPF/CNS/nascimento validados e CPF único pelos dígitos; reativação de pacientes; retrato da emissão e 2ª via fiel com código de verificação; criação idempotente e versão em cadastro, agenda e cobranças; leitura clínica auditada no banco; exportação do prontuário e da clínica; testes de navegador no CI. |
 | 2.5 | 25/10/2026 | Convênios com dados da operadora e tabela própria importada de planilha; procedimento com código e tipo; repasse por profissional (consulta, exame, procedimento) definido pelo Administrador; relatório de produção individual e da clínica, com impressão (migração 50); importação do catálogo de procedimentos de planilha (51). |
 | 2.6 | 30/10/2026 | Recebimento do particular pela Recepção com desconto; glosa no convênio; repasse sobre o recebido; Financeiro em colunas com totais; visões do relatório de produção (migração 54). Antes: importação do catálogo de planilha, importação em lote e cobrança sempre gerada na assinatura (51–53). |
+| 2.7 | 11/11/2026 | Pendentes seguem a regra de repasse atual e mostram o previsto (55); reenviar convite (56); antecedentes só com registro de acesso (57). |

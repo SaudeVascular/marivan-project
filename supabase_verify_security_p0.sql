@@ -84,6 +84,11 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_desconto_glosa' AND tgrelid = 'public.cobrancas'::regclass) THEN
     RAISE EXCEPTION 'P0 inseguro: recebimento/desconto/glosa ausente ou aberto a anon (aplique a migração 54)';
   END IF;
+  IF to_regprocedure('public.ler_paciente_clinico(uuid)') IS NULL
+     OR has_function_privilege('anon', 'public.ler_paciente_clinico(uuid)', 'EXECUTE')
+     OR position('leitura_clinica_liberada' IN pg_get_viewdef('public.pacientes_view'::regclass)) = 0 THEN
+    RAISE EXCEPTION 'P0 inseguro: antecedentes legíveis sem registro de acesso (aplique a migração 57)';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_agendamento' AND tgrelid = 'public.agendamentos'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_validar_cobranca' AND tgrelid = 'public.cobrancas'::regclass)
      OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'pacientes_operacao_id_key') THEN

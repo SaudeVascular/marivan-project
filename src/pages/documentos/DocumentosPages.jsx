@@ -881,7 +881,7 @@ export function ImprimirAtendimentoPage() {
     (async () => {
       const r = await registrosService.buscarDoPaciente(registroId, pacienteId);
       if (!r) return [null, null];
-      const p = await pacientesService.buscarPorId(r.pacienteId);
+      const p = await pacientesService.buscarClinico(r.pacienteId);
       return String(p?.id) === String(r.pacienteId) ? [p, r] : [null, null];
     })()
       .then(([p, r]) => { if (!cancelado) { setPaciente(p); setRegistro(r); } })

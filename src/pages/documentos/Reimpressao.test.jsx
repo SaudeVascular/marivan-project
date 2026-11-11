@@ -26,7 +26,7 @@ beforeEach(() => resetSupabaseMockPadrao());
 
 test('URL com o paciente B e um registro de A não mostra nada de nenhum dos dois', async () => {
   registrosService.buscarDoPaciente.mockResolvedValue(null); // o banco não acha reg-A para pac-B
-  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-B', nome: 'Paciente B' });
+  pacientesService.buscarClinico.mockResolvedValue({ id: 'pac-B', nome: 'Paciente B' });
   tela('pac-B', 'reg-A');
   expect(await screen.findByRole('alert')).toHaveTextContent('Registro não encontrado para este paciente');
   expect(registrosService.buscarDoPaciente).toHaveBeenCalledWith('reg-A', 'pac-B');
@@ -37,16 +37,16 @@ test('URL com o paciente B e um registro de A não mostra nada de nenhum dos doi
 
 test('o paciente exibido é o do próprio registro', async () => {
   registrosService.buscarDoPaciente.mockResolvedValue(REGISTRO_A);
-  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-A', nome: 'Paciente A' });
+  pacientesService.buscarClinico.mockResolvedValue({ id: 'pac-A', nome: 'Paciente A' });
   tela('pac-A', 'reg-A');
   expect(await screen.findByText('Cabeçalho de Paciente A')).toBeInTheDocument();
-  expect(pacientesService.buscarPorId).toHaveBeenCalledWith('pac-A');
+  expect(pacientesService.buscarClinico).toHaveBeenCalledWith('pac-A');
   expect(screen.getByText('Conteúdo clínico de A')).toBeInTheDocument();
 });
 
 test('se o paciente devolvido não for o do registro, recusa', async () => {
   registrosService.buscarDoPaciente.mockResolvedValue(REGISTRO_A);
-  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-B', nome: 'Paciente B' });
+  pacientesService.buscarClinico.mockResolvedValue({ id: 'pac-B', nome: 'Paciente B' });
   tela('pac-A', 'reg-A');
   expect(await screen.findByRole('alert')).toHaveTextContent('Registro não encontrado para este paciente');
   expect(screen.queryByText(/Conteúdo clínico de A/)).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ test('2ª via usa o retrato da emissão, não o cadastro atual', async () => {
     ...REGISTRO_A, assinadoEm: '2026-10-24T13:00:00Z', emissaoHash: '0123456789abcdef00',
     emissao: { modelo: 1, paciente: { nome: 'Nome na Emissão', idade: 40 }, clinica: { nome: 'Clínica na Emissão' } },
   });
-  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-A', nome: 'Nome Atual' });
+  pacientesService.buscarClinico.mockResolvedValue({ id: 'pac-A', nome: 'Nome Atual' });
   tela('pac-A', 'reg-A');
   expect(await screen.findByText('Cabeçalho de Nome na Emissão — Clínica na Emissão')).toBeInTheDocument();
   expect(screen.getByText(/2ª via do documento original — código de verificação 0123-4567-89AB-CDEF/)).toBeInTheDocument();
@@ -67,7 +67,7 @@ test('2ª via usa o retrato da emissão, não o cadastro atual', async () => {
 
 test('registro assinado antes da preservação: avisa que usa dados atuais', async () => {
   registrosService.buscarDoPaciente.mockResolvedValue({ ...REGISTRO_A, emissao: null });
-  pacientesService.buscarPorId.mockResolvedValue({ id: 'pac-A', nome: 'Paciente A' });
+  pacientesService.buscarClinico.mockResolvedValue({ id: 'pac-A', nome: 'Paciente A' });
   tela('pac-A', 'reg-A');
   expect(await screen.findByText(/Reimpressão com dados ATUAIS do cadastro/)).toBeInTheDocument();
 });

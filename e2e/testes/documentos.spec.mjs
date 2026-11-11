@@ -47,3 +47,21 @@ test('leitura direta da API com a sessão do médico não devolve registros', as
   }, [process.env.E2E_API_URL, process.env.E2E_ANON_KEY]);
   expect(resposta).toEqual([]);
 });
+
+test('antecedentes: a leitura direta da API vem vazia; a tela do prontuário mostra, e o acesso fica registrado', async ({ page }) => {
+  const b = idPaciente('E2E Paciente B');
+  sql(`UPDATE public.pacientes SET alergias = 'Dipirona (E2E)' WHERE id = '${b}'`);
+  sql(`DELETE FROM public.acessos WHERE paciente_id = '${b}' AND acao = 'ver_antecedentes'`);
+  await entrar(page);
+  const direta = await page.evaluate(async ([api, anon, id]) => {
+    const chave = Object.keys(sessionStorage).find(k => /^sb-.*-auth-token$/.test(k));
+    const token = JSON.parse(sessionStorage.getItem(chave)).access_token;
+    const r = await fetch(`${api}/rest/v1/pacientes_view?select=nome,alergias&id=eq.${id}`, { headers: { apikey: anon, Authorization: `Bearer ${token}` } });
+    return r.json();
+  }, [process.env.E2E_API_URL, process.env.E2E_ANON_KEY, b]);
+  expect(direta).toEqual([{ nome: 'E2E Paciente B', alergias: null }]);
+
+  await page.goto('/prontuario/' + b);
+  await expect(page.getByText(/Dipirona \(E2E\)/).first()).toBeVisible();
+  expect(sql(`SELECT count(*) FROM public.acessos WHERE paciente_id = '${b}' AND acao = 'ver_antecedentes'`)).not.toBe('0');
+});

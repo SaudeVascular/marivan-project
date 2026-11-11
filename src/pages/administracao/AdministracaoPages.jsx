@@ -536,6 +536,7 @@ const ROTULOS_OPERACAO = {
 
 const ROTULOS_ACAO = {
   abrir_prontuario: 'Abriu o prontuário',
+  ver_antecedentes: 'Viu os antecedentes',
   abrir_registro: 'Abriu um registro',
   imprimir_documento: 'Gerou documento',
   exportar_prontuario: 'Exportou o prontuário',

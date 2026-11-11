@@ -13,7 +13,10 @@ function prepararUpdate() {
   const update = jest.fn();
   supabase.rpc.mockImplementation((nome, { p_dados, ...resto }) => {
     if (nome === 'atualizar_paciente') update(p_dados, resto);
-    return Promise.resolve({ data: null, error: null });
+    // Releitura com os antecedentes, pela função registrada (migração 57).
+    const resposta = Promise.resolve({ data: null, error: null });
+    resposta.maybeSingle = () => Promise.resolve({ data: { id: 'paciente-1', nome: 'Maria', ativo: true }, error: null });
+    return resposta;
   });
   supabase.from.mockImplementation(() => criarQueryBuilder({
     single: { data: { id: 'paciente-1', nome: 'Maria', ativo: true }, error: null },

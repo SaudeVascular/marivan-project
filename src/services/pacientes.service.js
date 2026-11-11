@@ -143,6 +143,16 @@ export const pacientesService = {
     return resultado;
   },
 
+  // Com os antecedentes (alergias, comorbidades, medicamentos em uso...):
+  // pela função que registra o acesso antes (migração 57). As demais
+  // leituras de pacientes_view trazem os antecedentes vazios.
+  async buscarClinico(id) {
+    const { data, error } = await supabase.rpc('ler_paciente_clinico', { p_paciente_id: id }).maybeSingle();
+    if (error) throw error;
+    if (!data) throw Object.assign(new Error('Paciente não encontrado.'), { code: 'PGRST116' });
+    return { ...fromDb(data), clinicoCarregado: true };
+  },
+
   async buscarPorId(id) {
     const { data, error } = await supabase
       .from('pacientes_view')
@@ -200,7 +210,7 @@ export const pacientesService = {
 
   async atualizarClinicos(id, pacienteData, versaoEsperada) {
     await atualizar(id, 'clinico', versaoEsperada, clinicosToDb(pacienteData));
-    return pacientesService.buscarPorId(id);
+    return pacientesService.buscarClinico(id);
   },
 
   async deletar(id, versaoEsperada) {

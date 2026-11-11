@@ -24,32 +24,39 @@ export function classificarErroPaciente(erro) {
   return 'erro';
 }
 
+// Telas clínicas (prontuário, documentos, enfermagem): o paciente vem
+// sempre pela leitura registrada, com os antecedentes (migração 57) —
+// mesmo que já esteja no cache por uma busca, que os traz vazios.
 export function usePacienteAtual(pacientes) {
   const { id } = useParams();
   const cache = usePacientesCache();
   const lista = pacientes ?? cache?.pacientes ?? [];
-  const paciente = lista.find((p) => String(p.id) === String(id));
-  const [falha, setFalha] = React.useState(null); // { id, tentativa, estado }
+  const doCache = lista.find((p) => String(p.id) === String(id));
+  const [leitura, setLeitura] = React.useState(null); // { id, tentativa, estado }
   const [tentativa, setTentativa] = React.useState(0);
   const setCache = cache?.setPacientes;
-  const precisaBuscar = !paciente && Boolean(id) && Boolean(setCache);
 
   React.useEffect(() => {
-    if (!precisaBuscar) return undefined;
+    if (!id || !setCache) return undefined;
     let cancelado = false;
-    comTimeout(pacientesService.buscarPorId(id))
-      .then(p => { if (!cancelado) setCache(prev => mesclarPacientes(prev, [p])); })
-      .catch(erro => { if (!cancelado) setFalha({ id, tentativa, estado: classificarErroPaciente(erro) }); });
+    comTimeout(pacientesService.buscarClinico(id))
+      .then(p => {
+        if (cancelado) return;
+        setCache(prev => mesclarPacientes(prev, [p]));
+        setLeitura({ id, tentativa, estado: 'pronto' });
+      })
+      .catch(erro => { if (!cancelado) setLeitura({ id, tentativa, estado: classificarErroPaciente(erro) }); });
     return () => { cancelado = true; };
-  }, [precisaBuscar, id, setCache, tentativa]);
+  }, [id, setCache, tentativa]);
 
   const recarregar = React.useCallback(() => setTentativa(t => t + 1), []);
 
+  const lido = leitura && leitura.id === id && leitura.tentativa === tentativa;
   let estado;
-  if (paciente) estado = 'pronto';
-  else if (!precisaBuscar) estado = 'nao-encontrado';
-  else if (falha && falha.id === id && falha.tentativa === tentativa) estado = falha.estado;
-  else estado = 'carregando';
+  if (!id || !setCache) estado = doCache ? 'pronto' : 'nao-encontrado';
+  else if (!lido) estado = 'carregando';
+  else estado = leitura.estado === 'pronto' && !doCache ? 'carregando' : leitura.estado;
+  const paciente = estado === 'pronto' ? doCache : undefined;
 
   return { paciente, id, estado, carregando: estado === 'carregando', recarregar };
 }

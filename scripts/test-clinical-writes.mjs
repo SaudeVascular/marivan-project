@@ -81,6 +81,8 @@ await executar(await readFile(new URL('../supabase/tests/desconto_glosa.sql', im
 console.log('OK: desconto no particular pela Recepção, glosa no convênio, repasse sobre o recebido.');
 await executar(await readFile(new URL('../supabase/tests/convites_pendentes.sql', import.meta.url), 'utf8'));
 console.log('OK: convites pendentes só para Administrador.');
+await executar(await readFile(new URL('../supabase/tests/antecedentes_auditados.sql', import.meta.url), 'utf8'));
+console.log('OK: antecedentes só com registro de acesso.');
 try {
   await executar(`BEGIN;
     INSERT INTO auth.users(id, email) VALUES (${quote(autor)}, ${quote(`estabilidade-${autor}@example.invalid`)});

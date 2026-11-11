@@ -127,7 +127,7 @@ e faça os testes de interface com dados fictícios.
 | Ambiente | Ref | Migrações | Verificação P0 |
 |---|---|---|---|
 | Homologação | `snhmydckyypgucwbsaus` | 01–54 | — (30/10) |
-| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–55 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
+| Produção | `vhaadfzdvhdztfrilohf` | 01–42 | OK (24/10); **43–57 pendentes** — aplicar logo depois de publicar o site (ver abaixo) |
 
 A seção seguinte é histórica: a adoção na produção **já foi feita**, em
 23/10/2026, por `scripts/supabase-atualizar-producao.sh`. O diagnóstico
@@ -144,7 +144,7 @@ bash scripts/supabase-push-producao.sh                   # dry-run, para
 CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 ```
 
-### Publicação de 43–55 (site e banco juntos)
+### Publicação de 43–57 (site e banco juntos)
 
 - 43: auditoria de acesso recusa registro de outro paciente;
 - 44: assinar exige nome, número do conselho e UF no perfil;
@@ -180,6 +180,10 @@ CONFIRMAR_PUSH=SIM bash scripts/supabase-push-producao.sh # backup, aplica, P0
 - 55: cobrança pendente acompanha a regra de repasse atual do profissional
   e o tipo atual do procedimento (a paga fica com o da época); totais com
   a divisão prevista das pendentes.
+- 56: convites pendentes (para o botão "Reenviar convite"). Exige publicar
+  de novo a Edge Function admin-create-user (ação "reenviar").
+- 57: antecedentes do paciente só com registro de acesso ("Viu os
+  antecedentes"); busca e listas trazem os antecedentes vazios.
 
 O site novo lê o histórico pela função da 48, e o antigo lê direto (e
 passaria a ver o histórico vazio depois da 48). Por isso, como na

@@ -54,3 +54,12 @@ test('carregar mais acrescenta a próxima página', async () => {
   expect(result.current.temMais).toBe(false);
   expect(pacientesService.buscar).toHaveBeenLastCalledWith({ termo: '', limite: 1, offset: 1 });
 });
+
+test('busca posterior (antecedentes vazios) não apaga os da leitura registrada', () => {
+  const { mesclarPacientes: mesclar } = require('./usePacientesCache');
+  const atuais = [{ id: 'p1', nome: 'Ana', alergias: 'Dipirona', medicamentosUso: 'Losartana', versaoClinica: 4, clinicoCarregado: true }];
+  const [p] = mesclar(atuais, [{ id: 'p1', nome: 'Ana Maria', alergias: '', medicamentosUso: '', versaoClinica: 4 }]);
+  expect(p).toMatchObject({ nome: 'Ana Maria', alergias: 'Dipirona', medicamentosUso: 'Losartana', clinicoCarregado: true });
+  const [q] = mesclar(atuais, [{ id: 'p1', nome: 'Ana', alergias: 'Nenhuma', versaoClinica: 5, clinicoCarregado: true }]);
+  expect(q).toMatchObject({ alergias: 'Nenhuma', versaoClinica: 5 });
+});

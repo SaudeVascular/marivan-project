@@ -519,7 +519,7 @@ function ProntuarioConteudo({ pacientes, setPacientes }) {
     } catch (err) {
       if (err?.code === 'P4090') {
         try {
-          const atual = await comTimeout(pacientesService.buscarPorId(paciente.id));
+          const atual = await comTimeout(pacientesService.buscarClinico(paciente.id));
           setPacientes(prev => mesclarPacientes(prev, [atual]));
           setConflitoClinicos({ atual });
         } catch {

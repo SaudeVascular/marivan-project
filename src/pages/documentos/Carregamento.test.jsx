@@ -10,7 +10,7 @@ jest.mock('../../services/supabase');
 jest.mock('../../hooks/useClinica', () => ({ useClinica: () => ({ clinica: {} }) }));
 
 test('falha de carregamento não é apresentada como atendimento inexistente', async () => {
-  pacientesService.buscarPorId.mockRejectedValue(new Error('Falha de rede'));
+  pacientesService.buscarClinico.mockRejectedValue(new Error('Falha de rede'));
   registrosService.buscarDoPaciente.mockResolvedValue({ id: 'r1', pacienteId: 'p1' });
   render(<MemoryRouter initialEntries={['/imprimir/p1/r1']}><Routes>
     <Route path="/imprimir/:pacienteId/:registroId" element={<ImprimirAtendimentoPage />} />

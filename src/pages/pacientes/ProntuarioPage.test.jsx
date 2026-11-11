@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ProntuarioPage } from './ProntuarioPage';
 import { registrosService } from '../../services/registros.service';
 import { resetSupabaseMockPadrao } from '../../services/supabase';
+import { pacientesService as servicoPacientes } from '../../services/pacientes.service';
 
 jest.mock('../../services/supabase');
 jest.mock('../../services/registros.service');
@@ -23,6 +24,9 @@ function Tela() {
 
 beforeEach(() => {
   resetSupabaseMockPadrao();
+  // Leitura registrada do paciente (migração 57): devolve só o id, e o
+  // cache da tela mantém o resto.
+  jest.spyOn(servicoPacientes, 'buscarClinico').mockImplementation(id => Promise.resolve({ id, clinicoCarregado: true }));
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -273,7 +277,10 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   const atualizar = jest.spyOn(pacientesService, 'atualizarClinicos')
     .mockRejectedValueOnce(Object.assign(new Error('Os dados clínicos deste paciente foram alterados'), { code: 'P4090' }))
     .mockResolvedValueOnce({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Minha', versaoClinica: 4, registros: [] });
-  jest.spyOn(pacientesService, 'buscarPorId').mockResolvedValue({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Dela', versaoClinica: 3, registros: [] });
+  // Sem o contexto de cache do app, a tela usa o paciente recebido; a
+  // leitura registrada aqui é só a releitura depois do conflito.
+  const releitura = jest.spyOn(pacientesService, 'buscarClinico')
+    .mockResolvedValue({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Dela', versaoClinica: 3, registros: [], clinicoCarregado: true });
 
   function TelaVersionada() {
     const [pacientes, setPacientes] = React.useState([{ id: 'p1', nome: 'Paciente Fictício', alergias: '', versaoClinica: 2, registros: [] }]);
@@ -288,6 +295,7 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   fireEvent.click(screen.getByRole('button', { name: '✓ Salvar' }));
 
   expect(await screen.findByText(/Outra pessoa alterou os dados clínicos/)).toBeInTheDocument();
+  expect(releitura).toHaveBeenCalledWith('p1'); // conflito relê pela função registrada, com os antecedentes
   expect(atualizar).toHaveBeenLastCalledWith('p1', expect.objectContaining({ alergias: 'Minha' }), 2);
   expect(screen.getByRole('button', { name: '✓ Salvar' })).toBeDisabled();
   expect(screen.getByPlaceholderText('Informe medicamentos, substâncias ou alimentos')).toHaveValue('Minha');
