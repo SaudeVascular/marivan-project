@@ -150,6 +150,9 @@ export function UsuariosPage() {
   // Regras de repasse por profissional, indexadas pelo id do perfil.
   const [repasses, setRepasses] = React.useState({});
   const [erroRepasses, setErroRepasses] = React.useState(false);
+  // Convidados que ainda não ativaram a conta (migração 56).
+  const [pendentes, setPendentes] = React.useState(new Set());
+  const [reenviandoId, setReenviandoId] = React.useState(null);
 
   React.useEffect(() => {
     usuariosService.listar()
@@ -159,7 +162,23 @@ export function UsuariosPage() {
     repasseService.listar()
       .then(lista => setRepasses(Object.fromEntries(lista.map(r => [r.profissionalId, r]))))
       .catch(() => setErroRepasses(true));
+    usuariosService.convitesPendentes()
+      .then(ids => setPendentes(new Set(ids)))
+      .catch(() => setPendentes(new Set()));
   }, [toast]);
+
+  const reenviarConvite = async (u) => {
+    setReenviandoId(u.id);
+    try {
+      await comTimeout(usuariosService.reenviarConvite(u.id));
+      toast.success(`Convite reenviado para ${u.email}. O link anterior deixa de valer.`);
+    } catch (err) {
+      toast.error(err.message);
+      if (/já ativou/.test(err.message)) setPendentes(prev => { const n = new Set(prev); n.delete(u.id); return n; });
+    } finally {
+      setReenviandoId(null);
+    }
+  };
 
   const criarUsuario = async (e) => {
     e.preventDefault();
@@ -340,7 +359,12 @@ export function UsuariosPage() {
                     </div>
                     <div style={{ flex: 1, minWidth: '160px' }}>
                       <div style={{ fontWeight: '600', fontSize: '16px', color: '#111' }}>{u.nome}</div>
-                      <div style={{ fontSize: '16px', color: '#6b7280' }}>{u.email}</div>
+                      <div style={{ fontSize: '16px', color: '#6b7280' }}>
+                        {u.email}
+                        {pendentes.has(u.id) && (
+                          <span style={{ marginLeft: '8px', fontSize: '14px', padding: '1px 8px', borderRadius: '10px', backgroundColor: '#fef3c7', color: '#92400e' }}>Convite pendente</span>
+                        )}
+                      </div>
                       <div style={{ fontSize: '16px', color: '#9ca3af', marginTop: '2px' }}>
                         {u.funcao}{u.crm ? ` · ${CONSELHO_POR_FUNCAO[u.papel_clinico_administrador || u.funcao] || 'Conselho'} ${u.crm}${u.uf ? '/' + u.uf : ''}` : ''}{u.rqe ? ` · RQE ${u.rqe}` : ''}
                         {u.funcao === 'Administrador' && u.papel_clinico_administrador ? ` · atua como ${u.papel_clinico_administrador}` : ''}
@@ -368,6 +392,12 @@ export function UsuariosPage() {
                       <span style={{ fontSize: '16px', padding: '3px 10px', borderRadius: '10px', backgroundColor: u.ativo ? '#d1fae5' : '#fee2e2', color: u.ativo ? '#065f46' : '#991b1b', fontWeight: '500' }}>
                         {u.ativo ? 'Ativo' : 'Inativo'}
                       </span>
+                      {pendentes.has(u.id) && (
+                        <button onClick={() => reenviarConvite(u)} disabled={reenviandoId === u.id}
+                          style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '4px', cursor: reenviandoId === u.id ? 'not-allowed' : 'pointer', fontWeight: '500' }}>
+                          {reenviandoId === u.id ? 'Enviando...' : '✉ Reenviar convite'}
+                        </button>
+                      )}
                       <button onClick={() => setEditando({ id: u.id, nome: u.nome, funcao: u.funcao, crm: u.crm || '', uf: u.uf || '', sexo: u.sexo || '', nascimento: u.nascimento || '', cpf: u.cpf || '', especialidade: u.especialidade || '', area_atuacao: u.area_atuacao || '', cbo: u.cbo || '', rqe: u.rqe || '', repasse: ehProfissional(u) ? (({ consulta, exame, procedimento }) => ({ consulta, exame, procedimento }))(repasses[u.id] || REPASSE_VAZIO) : null })} style={{ padding: '6px 12px', fontSize: '16px', backgroundColor: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
                         ✎ Editar
                       </button>

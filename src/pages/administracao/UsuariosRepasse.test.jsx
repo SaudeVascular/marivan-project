@@ -6,7 +6,7 @@ import { repasseService } from '../../services/repasse.service';
 import { useToast } from '../../components/common/Toast';
 
 jest.mock('../../services/supabase');
-jest.mock('../../services/usuarios.service', () => ({ usuariosService: { listar: jest.fn(), atualizar: jest.fn() } }));
+jest.mock('../../services/usuarios.service', () => ({ usuariosService: { listar: jest.fn(), atualizar: jest.fn(), convitesPendentes: jest.fn(), reenviarConvite: jest.fn() } }));
 jest.mock('../../services/repasse.service', () => ({ repasseService: { listar: jest.fn(), salvar: jest.fn() } }));
 jest.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'adm' }, funcao: 'Administrador' }) }));
 jest.mock('../../components/common/Layout', () => ({ Header: () => null }));
@@ -23,6 +23,7 @@ beforeEach(() => {
   ]);
   repasseService.listar.mockResolvedValue([{ profissionalId: 'med-1', consulta: 60, exame: 10, procedimento: 30 }]);
   usuariosService.atualizar.mockResolvedValue();
+  usuariosService.convitesPendentes.mockResolvedValue(['psi-1']);
   repasseService.salvar.mockImplementation((id, r) => Promise.resolve({ profissionalId: id, consulta: Number(r.consulta), exame: Number(r.exame), procedimento: Number(r.procedimento) }));
 });
 
@@ -59,4 +60,15 @@ test('percentual fora de 0–100 não é enviado; sem mudança no repasse, só o
   fireEvent.click(screen.getByRole('button', { name: /Salvar/ }));
   await waitFor(() => expect(usuariosService.atualizar).toHaveBeenCalled());
   expect(repasseService.salvar).not.toHaveBeenCalled();
+});
+
+test('convite pendente: selo e "Reenviar convite" só para quem não ativou a conta', async () => {
+  usuariosService.reenviarConvite.mockResolvedValue({ reenviado: true });
+  tela();
+  expect(await screen.findByText('Convite pendente')).toBeInTheDocument();
+  const botoes = screen.getAllByRole('button', { name: /Reenviar convite/ });
+  expect(botoes).toHaveLength(1);
+  fireEvent.click(botoes[0]);
+  await waitFor(() => expect(usuariosService.reenviarConvite).toHaveBeenCalledWith('psi-1'));
+  expect(useToast().success).toHaveBeenCalledWith(expect.stringContaining('caio@example.invalid'));
 });
