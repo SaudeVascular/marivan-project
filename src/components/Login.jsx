@@ -19,7 +19,7 @@ const Login = () => {
   );
   const [modo, setModo] = useState('login'); // 'login' | 'recuperar'
   const [recuperarEnviado, setRecuperarEnviado] = useState(false);
-  const { login } = useAuth();
+  const { login, revogacaoPendente } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -189,6 +189,13 @@ const Login = () => {
 
         {/* Formulário */}
         <form onSubmit={handleSubmit}>
+          {revogacaoPendente && (
+            <div role="status" style={{ backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '6px', padding: '12px', marginBottom: '20px', color: '#92400e', fontSize: '15px' }}>
+              Você saiu deste computador. Sem conexão, o servidor ainda não confirmou o
+              encerramento da sessão; o PEP tenta de novo assim que a conexão voltar.
+              Mantenha esta aba aberta até lá.
+            </div>
+          )}
           {/* Mensagem de erro */}
           {error && (
             <div style={{

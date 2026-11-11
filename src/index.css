@@ -646,10 +646,28 @@ button {
   margin: 10mm 14mm;
 }
 
+/* Relatório de produção: o cabeçalho da clínica só sai no papel; na
+   tela, filtros e cartões; na folha, tabelas compactas e cabeçalho de
+   tabela repetido em cada página. */
+.so-impressao { display: none; }
+@media (max-width: 800px) {
+  .grade-convenios { grid-template-columns: 1fr !important; }
+}
+
 @media print {
   .no-print {
     display: none !important;
   }
+
+  .so-impressao { display: block; }
+  .relatorio-producao table { font-size: 8.5pt !important; }
+  .relatorio-producao th, .relatorio-producao td { padding: 2px 4px !important; }
+  .relatorio-producao tr { break-inside: avoid; }
+  .relatorio-producao thead { display: table-header-group; }
+  .relatorio-producao .bloco-relatorio { padding: 0 !important; margin-bottom: 10px !important; }
+  .relatorio-producao .bloco-relatorio h3 { font-size: 11pt; margin: 8px 0 4px; }
+  .relatorio-producao .cartoes-resumo > div { border: 1px solid #ccc; padding: 4px 8px !important; min-width: 0 !important; }
+  .relatorio-producao .cartoes-resumo [style*="font-size: 20px"] { font-size: 11pt !important; }
 
   body {
     background: white !important;

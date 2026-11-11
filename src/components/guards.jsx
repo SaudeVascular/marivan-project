@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
+  FUNCOES_CLINICAS,
   FUNCOES_FINANCEIRO,
   FUNCOES_RECEPCAO,
   podeEmitir,
@@ -60,6 +61,14 @@ export function SomenteQuemEmite({ tipo, children }) {
 export function SomenteFinanceiro({ children }) {
   const { funcao } = useAuth();
   if (!FUNCOES_FINANCEIRO.includes(funcao)) return <Navigate to="/pacientes" replace />;
+  return children;
+}
+
+// Relatório de produção (migração 50): gestores veem todos; cada
+// profissional de saúde, a própria produção — o banco é quem limita.
+export function SomenteProducao({ children }) {
+  const { funcao } = useAuth();
+  if (!FUNCOES_FINANCEIRO.includes(funcao) && !FUNCOES_CLINICAS.includes(funcao)) return <Navigate to="/pacientes" replace />;
   return children;
 }
 

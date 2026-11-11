@@ -74,6 +74,7 @@ npm run build   # build de produção em build/
 npm run preview # serve o build localmente, para conferir antes de publicar
 npm test        # roda os testes
 npm run lint    # verificação de código (ESLint)
+npm run test:e2e # testes de navegador (Playwright) — só com `npx supabase start` local; no Mac: E2E_CANAL=chrome
 ```
 
 O banco agora usa migrações versionadas pelo Supabase CLI. O fluxo completo de

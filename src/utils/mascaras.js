@@ -35,11 +35,14 @@ export const formatarCPF = (valor) => {
     .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 };
 
+// Numérico ou alfanumérico (IN RFB 2.229/2024): 12 caracteres [0-9A-Z]
+// e 2 dígitos verificadores.
 export const formatarCNPJ = (valor) => {
-  const n = valor.replace(/\D/g, '').slice(0, 14);
-  return n
-    .replace(/(\d{2})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1/$2')
-    .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+  const c = String(valor || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 14);
+  let r = c.slice(0, 2);
+  if (c.length > 2) r += '.' + c.slice(2, 5);
+  if (c.length > 5) r += '.' + c.slice(5, 8);
+  if (c.length > 8) r += '/' + c.slice(8, 12);
+  if (c.length > 12) r += '-' + c.slice(12);
+  return r;
 };

@@ -1,6 +1,9 @@
 -- Somente banco descartável: fixtures e verificações são revertidas no final.
 -- Migração 40: totais do Financeiro no banco, sob a RLS de cobrancas.
 BEGIN;
+-- Simula a passagem pelas funções de leitura auditada (migração 48); o
+-- bloqueio da leitura direta é testado em leitura_auditada.sql.
+SELECT set_config('pep.leitura_clinica', 'sim', true);
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
 $$;
@@ -24,14 +27,19 @@ UPDATE public.perfis SET ativo = true, funcao = 'Recepcionista' WHERE id = 'e900
 SET LOCAL session_replication_role = origin;
 INSERT INTO public.pacientes (id, nome) VALUES ('e9000000-0000-4000-8000-000000000010', 'Paciente resumo');
 
--- 1500 cobranças de 10,00 (repasse 50%) do médico 1 — mais que o limite
--- de 1000 linhas da API —, 1 cancelada de 999,00 e 1 do médico 2 de 7,00.
-INSERT INTO public.cobrancas (paciente_id, medico_id, valor, percentual_repasse, data_cobranca)
-SELECT 'e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 10, 50, DATE '2030-01-15'
+-- 1500 cobranças de 10,00 (repasse 50%, regra do médico 1 para consulta —
+-- migração 50) — mais que o limite de 1000 linhas da API —, 1 cancelada
+-- de 999,00 e 1 do médico 2 (sem regra de repasse) de 7,00.
+INSERT INTO public.procedimentos (id, nome, tipo) VALUES ('e9000000-0000-4000-8000-000000000020', 'Consulta resumo', 'Consulta');
+INSERT INTO public.repasse_profissional (profissional_id, percentual_consulta) VALUES ('e9000000-0000-4000-8000-000000000001', 50);
+INSERT INTO public.cobrancas (paciente_id, medico_id, procedimento_id, valor, data_cobranca)
+SELECT 'e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000020', 10, DATE '2030-01-15'
 FROM generate_series(1, 1500);
-INSERT INTO public.cobrancas (paciente_id, medico_id, valor, percentual_repasse, status, data_cobranca) VALUES
- ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 999, 50, 'Cancelado', DATE '2030-01-16'),
- ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000002', 7, 0, 'Pendente', DATE '2030-01-17');
+INSERT INTO public.cobrancas (paciente_id, medico_id, procedimento_id, valor, status, data_cobranca) VALUES
+ ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000020', 999, 'Pendente', DATE '2030-01-16'),
+ ('e9000000-0000-4000-8000-000000000010', 'e9000000-0000-4000-8000-000000000002', 'e9000000-0000-4000-8000-000000000020', 7, 'Pendente', DATE '2030-01-17');
+-- Nasce Pendente (migração 47) e é cancelada depois.
+UPDATE public.cobrancas SET status = 'Cancelado' WHERE valor = 999 AND data_cobranca = DATE '2030-01-16';
 
 SET LOCAL ROLE authenticated;
 DO $$

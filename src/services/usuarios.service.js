@@ -88,6 +88,28 @@ export const usuariosService = {
     if (error) throw error;
   },
 
+  // Convidados que ainda não ativaram a conta (migração 56).
+  async convitesPendentes() {
+    const { data, error } = await supabase.rpc('convites_pendentes');
+    if (error) throw error;
+    return (data || []).map(l => (typeof l === 'string' ? l : l.convites_pendentes));
+  },
+
+  // Reenvia o convite pela mesma Edge Function do convite (ação "reenviar").
+  async reenviarConvite(userId) {
+    const { data, error } = await supabase.functions.invoke('admin-create-user', { body: { acao: 'reenviar', userId } });
+    if (error) {
+      let mensagem;
+      try {
+        mensagem = (await error.context?.json())?.error;
+      } catch {
+        // resposta sem JSON: mensagem padrão abaixo
+      }
+      throw new Error(mensagem || 'Não foi possível reenviar o convite. Tente novamente mais tarde.');
+    }
+    return data;
+  },
+
   async alterarStatus(id, ativo) {
     const { error } = await supabase.from('perfis').update({ ativo }).eq('id', id);
     if (error) throw error;

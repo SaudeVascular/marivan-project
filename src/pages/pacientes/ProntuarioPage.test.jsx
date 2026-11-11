@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ProntuarioPage } from './ProntuarioPage';
 import { registrosService } from '../../services/registros.service';
 import { resetSupabaseMockPadrao } from '../../services/supabase';
+import { pacientesService as servicoPacientes } from '../../services/pacientes.service';
 
 jest.mock('../../services/supabase');
 jest.mock('../../services/registros.service');
@@ -23,6 +24,9 @@ function Tela() {
 
 beforeEach(() => {
   resetSupabaseMockPadrao();
+  // Leitura registrada do paciente (migração 57): devolve só o id, e o
+  // cache da tela mantém o resto.
+  jest.spyOn(servicoPacientes, 'buscarClinico').mockImplementation(id => Promise.resolve({ id, clinicoCarregado: true }));
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -74,14 +78,14 @@ test('conflito preserva texto e só adota outra versão depois da comparação e
   salvarRascunhoAtendimento('p1', 'Minha edição', 'r1', 'medico-1', 1);
   registrosService.listarPorPaciente.mockResolvedValue([]);
   registrosService.atualizar.mockRejectedValueOnce(Object.assign(new Error('Registro alterado em outra sessão'), { code: 'P4090' }));
-  registrosService.buscarPorId.mockResolvedValue({ id: 'r1', pacienteId: 'p1', versao: 2, conteudo: 'Edição da outra aba', status: 'Rascunho' });
+  registrosService.buscarDoPaciente.mockResolvedValue({ id: 'r1', pacienteId: 'p1', versao: 2, conteudo: 'Edição da outra aba', status: 'Rascunho' });
   render(<Tela />);
   await screen.findByText('Nenhum registro ainda.');
   fireEvent.click(screen.getByRole('button', { name: /Salvar rascunho/ }));
   await screen.findByText('Seu texto foi preservado. Compare com o registro atual antes de continuar.');
   const texto = screen.getByPlaceholderText('História clínica, exame físico, hipótese diagnóstica, conduta...');
   expect(texto).toHaveValue('Minha edição');
-  expect(registrosService.buscarPorId).not.toHaveBeenCalled();
+  expect(registrosService.buscarDoPaciente).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Consultar versão atual' }));
   await screen.findByText('Edição da outra aba');
   expect(texto).toHaveValue('Minha edição');
@@ -273,7 +277,10 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   const atualizar = jest.spyOn(pacientesService, 'atualizarClinicos')
     .mockRejectedValueOnce(Object.assign(new Error('Os dados clínicos deste paciente foram alterados'), { code: 'P4090' }))
     .mockResolvedValueOnce({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Minha', versaoClinica: 4, registros: [] });
-  jest.spyOn(pacientesService, 'buscarPorId').mockResolvedValue({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Dela', versaoClinica: 3, registros: [] });
+  // Sem o contexto de cache do app, a tela usa o paciente recebido; a
+  // leitura registrada aqui é só a releitura depois do conflito.
+  const releitura = jest.spyOn(pacientesService, 'buscarClinico')
+    .mockResolvedValue({ id: 'p1', nome: 'Paciente Fictício', alergias: 'Dela', versaoClinica: 3, registros: [], clinicoCarregado: true });
 
   function TelaVersionada() {
     const [pacientes, setPacientes] = React.useState([{ id: 'p1', nome: 'Paciente Fictício', alergias: '', versaoClinica: 2, registros: [] }]);
@@ -288,6 +295,7 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   fireEvent.click(screen.getByRole('button', { name: '✓ Salvar' }));
 
   expect(await screen.findByText(/Outra pessoa alterou os dados clínicos/)).toBeInTheDocument();
+  expect(releitura).toHaveBeenCalledWith('p1'); // conflito relê pela função registrada, com os antecedentes
   expect(atualizar).toHaveBeenLastCalledWith('p1', expect.objectContaining({ alergias: 'Minha' }), 2);
   expect(screen.getByRole('button', { name: '✓ Salvar' })).toBeDisabled();
   expect(screen.getByPlaceholderText('Informe medicamentos, substâncias ou alimentos')).toHaveValue('Minha');
@@ -298,15 +306,24 @@ test('antecedentes alterados por outra pessoa não são sobrescritos sem escolha
   await waitFor(() => expect(screen.queryByText(/Outra pessoa alterou/)).not.toBeInTheDocument());
 });
 
-test('abrir o prontuário registra um acesso, uma única vez', async () => {
+test('abrir o prontuário: o registro de acesso é do banco (ler_registros_paciente), não do app', async () => {
   const { supabase } = require('../../services/supabase');
   supabase.rpc.mockResolvedValue({ error: null });
-  registrosService.listarPorPaciente.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+  registrosService.listarPorPaciente.mockResolvedValueOnce([]);
   render(<Tela />);
   await screen.findByText('Nenhum registro ainda.');
-  const chamadas = () => supabase.rpc.mock.calls.filter(([nome]) => nome === 'registrar_acesso');
-  expect(chamadas()).toEqual([['registrar_acesso', expect.objectContaining({ p_paciente_id: 'p1', p_acao: 'abrir_prontuario' })]]);
-  fireEvent.click(screen.getByRole('button', { name: 'Atualizar histórico' }));
+  expect(registrosService.listarPorPaciente).toHaveBeenCalledWith('p1');
+  expect(supabase.rpc.mock.calls.filter(([nome]) => nome === 'registrar_acesso')).toHaveLength(0);
+});
+
+test('exportar prontuário baixa o JSON devolvido pelo banco', async () => {
+  const exportacao = require('../../services/exportacao.service');
+  const prontuario = jest.spyOn(exportacao.exportacaoService, 'prontuario').mockResolvedValue({ formato: 'pep-prontuario', registros: [] });
+  const baixar = jest.spyOn(exportacao, 'baixarJson').mockImplementation(() => {});
+  registrosService.listarPorPaciente.mockResolvedValueOnce([]);
+  render(<Tela />);
   await screen.findByText('Nenhum registro ainda.');
-  expect(chamadas()).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Exportar prontuário' }));
+  await waitFor(() => expect(baixar).toHaveBeenCalledWith(expect.stringMatching(/^prontuario-.*\.json$/), { formato: 'pep-prontuario', registros: [] }));
+  expect(prontuario).toHaveBeenCalledWith('p1');
 });

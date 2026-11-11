@@ -1,7 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePacienteAtual } from '../../hooks/usePacienteAtual';
+import { EstadoPaciente } from '../../components/common/EstadoPaciente';
 import { useBuscaPacientes } from '../../hooks/usePacientesCache';
 import { Header, painelStyle } from '../../components/common/Layout';
 import { useToast } from '../../components/common/Toast';
@@ -11,10 +12,18 @@ import { calcularIdade } from '../../utils/formatters';
 // Aferição rápida (seção 2.2 do Documento Mestre: triagem, sinais vitais),
 // aberta a qualquer perfil clínico — não é um documento formal como
 // atestado/receituário, por isso não tem preview de impressão.
-export function SinaisVitaisPage({ pacientes, setPacientes }) {
+// Um formulário por paciente: trocar de paciente (mesma rota, outro id)
+// recria o componente — medicamentos, texto, "já salvo" e ids não passam
+// de um paciente para o outro (ver ProntuarioPage).
+export function SinaisVitaisPage(props) {
+  const { id } = useParams();
+  return <SinaisVitaisConteudo key={id} {...props} />;
+}
+
+function SinaisVitaisConteudo({ pacientes, setPacientes }) {
   const toast = useToast();
   const { user } = useAuth();
-  const { paciente, carregando: carregandoPaciente } = usePacienteAtual(pacientes);
+  const { paciente, estado: estadoPaciente, recarregar: recarregarPaciente } = usePacienteAtual(pacientes);
   const [pressaoArterial, setPressaoArterial] = React.useState('');
   const [frequenciaCardiaca, setFrequenciaCardiaca] = React.useState('');
   const [temperatura, setTemperatura] = React.useState('');
@@ -26,7 +35,7 @@ export function SinaisVitaisPage({ pacientes, setPacientes }) {
   const [salvando, setSalvando] = React.useState(false);
   const [salvo, setSalvo] = React.useState(false);
 
-  if (!paciente) return <p>{carregandoPaciente ? 'Carregando paciente...' : 'Paciente não encontrado.'}</p>;
+  if (!paciente) return <EstadoPaciente estado={estadoPaciente} recarregar={recarregarPaciente} />;
 
   const pesoNum = Number(peso.replace(',', '.'));
   const alturaNum = Number(altura.replace(',', '.'));

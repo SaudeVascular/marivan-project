@@ -1,5 +1,8 @@
 -- Banco descartável. Todas as fixtures e tentativas são revertidas.
 BEGIN;
+-- Simula a passagem pelas funções de leitura auditada (migração 48); o
+-- bloqueio da leitura direta é testado em leitura_auditada.sql.
+SELECT set_config('pep.leitura_clinica', 'sim', true);
 CREATE FUNCTION pg_temp.assert_ok(ok BOOLEAN, mensagem TEXT) RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FALHOU: %', mensagem; END IF; END;
 $$;
@@ -58,6 +61,7 @@ INSERT INTO public.cobrancas(id,paciente_id,medico_id,valor) VALUES ('a9000000-0
 INSERT INTO public.configuracoes_clinica(id,nome) VALUES ('a9000000-0000-4000-8000-000000000010','Clínica fictícia');
 INSERT INTO public.filiais(id,nome) VALUES ('a9000000-0000-4000-8000-000000000010','Filial fictícia');
 INSERT INTO public.auditoria(id,tabela,operacao) VALUES ('a9000000-0000-4000-8000-000000000010','teste','INSERT');
+INSERT INTO public.repasse_profissional(id,profissional_id) VALUES ('a9000000-0000-4000-8000-000000000010','a9000000-0000-4000-8000-000000000001');
 INSERT INTO public.exames(id,nome,tipo) VALUES ('a9000000-0000-4000-8000-000000000010','Exame fictício','Laboratorial');
 INSERT INTO public.acessos(id,usuario_id,paciente_id,acao) VALUES ('a9000000-0000-4000-8000-000000000010','a9000000-0000-4000-8000-000000000001','a9000000-0000-4000-8000-000000000010','abrir_prontuario');
 
@@ -87,14 +91,17 @@ INSERT INTO matriz VALUES
  -- clínico direto) mais Administrador (gerencia o catálogo, mesmo sem
  -- papel_clinico_administrador concedido — não é dado clínico de
  -- paciente, é configuração da clínica); escrita só Administrador.
- ('exames',ARRAY['Médico','Enfermeiro(a)','Administrador'],ARRAY['Administrador'],ARRAY['Administrador'],'nome');
+ ('exames',ARRAY['Médico','Enfermeiro(a)','Administrador'],ARRAY['Administrador'],ARRAY['Administrador'],'nome'),
+ -- Repasse (migração 50): a regra fixture é do Médico ativo (ator 001),
+ -- que lê a própria; só Administrador define.
+ ('repasse_profissional',ARRAY['Médico','Financeiro','Administrador'],ARRAY['Administrador'],ARRAY['Administrador'],'percentual_consulta');
 GRANT SELECT ON atores, matriz TO authenticated;
 
 -- Inventário exaustivo: uma tabela nova exige ampliar a auditoria.
 DO $$
 DECLARE t RECORD; papel TEXT;
 BEGIN
-  PERFORM pg_temp.assert_ok((SELECT count(*)=16 FROM pg_tables WHERE schemaname='public'), 'inventário de 16 tabelas públicas');
+  PERFORM pg_temp.assert_ok((SELECT count(*)=17 FROM pg_tables WHERE schemaname='public'), 'inventário de 17 tabelas públicas');
   FOR t IN SELECT c.oid,c.relname,c.relrowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' LOOP
     PERFORM pg_temp.assert_ok(t.relrowsecurity, 'RLS habilitada: ' || t.relname);
     FOREACH papel IN ARRAY ARRAY['anon','authenticated'] LOOP
@@ -127,7 +134,7 @@ BEGIN
     PERFORM pg_temp.tentar(format('SELECT id FROM public.medicamentos_receita WHERE id=%L',alvo),clinico,a.funcao || '/' || a.ativo || ' leitura medicamentos_receita (papel efetivo)');
     FOR m IN SELECT * FROM matriz LOOP
       PERFORM pg_temp.tentar(format('SELECT id FROM public.%I WHERE id=%L',m.tabela,alvo),a.ativo AND a.funcao=ANY(m.leitura),a.funcao || '/' || a.ativo || ' leitura ' || m.tabela);
-      PERFORM pg_temp.tentar(format('UPDATE public.%I SET %I=%L WHERE id=%L',m.tabela,m.campo,CASE WHEN m.campo='valor' THEN '1' WHEN m.campo='hora' THEN '09:00' ELSE 'Teste fictício' END,alvo),a.ativo AND a.funcao=ANY(m.escrita),a.funcao || '/' || a.ativo || ' edição ' || m.tabela);
+      PERFORM pg_temp.tentar(format('UPDATE public.%I SET %I=%L WHERE id=%L',m.tabela,m.campo,CASE WHEN m.campo IN ('valor','percentual_consulta') THEN '1' WHEN m.campo='hora' THEN '09:00' ELSE 'Teste fictício' END,alvo),a.ativo AND a.funcao=ANY(m.escrita),a.funcao || '/' || a.ativo || ' edição ' || m.tabela);
       PERFORM pg_temp.tentar(format('DELETE FROM public.%I WHERE id=%L',m.tabela,alvo),a.ativo AND a.funcao=ANY(m.exclusao),a.funcao || '/' || a.ativo || ' exclusão ' || m.tabela);
     END LOOP;
     PERFORM pg_temp.tentar(format('SELECT alergias FROM public.pacientes WHERE id=%L',alvo),false,'dados clínicos nunca lidos pela tabela base');

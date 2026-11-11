@@ -70,6 +70,26 @@ Deno.serve(async (req: Request) => {
     return responder(req, 400, { error: 'Corpo inválido.' });
   }
 
+  // Reenviar o convite a quem ainda não ativou a conta (link expirado ou
+  // e-mail perdido). Quem já ativou troca a senha por "Esqueci minha senha".
+  if (entrada.acao === 'reenviar') {
+    const id = String(entrada.userId || '');
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return responder(req, 400, { error: 'Usuário inválido.' });
+    const { data: alvo, error: alvoError } = await admin.auth.admin.getUserById(id);
+    if (alvoError || !alvo.user?.email) return responder(req, 404, { error: 'Usuário não encontrado.' });
+    if (alvo.user.email_confirmed_at || alvo.user.last_sign_in_at) {
+      return responder(req, 409, { error: 'Este usuário já ativou a conta. Para trocar a senha, ele usa "Esqueci minha senha" na tela de login.' });
+    }
+    const { error: reenviarError } = await admin.auth.admin.inviteUserByEmail(alvo.user.email, {
+      redirectTo: `${origem}/ativar-conta`,
+      data: { nome: alvo.user.user_metadata?.nome || '' },
+    });
+    if (reenviarError) {
+      return responder(req, 400, { error: 'Não foi possível reenviar o convite agora. Tente de novo em alguns minutos.' });
+    }
+    return responder(req, 200, { reenviado: true, email: alvo.user.email });
+  }
+
   const nome = String(entrada.nome || '').trim();
   const email = String(entrada.email || '').trim().toLowerCase();
   const funcao = String(entrada.funcao || '');

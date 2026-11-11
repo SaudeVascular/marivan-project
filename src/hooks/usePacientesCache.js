@@ -16,6 +16,8 @@ export function usePacientesCache() {
 
 // Mescla por id preservando o que só existe no cache (ex.: `registros`
 // carregados pelo prontuário).
+const CAMPOS_CLINICOS = ['alergias', 'has', 'dm', 'dac', 'dislipidemia', 'tabagismo', 'etilismo', 'cirurgias', 'medicamentosUso', 'outrasComorbidades'];
+
 export function mesclarPacientes(atuais, novos) {
   if (!novos?.length) return atuais;
   const porId = new Map(novos.map(p => [String(p.id), p]));
@@ -23,7 +25,15 @@ export function mesclarPacientes(atuais, novos) {
     const novo = porId.get(String(p.id));
     if (!novo) return p;
     porId.delete(String(p.id));
-    return { ...p, ...novo, registros: p.registros?.length ? p.registros : novo.registros };
+    const mesclado = { ...p, ...novo, registros: p.registros?.length ? p.registros : novo.registros };
+    // Uma leitura comum (busca, listas) traz os antecedentes vazios
+    // (migração 57): não pode apagar os que já vieram da leitura registrada.
+    if (p.clinicoCarregado && !novo.clinicoCarregado) {
+      for (const campo of CAMPOS_CLINICOS) mesclado[campo] = p[campo];
+      mesclado.versaoClinica = p.versaoClinica;
+      mesclado.clinicoCarregado = true;
+    }
+    return mesclado;
   });
   return [...mesclados, ...porId.values()];
 }

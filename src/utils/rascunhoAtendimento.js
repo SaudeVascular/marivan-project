@@ -4,7 +4,7 @@ export const RASCUNHO_ATENDIMENTO_PREFIX = 'pep_rascunho_atendimento_';
 
 function limparStorage(storage) {
   Object.keys(storage)
-    .filter(chave => (chave.startsWith(RASCUNHO_ATENDIMENTO_PREFIX) || chave.startsWith('pep_operacao_clinica_')))
+    .filter(chave => (chave.startsWith(RASCUNHO_ATENDIMENTO_PREFIX) || chave.startsWith('pep_operacao_clinica_') || chave.startsWith('pep_operacao_criacao_')))
     .forEach(chave => storage.removeItem(chave));
 }
 

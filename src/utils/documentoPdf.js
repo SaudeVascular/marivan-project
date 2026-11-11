@@ -78,7 +78,8 @@ export function criarPdfDocumento({
   dataTexto,
   assinaturaImagem,
 }) {
-  const idade = paciente?.nascimento ? calcularIdade(paciente.nascimento) : null;
+  // Na 2ª via, a idade da data da emissão (utils/emissao).
+  const idade = paciente?.idade ?? (paciente?.nascimento ? calcularIdade(paciente.nascimento) : null);
 
   const docDefinition = {
     pageSize: 'A4',
